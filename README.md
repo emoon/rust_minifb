@@ -10,10 +10,6 @@ const WIDTH: usize = 1280;
 const HEIGHT: usize = 720;
 
 fn main() {
-    let mut noise;
-    let mut carry;
-    let mut seed = 0xbeefu32;
-
     let mut buffer: [u32; WIDTH * HEIGHT] = [0; WIDTH * HEIGHT];
 
     if !(minifb::open("TestWindow", WIDTH, HEIGHT)) {
