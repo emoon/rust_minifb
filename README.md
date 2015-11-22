@@ -27,8 +27,8 @@ fn main() {
     }
 
     minifb::close();
+}
 ```
-
 
 Build instructions
 ------------------
