@@ -19,6 +19,13 @@ extern {
     fn mfb_close();
 }
 
+#[cfg(target_os = "linux")]
+#[link(name = "X11")]
+extern {
+    fn mfb_open(name: *const c_char, width: c_int, height: c_int) -> c_int;
+    fn mfb_update(buffer: *mut c_void) -> c_int;
+    fn mfb_close();
+}
 
 ///
 /// Open up a window

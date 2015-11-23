@@ -29,7 +29,7 @@ fn main() {
 
 Status
 ------
-Currently Mac and Windows has been tested. Linux will be tested and verified soon.
+Currently Mac, Windows has been Linux has been tested which are the supported platforms for now.
 
 
 Build instructions
