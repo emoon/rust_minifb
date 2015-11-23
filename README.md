@@ -32,7 +32,7 @@ Build instructions
 ```
 cargo build
 
-cargo run --example noise to test the noise example which should look something like this (Mac screenshot)
+cargo run --example noise to test the noise example https://github.com/emoon/rust_minifb/blob/master/examples/noise.rs which should look something like this (Mac screenshot)
 ```
 
 ![mac_screenshot](https://dl.dropboxusercontent.com/u/5205843/rust_minifb/noise_screen.png)
