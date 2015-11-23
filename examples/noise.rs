@@ -1,7 +1,7 @@
 extern crate minifb;
 
-const WIDTH: usize = 1280;
-const HEIGHT: usize = 720;
+const WIDTH: usize = 640;
+const HEIGHT: usize = 360;
 
 fn main() {
     let mut noise;
@@ -10,7 +10,7 @@ fn main() {
 
     let mut buffer: [u32; WIDTH * HEIGHT] = [0; WIDTH * HEIGHT];
 
-    if !(minifb::open("TestWindow", WIDTH, HEIGHT)) {
+    if !(minifb::open("Noise Test - Press ESC to exit", WIDTH, HEIGHT)) {
         return;
     }
 
