@@ -1,7 +1,8 @@
 rust_minifb
 ======
 
-rust_mini (Mini FrameBuffer) is a small cross platform library written in [Rust](https://www.rust-lang.org) and that makes it easy to render (32-bit) pixels in a window. An example is the best way to show how it works:
+rust_minifb (Mini FrameBuffer) is a small cross platform library written in [Rust](https://www.rust-lang.org) and that makes it easy to render (32-bit) pixels in a window. An example is the best way to show how it works:
+
 
 ```rust
 extern crate minifb;
@@ -25,6 +26,11 @@ fn main() {
     minifb::close();
 }
 ```
+
+Status
+------
+Currently Mac has been tested. Windows and Linux will be tested and verified soon.
+
 
 Build instructions
 ------------------
