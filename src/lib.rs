@@ -3,13 +3,22 @@ use std::ffi::CString;
 use std::mem::transmute;
 use libc::{c_char, c_int, c_void};
 
+#[cfg(target_os = "macos")]
 #[link(name = "Cocoa", kind = "framework")]
-#[link(name = "minifb_native")]
 extern {
     fn mfb_open(name: *const c_char, width: c_int, height: c_int) -> c_int;
     fn mfb_update(buffer: *mut c_void) -> c_int;
     fn mfb_close();
 }
+
+#[cfg(target_os = "windows")]
+#[link(name = "gdi32")]
+extern {
+    fn mfb_open(name: *const c_char, width: c_int, height: c_int) -> c_int;
+    fn mfb_update(buffer: *mut c_void) -> c_int;
+    fn mfb_close();
+}
+
 
 ///
 /// Open up a window
