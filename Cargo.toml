@@ -9,4 +9,5 @@ gcc = "0.3.19"
 
 [dependencies]
 libc = "0.1.10"
+user32-sys = "0.1.2"
 
