@@ -1,6 +1,22 @@
 extern crate user;
 
+static winapi::HANDLE HWND_HANDLE = 0;
+static bool CLOSE_APP = false;
+
+unsafe extern "system" fn callback(window: winapi::HWND, msg: winapi::UINT,
+                                   wparam: winapi::WPARAM, lparam: winapi::LPARAM)
+                                   -> winapi::LRESULT
+{
+    match msg {
+        winapi::WM_PAINT => {
+
+        }
+    }
+}
+
+
 pub fn open(name: &str, width: usize, height: usize) -> bool {
+    let class_name = CString::new("minifb_window").unwrap();
     let s = CString::new(name).unwrap();
 		
 	unsafe {
@@ -15,7 +31,7 @@ pub fn open(name: &str, width: usize, height: usize) -> bool {
 			hCursor: ptr::null_mut(),
 			hbrBackground: ptr::null_mut(),
 			lpszMenuName: ptr::null(),
-			lpszClassName: s.as_ptr(),
+			lpszClassName: class_name.as_ptr(),
 			hIconSm: ptr::null_mut(),
 		};
 
@@ -32,7 +48,7 @@ pub fn open(name: &str, width: usize, height: usize) -> bool {
 		rect.bottom -= rect.top;
 
 		let handle = user32::CreateWindowExA(0,
-            s.as_ptr(), s.as_ptr(),
+            class_name.as_ptr(), s.as_ptr(),
             winapi::WS_OVERLAPPEDWINDOW & ~winapi::WS_MAXIMIZEBOX & ~winapi::WS_TICKFRAME,
             winapi::CW_USEDEFAULT, winapi::CW_USEDEFAULT,
             rect.right, rect.bottom,
@@ -43,5 +59,21 @@ pub fn open(name: &str, width: usize, height: usize) -> bool {
 		}
 
 		user32::ShowWindow(handle, winapi::SW_NORMAL);
+
+        HWND_HANDLE = handle;
+}
+
+fn update() -> bool {
+
+    let mut msg = mem::uninitialized();
+
+    user32::InvalidateRect(HWND_HANDLE, ptr::null_mut(), winapi::TRUE);
+
+    while user32::PeekMessage(&mut msg, HWND_HANDLE, 0, 0, winapi::PM_REMOTE) {
+        user32::TranslateMessage(&mut msg);
+        user32::DispatchMessage(&mut msg);
+    }
+
+    CLOSE_APP,
 }
 
