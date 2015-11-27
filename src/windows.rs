@@ -172,8 +172,7 @@ impl Minifb {
                                       buffer.as_ptr() as i64);
             user32::InvalidateRect(self.window, ptr::null_mut(), winapi::TRUE);
 
-            while user32::PeekMessageW(&mut msg, self.window, 0, 0, winapi::winuser::PM_REMOVE) !=
-                  0 {
+            while user32::PeekMessageW(&mut msg, self.window, 0, 0, winapi::winuser::PM_REMOVE) != 0 {
                 user32::TranslateMessage(&mut msg);
                 user32::DispatchMessageW(&mut msg);
             }
