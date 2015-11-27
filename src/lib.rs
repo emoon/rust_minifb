@@ -1,10 +1,10 @@
 extern crate libc;
-use std::ffi::CString;
-use std::mem::transmute;
-use libc::{c_char, c_int, c_void};
-
 #[cfg(target_os = "windows")]
 pub mod windows;
+
+pub use windows::*;
+
+/*
 
 #[cfg(target_os = "macos")]
 #[link(name = "Cocoa", kind = "framework")]
@@ -76,3 +76,5 @@ pub fn close() {
         mfb_close();
     }
 }
+
+*/

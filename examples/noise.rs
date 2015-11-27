@@ -1,20 +1,25 @@
 extern crate minifb;
 
+use minifb::*;
+
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
 
 fn main() {
-    let mut noise;
-    let mut carry;
-    let mut seed = 0xbeefu32;
+    //let mut noise;
+    //let mut carry;
+    //let mut seed = 0xbeefu32;
 
-    let mut buffer: [u32; WIDTH * HEIGHT] = [0; WIDTH * HEIGHT];
+    //let mut buffer: [u32; WIDTH * HEIGHT] = [0; WIDTH * HEIGHT];
 
-    if !(minifb::open("Noise Test - Press ESC to exit", WIDTH, HEIGHT)) {
-        return;
+    let mut mfb = Minifb::new("Noise Test - Press ESC to exit", WIDTH, HEIGHT).unwrap();
+
+    while mfb.update() {
     }
 
-    while minifb::update(&buffer) {
+        /*
+    while mfb.update() {
+
         for i in buffer.iter_mut() {
             noise = seed;
             noise >>= 3;
@@ -27,6 +32,7 @@ fn main() {
             *i = (noise << 16) | (noise << 8) | noise;
         }
     }
+    */
 
-    minifb::close();
+    //minifb::close();
 }

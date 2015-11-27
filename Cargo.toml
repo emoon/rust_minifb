@@ -10,4 +10,5 @@ gcc = "0.3.19"
 [dependencies]
 libc = "0.1.10"
 user32-sys = "0.1.2"
-
+winapi = "0.2.4"
+kernel32-sys = "0.1.4"
