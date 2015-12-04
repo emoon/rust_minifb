@@ -76,7 +76,6 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
 
             user32::ReleaseDC(window, dc);
         }
-
         _ => (),
     }
 

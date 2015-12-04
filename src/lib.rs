@@ -1,8 +1,42 @@
 extern crate libc;
+
+#[cfg(target_os = "macos")]
+#[macro_use]
+extern crate objc;
+#[cfg(target_os = "macos")]
+extern crate cgl;
+#[cfg(target_os = "macos")]
+extern crate cocoa;
+#[cfg(target_os = "macos")]
+extern crate core_foundation;
+#[cfg(target_os = "macos")]
+
+/// Error that can happen while creating a window or a headless renderer.
+#[derive(Debug)]
+pub enum CreationError {
+    OsError(String),
+    NotSupported,
+}
+
+impl CreationError {
+    fn to_string(&self) -> &str {
+        match *self {
+            CreationError::OsError(ref text) => &text,
+            CreationError::NotSupported => "Some of the requested attributes are not supported",
+        }
+    }
+}
+
 #[cfg(target_os = "windows")]
 pub mod windows;
-
+#[cfg(target_os = "windows")]
 pub use windows::*;
+
+#[cfg(target_os = "macos")]
+pub mod macos;
+#[cfg(target_os = "mac")]
+pub use macos::*;
+
 
 /*
 
