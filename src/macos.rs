@@ -1,36 +1,69 @@
 #![cfg(target_os = "macos")]
 
-use CreationError;
-use CreationError::OsError;
+use Scale;
+use Vsync;
+use Key;
 
-use libc;
-use cocoa::appkit;
+//use libc;
+//use cocoa::appkit;
 use cocoa::appkit::*;
-use cocoa::appkit::NSEventSubtype::*;
+//use cocoa::appkit::NSEventSubtype::*;
 
+#[allow(unused_imports)]
 use cocoa::base::{id, nil};
+#[allow(unused_imports)]
 use objc::runtime::{Class, Object, Sel, BOOL, YES, NO};
 
+#[allow(unused_imports)]
 use cocoa::foundation::{NSAutoreleasePool, NSDate, NSDefaultRunLoopMode, NSPoint, NSRect, NSSize, 
                         NSString, NSUInteger}; 
 
+use std::ops::Deref;
 
-struct Minifb {
-    temp: isize,
+pub struct Window {
+    view: IdRef,
+    window: IdRef,
 }
 
-impl Minifb {
-    pub unsafe fn new(name: &str, width: isize, height: isize) -> Result<Minifb, CreationError> {
-        let app = match Self::create_app() {
-            Some(app) => app,
-            None      => { return Err(OsError(format!("Couldn't create NSApplication"))); },
-        };
+impl Window {
+    pub fn new(name: &str, width: usize, height: usize, _: Scale, _: Vsync) -> Result<Window, &str> {
+        unsafe  {
+            let app = match Self::create_app() {
+                Some(app) => app,
+                None => { 
+                    return Err("Couldn't create NSApplication"); 
+                },
+            };
 
-        let masks = 0u64;
+            let window = match Self::create_window(name, width, height) {
+                Some(window) => window,
+                None => {
+                    return Err("Unable to create NSWindow");
+                }
+            };
 
-        //let masks = NSResizableWindowMask as NSUInteger | 
-        //            NSClosableWindowMask as NSUInteger | 
-        //           NSTitledWindowMaskas as NSUInteger;
+            let view = match Self::create_view(*window) {
+                Some(view) => view,
+                None => {
+                    return Err("Unable to create NSView");
+                }
+            };
+
+            app.activateIgnoringOtherApps_(YES);
+
+            println!("Created window and view");
+
+            return Ok(Window {
+                window: window,
+                view: view
+            });
+        }
+    }
+
+    unsafe fn create_window(name: &str, width: usize, height: usize) -> Option<IdRef> {
+        let masks = NSResizableWindowMask as NSUInteger | 
+                    NSClosableWindowMask as NSUInteger | 
+                    NSTitledWindowMask as NSUInteger;
 
         let frame = NSRect::new(NSPoint::new(0., 0.), NSSize::new(width as f64, height as f64));
 
@@ -41,9 +74,34 @@ impl Minifb {
             NO,
         ));
 
-        if window.is_nil() {
-            return Err(OsError(format!("Unable to create window"))); 
-        }
+        window.non_nil().map(|window| {
+            let title = IdRef::new(NSString::alloc(nil).init_str(name));
+            window.setTitle_(*title);
+            window.center();
+            window
+        })
+    }
+
+    unsafe fn create_view(window: id) -> Option<IdRef> {
+        let view = IdRef::new(NSView::alloc(nil).init());
+        view.non_nil().map(|view| {
+            window.setContentView_(*view);
+            view
+        })
+    }
+
+    pub fn update(_: &[u32]) { 
+    }
+
+    pub fn get_keys() -> Option<Vec<Key>> {
+        return None;
+    }
+
+    pub fn is_esc_pressed() -> bool {
+        false
+    }
+
+    pub fn close() {
 
     }
 
@@ -58,9 +116,9 @@ impl Minifb {
             }
         }
     }
-
-
 }
+
+
 
 struct IdRef(id);
 
@@ -82,4 +140,26 @@ impl IdRef {
     }
 }
 
+impl Drop for IdRef {
+    fn drop(&mut self) {
+        if self.0 != nil {
+            let _: () = unsafe { msg_send![self.0, release] };
+        }
+    }
+}
 
+impl Deref for IdRef {
+    type Target = id;
+    fn deref<'a>(&'a self) -> &'a id {
+        &self.0
+    }
+}
+
+impl Clone for IdRef {
+    fn clone(&self) -> IdRef {
+        if self.0 != nil {
+            let _: id = unsafe { msg_send![self.0, retain] };
+        }
+        IdRef(self.0)
+    }
+}
