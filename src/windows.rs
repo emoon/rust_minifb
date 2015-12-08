@@ -33,7 +33,6 @@ struct BitmapInfo {
 fn update_key_state(window: &mut Window, wparam: u32, bool state) {
     match wparam & 0x1ff {
         0x00B => window.keys[Key::Key0] = state,
-        0x00B => window.keys[Key::Key0] = state,
         0x002 => window.keys[Key::Key1] = state,
         0x003 => window.keys[Key::Key2] = state,
         0x004 => window.keys[Key::Key3] = state,
