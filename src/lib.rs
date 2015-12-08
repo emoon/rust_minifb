@@ -1,5 +1,4 @@
 extern crate libc;
-
 #[cfg(target_os = "macos")]
 #[macro_use]
 extern crate objc;
@@ -34,6 +33,7 @@ pub enum Scale {
 }
 
 /// Vsync will allow syncronized rendering with the screen refresh rate.
+/// Currently Vsync isn't implemented so nothing will change regardless of given value right now
 pub enum Vsync {
     /// No vsync
     No,
@@ -48,26 +48,15 @@ pub enum Vsync {
 
 /// 
 pub enum Key {
-    Space,
-    /// The '1' key over the letters.
     Key1,
-    /// The '2' key over the letters.
     Key2,
-    /// The '3' key over the letters.
     Key3,
-    /// The '4' key over the letters.
     Key4,
-    /// The '5' key over the letters.
     Key5,
-    /// The '6' key over the letters.
     Key6,
-    /// The '7' key over the letters.
     Key7,
-    /// The '8' key over the letters.
     Key8,
-    /// The '9' key over the letters.
     Key9,
-    /// The '0' key over the 'O' and 'P' keys.
     Key0,
 
     A,
@@ -97,8 +86,6 @@ pub enum Key {
     Y,
     Z,
 
-    Escape,
-
     F1,
     F2,
     F3,
@@ -115,15 +102,42 @@ pub enum Key {
     F14,
     F15,
 
-    ArrowLeft,
-    ArrowRight,
-    ArrowUp,
-    ArrowDown,
+    Down,
+    Left,
+    Right,
+    Up,
+    Apostrophe,
 
+    Backslash,
+    Comma,
+    Equal,
+    LeftBracket,
+    Minus,
+    Period,
+    RightBracket,
+    Semicolon,
+
+    Slash,
     Backspace,
     Delete,
-    Comma,
-    Semicollon
+    End,
+    Enter,
+
+    Escape,
+
+    Home,
+    Insert,
+    Menu,
+
+    PageDown,
+    PageUp,
+
+    Pause,
+    Space,
+    Tab,
+    CapsLock,
+
+    Count = 80,
 }
 
 #[cfg(target_os = "windows")]
@@ -133,7 +147,6 @@ pub use windows::*;
 
 #[cfg(target_os = "macos")]
 pub mod macos;
-#[cfg(target_os = "mac")]
+#[cfg(target_os = "macos")]
 pub use macos::*;
-
 
