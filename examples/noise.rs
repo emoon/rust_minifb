@@ -12,7 +12,12 @@ fn main() {
 
     let mut buffer: [u32; WIDTH * HEIGHT] = [0; WIDTH * HEIGHT];
 
-    let mut window = Window::new("Noise Test - Press ESC to exit", WIDTH, HEIGHT, Scale::X1, Vsync::No).unwrap();
+    let mut window = Window::new("Noise Test - Press ESC to exit",
+                                 WIDTH,
+                                 HEIGHT,
+                                 Scale::X1,
+                                 Vsync::No)
+                         .unwrap();
 
     while window.update(&buffer) {
         for i in buffer.iter_mut() {

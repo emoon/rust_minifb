@@ -9,8 +9,6 @@ use Scale;
 use Vsync;
 use Key;
 
-//use Keys;
-
 use std::ffi::CString;
 use std::ptr;
 use std::os::windows::ffi::OsStrExt;
@@ -261,7 +259,12 @@ impl Window {
         }
     }
 
-    pub fn new(name: &str, width: usize, height: usize, scale: Scale, vsync: Vsync) -> Result<Window, &str> {
+    pub fn new(name: &str,
+               width: usize,
+               height: usize,
+               scale: Scale,
+               vsync: Vsync)
+               -> Result<Window, &str> {
         unsafe {
             let handle = Self::open_window(name, width, height, scale, vsync);
 
@@ -270,7 +273,7 @@ impl Window {
             }
 
             let window = Window {
-                dc: Some(user32::GetDC(handle)), 
+                dc: Some(user32::GetDC(handle)),
                 window: Some(handle),
                 keys: [false; 512],
                 buffer: Vec::new(),
