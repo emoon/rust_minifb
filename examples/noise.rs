@@ -12,9 +12,9 @@ fn main() {
 
     let mut buffer: [u32; WIDTH * HEIGHT] = [0; WIDTH * HEIGHT];
 
-    let mut mfb = Minifb::new("Noise Test - Press ESC to exit", WIDTH, HEIGHT).unwrap();
+    let mut window = Window::new("Noise Test - Press ESC to exit", WIDTH, HEIGHT, Scale::X1, Vsync::No).unwrap();
 
-    while mfb.update(&buffer) {
+    while window.update(&buffer) {
         for i in buffer.iter_mut() {
             noise = seed;
             noise >>= 3;
@@ -25,6 +25,14 @@ fn main() {
             seed |= carry << 30;
             noise &= 0xFF;
             *i = (noise << 16) | (noise << 8) | noise;
+        }
+
+        for key in window.get_keys().iter() {
+            match *key {
+                Key::A => println!("Pressed A"),
+                Key::B => println!("Pressed B"),
+                _ => (),
+            }
         }
     }
 }

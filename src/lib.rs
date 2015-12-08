@@ -8,7 +8,6 @@ extern crate cgl;
 extern crate cocoa;
 #[cfg(target_os = "macos")]
 extern crate core_foundation;
-#[cfg(target_os = "macos")]
 
 /// Scale will scale the frame buffer and the window that is being sent in when calling the update
 /// function. This is useful if you for example want to display a 320 x 256 window on a screen with
@@ -46,45 +45,44 @@ pub enum Vsync {
     BestGuess,
 }
 
-/// 
 pub enum Key {
-    Key1,
-    Key2,
-    Key3,
-    Key4,
-    Key5,
-    Key6,
-    Key7,
-    Key8,
-    Key9,
-    Key0,
+    Key0 = 0,
+    Key1 = 1,
+    Key2 = 2,
+    Key3 = 3,
+    Key4 = 4,
+    Key5 = 5,
+    Key6 = 6,
+    Key7 = 7,
+    Key8 = 8,
+    Key9 = 9,
 
-    A,
-    B,
-    C,
-    D,
-    E,
-    F,
-    G,
-    H,
-    I,
-    J,
-    K,
-    L,
-    M,
-    N,
-    O,
-    P,
-    Q,
-    R,
-    S,
-    T,
-    U,
-    V,
-    W,
-    X,
-    Y,
-    Z,
+    A = 10,
+    B = 11,
+    C = 12,
+    D = 13,
+    E = 14,
+    F = 15,
+    G = 16,
+    H = 17,
+    I = 18,
+    J = 19,
+    K = 20,
+    L = 21,
+    M = 22,
+    N = 23,
+    O = 24,
+    P = 25,
+    Q = 26,
+    R = 27,
+    S = 28,
+    T = 29,
+    U = 30,
+    V = 31,
+    W = 32,
+    X = 33,
+    Y = 34,
+    Z = 35,
 
     F1,
     F2,
@@ -145,8 +143,8 @@ pub mod windows;
 #[cfg(target_os = "windows")]
 pub use windows::*;
 
-#[cfg(target_os = "macos")]
-pub mod macos;
-#[cfg(target_os = "macos")]
-pub use macos::*;
+//#[cfg(target_os = "macos")]
+//pub mod macos;
+//#[cfg(target_os = "macos")]
+//pub use macos::*;
 
