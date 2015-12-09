@@ -19,7 +19,7 @@ fn main() {
                                  Vsync::No)
                          .unwrap();
 
-    while window.update(&buffer) {
+    while window.is_open() && !window.is_key_down(Key::Escape) {
         for i in buffer.iter_mut() {
             noise = seed;
             noise >>= 3;
@@ -31,13 +31,6 @@ fn main() {
             noise &= 0xFF;
             *i = (noise << 16) | (noise << 8) | noise;
         }
-
-        for key in window.get_keys().iter() {
-            match *key {
-                Key::A => println!("Pressed A"),
-                Key::B => println!("Pressed B"),
-                _ => (),
-            }
-        }
+        window.update(&buffer);
     }
 }

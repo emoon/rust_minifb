@@ -22,8 +22,6 @@ use self::winapi::winuser::WNDCLASSW;
 use self::winapi::wingdi::BITMAPINFOHEADER;
 use self::winapi::wingdi::RGBQUAD;
 
-static mut CLOSE_APP: bool = false;
-
 // Wrap this so we can have a proper numbef of bmiColors to write in
 #[repr(C)]
 struct BitmapInfo {
@@ -133,9 +131,10 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
     match msg {
         winapi::winuser::WM_KEYDOWN => {
             update_key_state(wnd, (lparam as u32) >> 16, true);
-            if (wparam & 0x1ff) == 27 {
-                CLOSE_APP = true;
-            }
+        }
+
+        winapi::winuser::WM_CLOSE => {
+            wnd.is_open = false;
         }
 
         winapi::winuser::WM_KEYUP => {
@@ -198,6 +197,7 @@ pub struct Window {
     window: Option<HWND>,
     keys: [bool; 512],
     buffer: Vec<u32>,
+    is_open : bool,
 }
 
 impl Window {
@@ -277,30 +277,24 @@ impl Window {
                 window: Some(handle),
                 keys: [false; 512],
                 buffer: Vec::new(),
+                is_open: true,
             };
 
             Ok(window)
         }
     }
 
-    pub fn get_keys(&self) -> Vec<Key> {
-        let mut index: u16 = 0;
-        let mut keys: Vec<Key> = Vec::new();
-
-        for i in self.keys.iter() {
-            if *i {
-                unsafe {
-                    keys.push(mem::transmute(index as u8));
-                }
-            }
-
-            index += 1;
-        }
-
-        keys
+    #[inline]
+    pub fn is_key_down(&self, key: Key) -> bool {
+        return self.keys[key as usize];
     }
 
-    pub fn update(&mut self, buffer: &[u32]) -> bool {
+    #[inline]
+    pub fn is_open(&self) -> bool {
+        return self.is_open
+    }
+
+    pub fn update(&mut self, buffer: &[u32]) {
         unsafe {
             let mut msg = mem::uninitialized();
             let window = self.window.unwrap();
@@ -316,10 +310,6 @@ impl Window {
                 user32::TranslateMessage(&mut msg);
                 user32::DispatchMessageW(&mut msg);
             }
-        }
-
-        unsafe {
-            return !CLOSE_APP;
         }
     }
 }
