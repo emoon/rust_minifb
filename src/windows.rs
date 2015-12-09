@@ -284,13 +284,13 @@ impl Window {
     }
 
     pub fn get_keys(&self) -> Vec<Key> {
-        let mut index: u8 = 0;
+        let mut index: u16 = 0;
         let mut keys: Vec<Key> = Vec::new();
 
         for i in self.keys.iter() {
             if *i {
                 unsafe {
-                    keys.push(mem::transmute(index));
+                    keys.push(mem::transmute(index as u8));
                 }
             }
 
