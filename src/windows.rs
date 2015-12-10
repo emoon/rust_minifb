@@ -201,7 +201,7 @@ pub struct Window {
 }
 
 impl Window {
-    fn open_window(name: &str, width: usize, height: usize, _: Scale, _: Vsync) -> HWND {
+    fn open_window(name: &str, width: usize, height: usize, _: Scale, _: Vsync) -> Option<HWND> {
         unsafe {
             let class_name = to_wstring("minifb_window");
             let s = CString::new(name).unwrap();
@@ -219,7 +219,10 @@ impl Window {
                 lpszClassName: class_name,
             };
 
-            user32::RegisterClassW(&class);
+            if user32::RegisterClassW(&class) == 0 {
+                println!("Unable to register class, error {}", kernel32::GetLastError() as u32);
+                return None;
+            }
 
             let mut rect = winapi::RECT {
                 left: 0,
@@ -249,13 +252,14 @@ impl Window {
                                                  ptr::null_mut(),
                                                  ptr::null_mut(),
                                                  ptr::null_mut());
-
-            if !handle.is_null() {
-                user32::ShowWindow(handle, winapi::SW_NORMAL);
+            if handle.is_null() {
+                println!("Unable to register create window, error {}", kernel32::GetLastError() as u32);
+                return None;
             }
 
+            user32::ShowWindow(handle, winapi::SW_NORMAL);
 
-            return handle;
+            return Some(handle);
         }
     }
 
@@ -268,13 +272,13 @@ impl Window {
         unsafe {
             let handle = Self::open_window(name, width, height, scale, vsync);
 
-            if handle.is_null() {
+            if handle.is_none() {
                 return Err("Unable to create Window");
             }
 
             let window = Window {
-                dc: Some(user32::GetDC(handle)),
-                window: Some(handle),
+                dc: Some(user32::GetDC(handle.unwrap())),
+                window: Some(handle.unwrap()),
                 keys: [false; 512],
                 buffer: Vec::new(),
                 is_open: true,
