@@ -162,8 +162,8 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
             gdi32::StretchDIBits(wnd.dc.unwrap(),
                                  0,
                                  0,
-                                 width,
-                                 height,
+                                 width * wnd.scale_factor,
+                                 height * wnd.scale_factor,
                                  0,
                                  0,
                                  width,
@@ -198,10 +198,11 @@ pub struct Window {
     keys: [bool; 512],
     buffer: Vec<u32>,
     is_open : bool,
+    scale_factor: i32,
 }
 
 impl Window {
-    fn open_window(name: &str, width: usize, height: usize, _: Scale, _: Vsync) -> Option<HWND> {
+    fn open_window(name: &str, width: usize, height: usize, scale: Scale, _: Vsync) -> Option<HWND> {
         unsafe {
             let class_name = to_wstring("minifb_window");
             let class = WNDCLASSW {
@@ -222,11 +223,15 @@ impl Window {
                 return None;
             }
 
+            let scale_factor = Self::get_scale_factor(scale);
+            let new_width = width * scale_factor as usize;
+            let new_height = height * scale_factor as usize;
+
             let mut rect = winapi::RECT {
                 left: 0,
-                right: width as winapi::LONG,
+                right: new_width as winapi::LONG,
                 top: 0,
-                bottom: height as winapi::LONG,
+                bottom: new_height as winapi::LONG,
             };
 
             user32::AdjustWindowRect(&mut rect,
@@ -282,6 +287,7 @@ impl Window {
                 keys: [false; 512],
                 buffer: Vec::new(),
                 is_open: true,
+                scale_factor: Self::get_scale_factor(scale),
             };
 
             Ok(window)
@@ -315,6 +321,21 @@ impl Window {
                 user32::DispatchMessageW(&mut msg);
             }
         }
+    }
+
+    fn get_scale_factor(scale: Scale) -> i32 {
+        // TODO: Implement best fit
+        let factor: i32 = match scale {
+            Scale::X1 => 1,
+            Scale::X2 => 2,
+            Scale::X4 => 4,
+            Scale::X8 => 8,
+            Scale::X16 => 16,
+            Scale::X32 => 32,
+            _ => 1,
+        };
+
+        return factor;
     }
 }
 

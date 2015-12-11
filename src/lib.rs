@@ -12,6 +12,7 @@ extern crate core_foundation;
 /// Scale will scale the frame buffer and the window that is being sent in when calling the update
 /// function. This is useful if you for example want to display a 320 x 256 window on a screen with
 /// much higher resolution which would result in that the window is very small.
+#[derive(Clone, Copy)]
 pub enum Scale {
     /// This mode checks your current screen resolution and will caluclate the largest window size
     /// that can be used within that limit and resize it. Useful if you have a small buffer to
