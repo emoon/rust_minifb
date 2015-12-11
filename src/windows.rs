@@ -130,6 +130,7 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
     match msg {
         winapi::winuser::WM_KEYDOWN => {
             update_key_state(wnd, (lparam as u32) >> 16, true);
+            return 0;
         }
 
         winapi::winuser::WM_CLOSE => {
@@ -138,23 +139,18 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
 
         winapi::winuser::WM_KEYUP => {
             update_key_state(wnd, (lparam as u32) >> 16, false);
+            return 0;
         }
 
         winapi::winuser::WM_PAINT => {
-            let mut rect: winapi::RECT = mem::uninitialized();
-
-            user32::GetClientRect(window, &mut rect);
-
             let mut bitmap_info: BitmapInfo = mem::zeroed();
-            let width = rect.right - rect.left;
-            let height = rect.bottom - rect.top;
 
             bitmap_info.bmi_header.biSize = mem::size_of::<BITMAPINFOHEADER>() as u32;
             bitmap_info.bmi_header.biPlanes = 1;
             bitmap_info.bmi_header.biBitCount = 32;
             bitmap_info.bmi_header.biCompression = winapi::wingdi::BI_BITFIELDS;
-            bitmap_info.bmi_header.biWidth = width;
-            bitmap_info.bmi_header.biHeight = -height;
+            bitmap_info.bmi_header.biWidth = wnd.width;
+            bitmap_info.bmi_header.biHeight = -wnd.height;
             bitmap_info.bmi_colors[0].rgbRed = 0xff;
             bitmap_info.bmi_colors[1].rgbGreen = 0xff;
             bitmap_info.bmi_colors[2].rgbBlue = 0xff;
@@ -162,18 +158,20 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
             gdi32::StretchDIBits(wnd.dc.unwrap(),
                                  0,
                                  0,
-                                 width * wnd.scale_factor,
-                                 height * wnd.scale_factor,
+                                 wnd.width * wnd.scale_factor,
+                                 wnd.height * wnd.scale_factor,
                                  0,
                                  0,
-                                 width,
-                                 height,
+                                 wnd.width,
+                                 wnd.height,
                                  mem::transmute(wnd.buffer.as_ptr()),
                                  mem::transmute(&bitmap_info),
                                  winapi::wingdi::DIB_RGB_COLORS,
                                  winapi::wingdi::SRCCOPY);
 
             user32::ValidateRect(window, ptr::null_mut());
+
+            return 0;
         }
 
         _ => (),
@@ -199,6 +197,8 @@ pub struct Window {
     buffer: Vec<u32>,
     is_open : bool,
     scale_factor: i32,
+    width: i32,
+    height: i32,
 }
 
 impl Window {
@@ -288,6 +288,8 @@ impl Window {
                 buffer: Vec::new(),
                 is_open: true,
                 scale_factor: Self::get_scale_factor(scale),
+                width: width as i32,
+                height: height as i32,
             };
 
             Ok(window)
