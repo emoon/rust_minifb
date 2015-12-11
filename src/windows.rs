@@ -202,7 +202,7 @@ pub struct Window {
 }
 
 impl Window {
-    fn open_window(name: &str, width: usize, height: usize, scale: Scale, _: Vsync) -> Option<HWND> {
+    fn open_window(name: &str, width: usize, height: usize, scale_factor: i32, _: Vsync) -> Option<HWND> {
         unsafe {
             let class_name = to_wstring("minifb_window");
             let class = WNDCLASSW {
@@ -223,7 +223,6 @@ impl Window {
                 return None;
             }
 
-            let scale_factor = Self::get_scale_factor(scale);
             let new_width = width * scale_factor as usize;
             let new_height = height * scale_factor as usize;
 
@@ -275,7 +274,9 @@ impl Window {
                vsync: Vsync)
                -> Result<Window, &str> {
         unsafe {
-            let handle = Self::open_window(name, width, height, scale, vsync);
+            let scale_factor = Self::get_scale_factor(width, height, scale);
+
+            let handle = Self::open_window(name, width, height, scale_factor, vsync);
 
             if handle.is_none() {
                 return Err("Unable to create Window");
@@ -287,7 +288,7 @@ impl Window {
                 keys: [false; 512],
                 buffer: Vec::new(),
                 is_open: true,
-                scale_factor: Self::get_scale_factor(scale),
+                scale_factor: scale_factor,
                 width: width as i32,
                 height: height as i32,
             };
@@ -325,7 +326,7 @@ impl Window {
         }
     }
 
-    fn get_scale_factor(scale: Scale) -> i32 {
+    unsafe fn get_scale_factor(width: usize, height: usize, scale: Scale) -> i32 {
         // TODO: Implement best fit
         let factor: i32 = match scale {
             Scale::X1 => 1,
@@ -334,7 +335,25 @@ impl Window {
             Scale::X8 => 8,
             Scale::X16 => 16,
             Scale::X32 => 32,
-            _ => 1,
+            Scale::FitScreen => {
+                let screen_x = user32::GetSystemMetrics(winapi::winuser::SM_CXSCREEN) as i32;
+                let screen_y = user32::GetSystemMetrics(winapi::winuser::SM_CYSCREEN) as i32;
+
+                let mut scale = 1i32;
+
+                loop {
+                    let w = width as i32 * (scale + 1);
+                    let h = height as i32 * (scale + 1);
+
+                    if w > screen_x || h > screen_y {
+                        break;
+                    }
+
+                    scale *= 2;
+                }
+
+                scale
+            }
         };
 
         return factor;
