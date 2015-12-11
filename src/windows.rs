@@ -187,7 +187,8 @@ pub enum MinifbError {
 }
 
 fn to_wstring(str: &str) -> *const u16 {
-    let v: Vec<u16> = OsStr::new(str).encode_wide().chain(Some(0).into_iter()).collect();
+    let mut v: Vec<u16> = OsStr::new(str).encode_wide().chain(Some(0).into_iter()).collect();
+    v.push(0u16);
     v.as_ptr()
 }
 
@@ -203,7 +204,6 @@ impl Window {
     fn open_window(name: &str, width: usize, height: usize, _: Scale, _: Vsync) -> Option<HWND> {
         unsafe {
             let class_name = to_wstring("minifb_window");
-
             let class = WNDCLASSW {
                 style: winapi::CS_HREDRAW | winapi::CS_VREDRAW | winapi::CS_OWNDC,
                 lpfnWndProc: Some(wnd_proc),
