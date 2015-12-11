@@ -9,7 +9,6 @@ use Scale;
 use Vsync;
 use Key;
 
-use std::ffi::CString;
 use std::ptr;
 use std::os::windows::ffi::OsStrExt;
 use std::ffi::OsStr;
@@ -204,7 +203,6 @@ impl Window {
     fn open_window(name: &str, width: usize, height: usize, _: Scale, _: Vsync) -> Option<HWND> {
         unsafe {
             let class_name = to_wstring("minifb_window");
-            let s = CString::new(name).unwrap();
 
             let class = WNDCLASSW {
                 style: winapi::CS_HREDRAW | winapi::CS_VREDRAW | winapi::CS_OWNDC,
@@ -238,9 +236,9 @@ impl Window {
             rect.right -= rect.left;
             rect.bottom -= rect.top;
 
-            let handle = user32::CreateWindowExA(0,
-                                                 "minifb_window".as_ptr() as *mut _,
-                                                 s.as_ptr(),
+            let handle = user32::CreateWindowExW(0,
+                                                 class_name, 
+                                                 to_wstring(name),
                                                  winapi::WS_OVERLAPPEDWINDOW &
                                                  !winapi::WS_MAXIMIZEBOX &
                                                  !winapi::WS_THICKFRAME,
@@ -253,7 +251,7 @@ impl Window {
                                                  ptr::null_mut(),
                                                  ptr::null_mut());
             if handle.is_null() {
-                println!("Unable to register create window, error {}", kernel32::GetLastError() as u32);
+                println!("Unable to create window, error {}", kernel32::GetLastError() as u32);
                 return None;
             }
 
