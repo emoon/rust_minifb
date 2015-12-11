@@ -186,10 +186,10 @@ pub enum MinifbError {
     UnableToCreateWindow,
 }
 
-fn to_wstring(str: &str) -> *const u16 {
+fn to_wstring(str: &str) -> Vec<u16> {
     let mut v: Vec<u16> = OsStr::new(str).encode_wide().chain(Some(0).into_iter()).collect();
     v.push(0u16);
-    v.as_ptr()
+    v
 }
 
 pub struct Window {
@@ -214,7 +214,7 @@ impl Window {
                 hCursor: ptr::null_mut(),
                 hbrBackground: ptr::null_mut(),
                 lpszMenuName: ptr::null(),
-                lpszClassName: class_name,
+                lpszClassName: class_name.as_ptr(),
             };
 
             if user32::RegisterClassW(&class) == 0 {
@@ -236,9 +236,11 @@ impl Window {
             rect.right -= rect.left;
             rect.bottom -= rect.top;
 
+            let window_name = to_wstring(name);
+
             let handle = user32::CreateWindowExW(0,
-                                                 class_name, 
-                                                 to_wstring(name),
+                                                 class_name.as_ptr(), 
+                                                 window_name.as_ptr(),
                                                  winapi::WS_OVERLAPPEDWINDOW &
                                                  !winapi::WS_MAXIMIZEBOX &
                                                  !winapi::WS_THICKFRAME,
