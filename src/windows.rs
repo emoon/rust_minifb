@@ -297,6 +297,23 @@ impl Window {
         }
     }
 
+    pub fn get_keys(&self) -> Option<Vec<Key>> {
+        let mut index: u16 = 0;
+        let mut keys: Vec<Key> = Vec::new();
+
+        for i in self.keys.iter() {
+            if *i {
+                unsafe {
+                    keys.push(mem::transmute(index as u8));
+                }
+            }
+
+            index += 1;
+        }
+
+        Some(keys)
+    }
+
     #[inline]
     pub fn is_key_down(&self, key: Key) -> bool {
         return self.keys[key as usize];
