@@ -106,6 +106,10 @@ fn update_key_state(window: &mut Window, wparam: u32, state: bool) {
         0x039 => window.keys[Key::Space as usize] = state,
         0x00F => window.keys[Key::Tab as usize] = state,
         0x03A => window.keys[Key::CapsLock as usize] = state,
+        0x02A => window.keys[Key::LeftShift as usize] = state,
+        0x036 => window.keys[Key::RightShift as usize] = state,
+        0x01D => window.keys[Key::LeftCtrl as usize] = state,
+        0x11D => window.keys[Key::RightCtrl as usize] = state,
         _ => (),
     }
 }
