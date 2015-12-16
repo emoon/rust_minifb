@@ -135,8 +135,12 @@ pub enum Key {
     Space,
     Tab,
     CapsLock,
+    LeftShift,
+    RightShift,
+    LeftCtrl,
+    RightCtrl,
 
-    Count = 80,
+    Count = 84,
 }
 
 #[cfg(target_os = "windows")]
