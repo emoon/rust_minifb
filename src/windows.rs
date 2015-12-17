@@ -128,7 +128,7 @@ fn update_key_state(window: &mut Window, wparam: u32, state: bool) {
         0x04A => window.keys[Key::NumPadMinus as usize] = state,
         0x04E => window.keys[Key::NumPadPlus as usize] = state,
         0x11C => window.keys[Key::NumPadEnter as usize] = state,
-        _ => {println!("key {:04X}", wparam & 0x1ff)},
+        _ => (),
     }
 }
 
