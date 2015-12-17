@@ -134,13 +134,32 @@ pub enum Key {
     Pause,
     Space,
     Tab,
+    NumLock,
     CapsLock,
+    ScrollLock,
     LeftShift,
     RightShift,
     LeftCtrl,
     RightCtrl,
 
-    Count = 84,
+    NumPad0,
+    NumPad1,
+    NumPad2,
+    NumPad3,
+    NumPad4,
+    NumPad5,
+    NumPad6,
+    NumPad7,
+    NumPad8,
+    NumPad9,
+    NumPadDot,
+    NumPadSlash,
+    NumPadAsterisk,
+    NumPadMinus,
+    NumPadPlus,
+    NumPadEnter,
+
+    Count = 102,
 }
 
 #[cfg(target_os = "windows")]
