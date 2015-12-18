@@ -31,6 +31,18 @@ fn main() {
             noise &= 0xFF;
             *i = (noise << 16) | (noise << 8) | noise;
         }
+
+        window.get_keys_pressed(KeyRepeat::No).map(|keys| {
+            for t in keys.iter() {
+                match *t {
+                    Key::W => println!("holding w!"),
+                    Key::T => println!("holding t!"),
+                    _ => (),
+                }
+            }
+        });
+
+
         window.update(&buffer);
     }
 }

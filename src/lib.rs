@@ -46,6 +46,15 @@ pub enum Vsync {
     BestGuess,
 }
 
+/// Used for is_key_pressed and get_keys_pressed() to indicated if repeat of presses is wanted
+#[derive(PartialEq, Clone, Copy)]
+pub enum KeyRepeat {
+    /// Use repeat
+    Yes,
+    /// Don't use repeat
+    No,
+}
+
 pub enum Key {
     Key0 = 0,
     Key1 = 1,

@@ -4,10 +4,12 @@ extern crate user32;
 extern crate kernel32;
 extern crate winapi;
 extern crate gdi32;
+extern crate time;
 
 use Scale;
 use Vsync;
 use Key;
+use KeyRepeat;
 
 use std::ptr;
 use std::os::windows::ffi::OsStrExt;
@@ -216,11 +218,16 @@ pub struct Window {
     dc: Option<HDC>,
     window: Option<HWND>,
     keys: [bool; 512],
+    keys_down_duration: [f32; 512],
     buffer: Vec<u32>,
     is_open : bool,
     scale_factor: i32,
     width: i32,
     height: i32,
+    prev_time: f64,
+    delta_time: f32,
+    key_repeat_delay: f32,
+    key_repeat_rate: f32,
 }
 
 impl Window {
@@ -308,6 +315,11 @@ impl Window {
                 dc: Some(user32::GetDC(handle.unwrap())),
                 window: Some(handle.unwrap()),
                 keys: [false; 512],
+                keys_down_duration: [-1.0; 512],
+                prev_time: time::precise_time_s(),
+                delta_time: 0.0,
+                key_repeat_delay: 0.250,
+                key_repeat_rate: 0.050,
                 buffer: Vec::new(),
                 is_open: true,
                 scale_factor: scale_factor,
@@ -336,9 +348,59 @@ impl Window {
         Some(keys)
     }
 
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
+        let mut index: u16 = 0;
+        let mut keys: Vec<Key> = Vec::new();
+
+        for i in self.keys.iter() {
+            if *i {
+                unsafe {
+                    if Self::key_pressed(self, index as usize, repeat) {
+                        keys.push(mem::transmute(index as u8));
+                    }
+                }
+            }
+
+            index += 1;
+        }
+
+        Some(keys)
+    }
+
     #[inline]
     pub fn is_key_down(&self, key: Key) -> bool {
         return self.keys[key as usize];
+    }
+
+    #[inline]
+    pub fn set_key_repeat_delay(&mut self, delay: f32) {
+        self.key_repeat_delay = delay;
+    }
+
+    #[inline]
+    pub fn set_key_repeat_rate(&mut self, rate: f32) {
+        self.key_repeat_rate = rate;
+    }
+
+    pub fn key_pressed(&self, index: usize, repeat: KeyRepeat) -> bool {
+        let t = self.keys_down_duration[index];
+
+        if t == 0.0 {
+            return true;
+        }
+
+        if repeat == KeyRepeat::Yes && t > self.key_repeat_delay {
+            let delay = self.key_repeat_delay;
+            let rate = self.key_repeat_rate;
+            if ((((t - delay) % rate) > rate * 0.5)) != (((t - delay - self.delta_time) % rate) > rate * 0.5) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
+        return Self::key_pressed(self, key as usize, repeat);
     }
 
     #[inline]
@@ -350,6 +412,23 @@ impl Window {
         unsafe {
             let mut msg = mem::uninitialized();
             let window = self.window.unwrap();
+
+            let current_time = time::precise_time_s();
+            let delta_time = (current_time - self.prev_time) as f32;
+            self.prev_time = current_time;
+            self.delta_time = delta_time;
+
+            for i in 0..self.keys.len() {
+                if self.keys[i] {
+                    if self.keys_down_duration[i] < 0.0 {
+                        self.keys_down_duration[i] = 0.0;
+                    } else {
+                        self.keys_down_duration[i] += delta_time;
+                    }
+                } else {
+                    self.keys_down_duration[i] = -1.0;
+                }
+            }
 
             // TODO: Optimize
 
@@ -366,7 +445,6 @@ impl Window {
     }
 
     unsafe fn get_scale_factor(width: usize, height: usize, scale: Scale) -> i32 {
-        // TODO: Implement best fit
         let factor: i32 = match scale {
             Scale::X1 => 1,
             Scale::X2 => 2,
