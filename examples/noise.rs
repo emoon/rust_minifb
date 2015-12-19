@@ -10,7 +10,7 @@ fn main() {
     //let mut carry;
     //let mut seed = 0xbeefu32;
 
-    //let mut buffer: [u32; WIDTH * HEIGHT] = [0; WIDTH * HEIGHT];
+    let mut buffer: [u32; WIDTH * HEIGHT] = [0; WIDTH * HEIGHT];
 
     let window = match macos::Window::new("Noise Test - Press ESC to exit", 
                                    WIDTH, 
@@ -25,6 +25,7 @@ fn main() {
     };
 
     loop {
+        window.update(&buffer);
         /*
         for i in buffer.iter_mut() {
             noise = seed;

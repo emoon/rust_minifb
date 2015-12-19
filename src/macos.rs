@@ -59,6 +59,8 @@ impl WindowDelegate {
                 let state: *mut libc::c_void = *this.get_ivar("glutinState");
                 let state = &mut *(state as *mut DelegateState);
 
+                println!("did_resize");
+
                 //let _: () = msg_send![*state.context, update];
 
                 if let Some(handler) = state.resize_handler {
@@ -75,6 +77,7 @@ impl WindowDelegate {
                 // TODO: center the cursor if the window had mouse grab when it
                 // lost focus
 
+                println!("became key window");
                 let state: *mut libc::c_void = *this.get_ivar("glutinState");
                 let state = state as *mut DelegateState;
                 //(*state).pending_events.lock().unwrap().push_back(Focused(true));
@@ -93,7 +96,7 @@ impl WindowDelegate {
         static INIT: Once = ONCE_INIT;
 
         INIT.call_once(|| unsafe {
-            // Create new NSWindowDelegate
+            println!("Create new NSWindowDelegate");
             let superclass = Class::get("NSObject").unwrap();
             let mut decl = ClassDecl::new(superclass, "GlutinWindowDelegate").unwrap();
 
@@ -167,8 +170,9 @@ impl Window {
                     return Err("Unable to create NSView");
                 }
             };
-
+                
             app.activateIgnoringOtherApps_(YES);
+            window.makeKeyAndOrderFront_(nil);
 
             let ds = DelegateState {
                 view: view.clone(),
@@ -202,6 +206,7 @@ impl Window {
 
         window.non_nil().map(|window| {
             let title = IdRef::new(NSString::alloc(nil).init_str(name));
+            window.setLevel_(NSMainMenuWindowLevel as i64 + 1);
             window.setTitle_(*title);
             window.center();
             window
@@ -216,7 +221,14 @@ impl Window {
         })
     }
 
-    pub fn update(_: &[u32]) { 
+    pub fn update(&self, _: &[u32]) { 
+        unsafe {
+            NSApp().nextEventMatchingMask_untilDate_inMode_dequeue_(
+                NSAnyEventMask.bits(),
+                NSDate::distantPast(nil),
+                NSDefaultRunLoopMode,
+                YES);
+        }
     }
 
     pub fn get_keys() -> Option<Vec<Key>> {
