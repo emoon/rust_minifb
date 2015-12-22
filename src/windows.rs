@@ -85,6 +85,7 @@ fn update_key_state(window: &mut Window, wparam: u32, state: bool) {
         0x14D => window.keys[Key::Right as usize] = state,
         0x148 => window.keys[Key::Up as usize] = state,
         0x028 => window.keys[Key::Apostrophe as usize] = state,
+        0x029 => window.keys[Key::Backquote as usize] = state,
         0x02B => window.keys[Key::Backslash as usize] = state,
         0x033 => window.keys[Key::Comma as usize] = state,
         0x00D => window.keys[Key::Equal as usize] = state,
