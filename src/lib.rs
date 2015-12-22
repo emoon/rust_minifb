@@ -115,6 +115,7 @@ pub enum Key {
     Right,
     Up,
     Apostrophe,
+    Backquote,
 
     Backslash,
     Comma,
@@ -168,7 +169,7 @@ pub enum Key {
     NumPadPlus,
     NumPadEnter,
 
-    Count = 102,
+    Count = 103,
 }
 
 #[cfg(target_os = "windows")]
