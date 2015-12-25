@@ -7,32 +7,37 @@ rust_minifb (Mini FrameBuffer) is a small cross platform library written in [Rus
 ```rust
 extern crate minifb;
 
-const WIDTH: usize = 1280;
-const HEIGHT: usize = 720;
+use minifb::*;
+
+const WIDTH: usize = 640;
+const HEIGHT: usize = 360;
 
 fn main() {
     let mut buffer: [u32; WIDTH * HEIGHT] = [0; WIDTH * HEIGHT];
 
-    if !(minifb::open("TestWindow", WIDTH, HEIGHT)) {
-        return;
-    }
+    let mut window = Window::new("Noise Test - Press ESC to exit",
+                                 WIDTH,
+                                 HEIGHT,
+                                 Scale::X1,
+                                 Vsync::No)
+                         .unwrap();
 
-    while minifb::update(&buffer) {
+    while window.is_open() && !window.is_key_down(Key::Escape) {
         for i in buffer.iter_mut() {
-            *i = ... // write something here 
+            *i = 0; // write something more funny here!
         }
-    }
 
-    minifb::close();
+        window.update(&buffer);
+    }
 }
 ```
 
 Status
 ------
-Currently Mac, Windows has been Linux has been tested which are the supported platforms for now.
+Currently Windows is the supported platform. 
 
 
-Build instructions
+Build instruction
 ------------------
 
 ```
@@ -40,6 +45,6 @@ cargo build
 cargo run --example noise 
 ```
 
-This will run the [noise example](https://github.com/emoon/rust_minifb/blob/master/examples/noise.rs) which should look something like this (Mac screenshot)
+This will run the [noise example](https://github.com/emoon/rust_minifb/blob/windows-rs/examples/noise.rs) which should look something like this (Mac screenshot)
 
 ![mac_screenshot](https://dl.dropboxusercontent.com/u/5205843/rust_minifb/noise_screen.png)
