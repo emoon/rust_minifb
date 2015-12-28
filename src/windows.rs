@@ -249,8 +249,14 @@ impl Window {
             };
 
             if user32::RegisterClassW(&class) == 0 {
-                println!("Unable to register class, error {}", kernel32::GetLastError() as u32);
-                return None;
+                let err_code = kernel32::GetLastError() as u32;
+                
+                // ignore the "Class already exists" error for multiple windows
+                if err_code != 1410
+                {
+                    println!("Unable to register class, error {}", kernel32::GetLastError() as u32);
+                    return None;
+                }
             }
 
             let new_width = width * scale_factor as usize;
