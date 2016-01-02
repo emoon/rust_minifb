@@ -7,7 +7,6 @@ extern crate gdi32;
 extern crate time;
 
 use Scale;
-use Vsync;
 use Key;
 use KeyRepeat;
 
@@ -232,7 +231,7 @@ pub struct Window {
 }
 
 impl Window {
-    fn open_window(name: &str, width: usize, height: usize, scale_factor: i32, _: Vsync) -> Option<HWND> {
+    fn open_window(name: &str, width: usize, height: usize, scale_factor: i32) -> Option<HWND> {
         unsafe {
             let class_name = to_wstring("minifb_window");
             let class = WNDCLASSW {
@@ -303,8 +302,7 @@ impl Window {
     pub fn new(name: &str,
                width: usize,
                height: usize,
-               scale: Scale,
-               vsync: Vsync)
+               scale: Scale)
                -> Result<Window, &str> {
         unsafe {
             let scale_factor = Self::get_scale_factor(width, height, scale);
