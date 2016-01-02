@@ -26,12 +26,6 @@ void* mfb_open(const char* name, int width, int height, int scale)
 	if (!window)
 		return 0;
 
-	NSRect e = [[NSScreen mainScreen] frame];
-	int H = (int)e.size.height;
-	int W = (int)e.size.width;
-
-	printf("H %d W %d\n", W, H);
-
 	window->draw_buffer = malloc(width * height * 4);
 
 	if (!window->draw_buffer)

@@ -33,9 +33,9 @@ fn main() {
             *i = (noise << 16) | (noise << 8) | noise;
         }
 
-        window.get_keys_pressed(KeyRepeat::No).map(|keys| {
-            for t in keys.iter() {
-                match *t {
+        window.get_keys().map(|keys| {
+            for t in keys {
+                match t {
                     Key::W => println!("holding w!"),
                     Key::T => println!("holding t!"),
                     _ => (),

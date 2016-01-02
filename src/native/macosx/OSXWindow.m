@@ -149,8 +149,6 @@
 	NSRect bounds = [self frame];
 	bounds.origin = NSZeroPoint;
 
-	printf("view size\n");
-
 	OSXWindowFrameView* frameView = [super contentView];
 	if (!frameView)
 	{
@@ -219,8 +217,6 @@
 		frameView->draw_buffer = draw_buffer; 
 		frameView->scale = scale;
 	}
-
-	printf("UpdateSize %d %d - %d\n", width, height, scale);
 }
 
 @end

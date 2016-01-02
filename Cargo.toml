@@ -14,11 +14,6 @@ gcc = "0.3.19"
 libc = "0.2"
 time = "0.1.34"
 
-[target.x86_64-apple-darwin.dependencies]
-cocoa = "0.2"
-core-foundation = "0"
-core-graphics = "0"
-
 [target.x86_64-pc-windows-msvc.dependencies]
 user32-sys = "0.1.2"
 winapi = "0.2.4"

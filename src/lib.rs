@@ -159,15 +159,171 @@ pub enum Key {
 
 extern crate libc;
 
-pub mod key_handler;
-
-#[cfg(target_os = "windows")]
-pub mod windows;
-#[cfg(target_os = "windows")]
-pub use windows::*;
+pub mod os;
+mod key_handler;
 
 #[cfg(target_os = "macos")]
-pub mod macos;
-#[cfg(target_os = "macos")]
-pub use macos::*;
+use self::os::macos as imp;
+#[cfg(target_os = "windows")]
+use self::os::windows as imp;
 
+/// Window used for displaying a 32-bit RGB buffer
+pub struct Window(imp::Window);
+
+impl Window {
+    ///
+    /// Opens up a new window
+    ///
+    /// ```ignore
+    /// let mut window = match Window::new("Test", 640, 400, Scale::X1) {
+    ///    Ok(win) => win,
+    ///    Err(err) => {
+    ///        println!("Unable to create window {}", err);
+    ///        return;
+    ///    }
+    ///};
+    /// ```
+    pub fn new(name: &str, width: usize, height: usize, scale: Scale) -> Result<imp::Window, &str> {
+        imp::Window::new(name, width, height, scale)
+    }
+
+    ///
+    /// Updates the window with a 32-bit pixel buffer. Notice that the buffer needs to be at least 
+    /// the size of the created window
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let mut buffer: [u32; 640 * 400] = [0; 640 * 400];
+    ///
+    /// let mut window = match Window::new("Test", 640, 400, Scale::X1).unwrap();
+    ///
+    /// window.update(&buffer);
+    /// ```
+    pub fn update(&mut self, buffer: &[u32]) {
+        self.0.update(buffer)
+    }
+
+    ///
+    /// Checks if the window is still open. A window can be closed by the user (by for example
+    /// pressing the close button on the window) It's up to the user to make sure that this is
+    /// being checked and take action depending on the state. 
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// while window.is_open() {
+    ///     window.update(...)
+    /// }
+    /// ```
+    #[inline]
+    pub fn is_open(&self) -> bool {
+        self.0.is_open()
+    }
+
+    ///
+    /// Get the current keys that are down. 
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// window.get_keys().map(|keys| {
+    ///     for t in keys {
+    ///         match t {
+    ///             Key::W => println!("holding w"),
+    ///             Key::T => println!("holding t"),
+    ///             _ => (),
+    ///         }
+    ///     }
+    /// });
+    /// ```
+    #[inline]
+    pub fn get_keys(&self) -> Option<Vec<Key>> {
+        self.0.get_keys()
+    }
+
+    ///
+    /// Get the current pressed keys. Repeat can be used to control if keys should
+    /// be repeated if down or not.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// window.get_keys_pressed(KeyRepeat::No).map(|keys| {
+    ///     for t in keys {
+    ///         match t {
+    ///             Key::W => println!("pressed w"),
+    ///             Key::T => println!("pressed t"),
+    ///             _ => (),
+    ///         }
+    ///     }
+    /// });
+    /// ```
+    #[inline]
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
+        self.0.get_keys_pressed(repeat)
+    }
+
+    /// 
+    /// Check if a single key is down.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// if window.is_key_down(Key::A) {
+    ///     println!("Key A is down");
+    /// }
+    /// ```
+    ///
+    #[inline]
+    pub fn is_key_down(&self, key: Key) -> bool {
+        self.0.is_key_down(key)
+    }
+
+    /// 
+    /// Check if a single key is pressed. KeyRepeat will control if the key should be repeated or
+    /// not while being pressed.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// if window.is_key_pressed(KeyRepeat::No) {
+    ///     println!("Key A is down");
+    /// }
+    /// ```
+    ///
+    #[inline]
+    pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
+        self.0.is_key_pressed(key, repeat)
+    }
+
+    ///
+    /// Sets the delay for when a key is being held before it starts being repeated the default
+    /// value is 0.25 sec
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// window.set_key_repeat_delay(0.5) // 0.5 sec before repeat starts
+    /// ```
+    ///
+    #[inline]
+    pub fn set_key_repeat_delay(&mut self, delay: f32) {
+        self.0.set_key_repeat_delay(delay)
+    }
+
+    ///
+    /// Sets the rate in between when the keys has passed the intital repeat_delay. The default
+    /// value is 0.05 sec
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// window.set_key_repeat_rate(0.01) // 0.01 sec between keys 
+    /// ```
+    ///
+    #[inline]
+    pub fn set_key_repeat_rate(&mut self, rate: f32) {
+        self.0.set_key_repeat_rate(rate)
+    }
+}
