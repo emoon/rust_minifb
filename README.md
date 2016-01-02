@@ -34,7 +34,7 @@ fn main() {
 
 Status
 ------
-Currently Windows is the supported platform. 
+Currently Windows and Mac are the current supported platforms. X11 (Linux/FreeBSD/etc) support is coming soon.
 
 
 Build instruction
