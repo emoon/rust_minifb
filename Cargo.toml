@@ -1,7 +1,10 @@
 [package]
 name = "minifb"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Daniel Collin <daniel@collin.com>"]
+description = "Cross-platform window setup for bitmap rendering"
+keywords = ["windowing", "framebuffer"]
+repository = "https://github.com/emoon/rust_minifb"
 build = "build.rs"
 
 [build-dependencies]
@@ -9,8 +12,51 @@ gcc = "0.3.19"
 
 [dependencies]
 libc = "0.2"
+time = "0.1.34"
+
+[target.x86_64-apple-darwin.dependencies]
+cocoa = "0.2"
+core-foundation = "0"
+core-graphics = "0"
+
+[target.x86_64-pc-windows-msvc.dependencies]
 user32-sys = "0.1.2"
 winapi = "0.2.4"
 kernel32-sys = "0.1.4"
 gdi32-sys = "0.1.1"
-time = "0.1.34"
+
+[target.x86_64-pc-windows-gnu.dependencies]
+user32-sys = "0.1.2"
+winapi = "0.2.4"
+kernel32-sys = "0.1.4"
+gdi32-sys = "0.1.1"
+
+[target.i686-pc-windows-msvc.dependencies]
+user32-sys = "0.1.2"
+winapi = "0.2.4"
+kernel32-sys = "0.1.4"
+gdi32-sys = "0.1.1"
+
+[target.i686-pc-windows-gnu.dependencies]
+user32-sys = "0.1.2"
+winapi = "0.2.4"
+kernel32-sys = "0.1.4"
+gdi32-sys = "0.1.1"
+
+[target.i686-unknown-linux-gnu.dependencies]
+x11-dl = "~2.2"
+
+[target.x86_64-unknown-linux-gnu.dependencies]
+x11-dl = "~2.2"
+
+[target.arm-unknown-linux-gnueabihf.dependencies]
+x11-dl = "~2.2"
+
+[target.aarch64-unknown-linux-gnu.dependencies]
+x11-dl = "~2.2"
+
+[target.x86_64-unknown-dragonfly.dependencies]
+x11-dl = "~2.2"
+
+[target.x86_64-unknown-freebsd.dependencies]
+x11-dl = "~2.2"
