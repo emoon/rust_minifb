@@ -1,5 +1,7 @@
 extern crate minifb;
 
+use minifb::*;
+
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
 
@@ -10,11 +12,15 @@ fn main() {
 
     let mut buffer: [u32; WIDTH * HEIGHT] = [0; WIDTH * HEIGHT];
 
-    if !(minifb::open("Noise Test - Press ESC to exit", WIDTH, HEIGHT)) {
-        return;
-    }
+    let mut window = match Window::new("Noise Test - Press ESC to exit", WIDTH, HEIGHT, Scale::X2) {
+        Ok(win) => win,
+        Err(err) => {
+            println!("Unable to create window {}", err);
+            return;
+        }
+    };
 
-    while minifb::update(&buffer) {
+    while window.is_open() && !window.is_key_down(Key::Escape) {
         for i in buffer.iter_mut() {
             noise = seed;
             noise >>= 3;
@@ -26,7 +32,17 @@ fn main() {
             noise &= 0xFF;
             *i = (noise << 16) | (noise << 8) | noise;
         }
-    }
 
-    minifb::close();
+        window.get_keys().map(|keys| {
+            for t in keys {
+                match t {
+                    Key::W => println!("holding w!"),
+                    Key::T => println!("holding t!"),
+                    _ => (),
+                }
+            }
+        });
+
+        window.update(&buffer);
+    }
 }
