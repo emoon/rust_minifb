@@ -30,6 +30,7 @@ pub enum KeyRepeat {
     No,
 }
 
+/// Key is used by the get key functions to check if some keys on the keyboard has been pressed
 #[derive(PartialEq, Clone, Copy)]
 pub enum Key {
     Key0 = 0,
@@ -167,7 +168,28 @@ use self::os::macos as imp;
 #[cfg(target_os = "windows")]
 use self::os::windows as imp;
 
-/// Window used for displaying a 32-bit RGB buffer
+///
+/// Window used for displaying a 32-bit RGB buffer. Here is a small example on how to use it:
+/// (without error checking 
+///
+/// ```ignore
+///
+/// const WIDTH: usize = 640;
+/// const HEIGHT: usize = 360;
+///
+/// let mut buffer: [u32; WIDTH * HEIGHT] = [0; WIDTH * HEIGHT];
+///
+/// let mut window = match Window::new("Test - Press ESC to exit", WIDTH, HEIGHT, Scale::X1).unwrap()
+///
+/// while window.is_open() && !window.is_key_down(Key::Escape) {
+///     for i in buffer.iter_mut() {
+///         *i = 0; // write something interesting here
+///     }
+///     window.update(&buffer);
+/// }
+/// ```
+///
+
 pub struct Window(imp::Window);
 
 impl Window {
