@@ -34,7 +34,7 @@
 	CGColorSpaceRelease(space);
 	CGDataProviderRelease(provider);
 
-	CGContextDrawImage(context, CGRectMake(0, 0, width, height), img);
+	CGContextDrawImage(context, CGRectMake(0, 0, width * scale, height * scale), img);
 
 	CGImageRelease(img);
 }

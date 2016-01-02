@@ -8,7 +8,7 @@ use std::ptr;
 
 #[link(name = "Cocoa", kind = "framework")]
 extern {
-    fn mfb_open(name: *const c_char, width: u32, height: u32, scale: u32) -> *mut c_void;
+    fn mfb_open(name: *const c_char, width: u32, height: u32, scale: i32) -> *mut c_void;
     fn mfb_close(window: *mut c_void);
     fn mfb_update(window: *mut c_void, buffer: *const c_uchar);
 }
@@ -18,11 +18,7 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn new(name: &str,
-               width: usize,
-               height: usize,
-               scale: Scale)
-               -> Result<Window, &str> {
+    pub fn new(name: &str, width: usize, height: usize, scale: Scale) -> Result<Window, &str> {
         let n = match CString::new(name) {
             Err(_) => { 
                 println!("Unable to convert {} to c_string", name);
@@ -32,12 +28,12 @@ impl Window {
         };
 
         unsafe {
-            let handle = mfb_open(n.as_ptr(), width as u32, height as u32, scale as u32);
+            let handle = mfb_open(n.as_ptr(), width as u32, height as u32, Self::get_scale_factor(width, height, scale));
 
             if handle == ptr::null_mut() {
                 return Err("Unable to open Window");
             }
-            
+
             Ok(Window { window_handle: handle })
         }
     }
@@ -80,6 +76,22 @@ impl Window {
     #[inline]
     pub fn is_open(&self) -> bool {
         true
+    }
+
+    unsafe fn get_scale_factor(_: usize, _: usize, scale: Scale) -> i32 {
+        let factor: i32 = match scale {
+            Scale::X1 => 1,
+            Scale::X2 => 2,
+            Scale::X4 => 4,
+            Scale::X8 => 8,
+            Scale::X16 => 16,
+            Scale::X32 => 32,
+            Scale::FitScreen => {
+                1
+            }
+        };
+
+        return factor;
     }
 }
 
