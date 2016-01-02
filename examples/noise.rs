@@ -15,8 +15,7 @@ fn main() {
     let mut window = Window::new("Noise Test - Press ESC to exit",
                                  WIDTH,
                                  HEIGHT,
-                                 Scale::X1,
-                                 Vsync::No)
+                                 Scale::X1)
                          .unwrap();
 
     while window.is_open() && !window.is_key_down(Key::Escape) {

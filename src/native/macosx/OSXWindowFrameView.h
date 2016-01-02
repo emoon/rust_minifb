@@ -2,6 +2,10 @@
 
 @interface OSXWindowFrameView : NSView
 {
+	@public int scale;
+	@public int width;
+	@public int height;
+	@public void* draw_buffer;
 }
 
 @end

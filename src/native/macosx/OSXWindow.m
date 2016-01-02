@@ -57,6 +57,8 @@
 	NSSize newFrameSize = [frameView bounds].size;
 	newFrameSize.width += sizeDelta.width;
 	newFrameSize.height += sizeDelta.height;
+
+	printf("conten size\n");
 	
 	[super setContentSize:newFrameSize];
 }
@@ -79,18 +81,22 @@
 	NSRect bounds = [self frame];
 	bounds.origin = NSZeroPoint;
 
-	OSXWindowFrameView *frameView = [super contentView];
+	printf("view size\n");
+
+	OSXWindowFrameView* frameView = [super contentView];
 	if (!frameView)
 	{
 		frameView = [[[OSXWindowFrameView alloc] initWithFrame:bounds] autorelease];
-		
+		frameView->width = width; 
+		frameView->height = height; 
+		frameView->draw_buffer = draw_buffer; 
+		frameView->scale = scale;
 		[super setContentView:frameView];
 	}
 	
 	if (childContentView)
-	{
 		[childContentView removeFromSuperview];
-	}
+
 	childContentView = aView;
 	[childContentView setFrame:[self contentRectForFrameRect:bounds]];
 	[childContentView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
@@ -131,6 +137,22 @@
 + (NSRect)frameRectForContentRect:(NSRect)windowContentRect styleMask:(NSUInteger)windowStyle
 {
 	return NSInsetRect(windowContentRect, 0, 0);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+- (void)updateSize 
+{
+	OSXWindowFrameView* frameView = [super contentView];
+	if (frameView)
+	{
+		frameView->width = width; 
+		frameView->height = height; 
+		frameView->draw_buffer = draw_buffer; 
+		frameView->scale = scale;
+	}
+
+	printf("UpdateSize %d %d - %d\n", width, height, scale);
 }
 
 @end

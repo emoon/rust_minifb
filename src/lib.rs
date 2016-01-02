@@ -1,14 +1,3 @@
-extern crate libc;
-#[cfg(target_os = "macos")]
-#[macro_use]
-extern crate objc;
-#[cfg(target_os = "macos")]
-extern crate cgl;
-#[cfg(target_os = "macos")]
-extern crate cocoa;
-#[cfg(target_os = "macos")]
-extern crate core_foundation;
-
 /// Scale will scale the frame buffer and the window that is being sent in when calling the update
 /// function. This is useful if you for example want to display a 320 x 256 window on a screen with
 /// much higher resolution which would result in that the window is very small.
@@ -30,20 +19,6 @@ pub enum Scale {
     X16,
     /// 32 window scale (Example: 320 x 200 -> 10240 x 6400)
     X32,
-}
-
-/// Vsync will allow syncronized rendering with the screen refresh rate.
-/// Currently Vsync isn't implemented so nothing will change regardless of given value right now
-pub enum Vsync {
-    /// No vsync
-    No,
-    /// Require accurate vsync. Notice that if the library is unable to to setup an accurate
-    /// syncing the window creation will fail.
-    Accurate,
-    /// Setup a best guess syncing with the screen. This will always succesed but may not be
-    /// accurate. What this means is if the lib is unable to create a accurate syncing approach
-    /// a 'emulated' one will be used (for example using a timer to approximate syncing)
-    BestGuess,
 }
 
 /// Used for is_key_pressed and get_keys_pressed() to indicated if repeat of presses is wanted
@@ -172,13 +147,15 @@ pub enum Key {
     Count = 103,
 }
 
+extern crate libc;
+
 #[cfg(target_os = "windows")]
 pub mod windows;
 #[cfg(target_os = "windows")]
 pub use windows::*;
 
-//#[cfg(target_os = "macos")]
-//pub mod macos;
-//#[cfg(target_os = "macos")]
-//pub use macos::*;
+#[cfg(target_os = "macos")]
+pub mod macos;
+#[cfg(target_os = "macos")]
+pub use macos::*;
 

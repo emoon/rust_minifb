@@ -3,83 +3,74 @@
 #include <Cocoa/Cocoa.h>
 #include <unistd.h>
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-void* g_updateBuffer = 0;
-int g_width = 0;
-int g_height = 0;
-static NSWindow* window_;
+static bool s_init = false;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-int mfb_open(const char* name, int width, int height)
+void* mfb_open(const char* name, int width, int height, int scale)
 {
 	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 
-	g_width = width;
-	g_height = height;
-
-	[NSApplication sharedApplication];
-	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+	if (!s_init) {
+		[NSApplication sharedApplication];
+		[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+		s_init = true;
+	}
 		
 	unsigned int styles = NSResizableWindowMask | NSClosableWindowMask | NSTitledWindowMask;
 		
 	NSRect rectangle = NSMakeRect(0, 0, width, height);
-	window_ = [[OSXWindow alloc] initWithContentRect:rectangle styleMask:styles backing:NSBackingStoreBuffered defer:NO];
+	OSXWindow* window = [[OSXWindow alloc] initWithContentRect:rectangle styleMask:styles backing:NSBackingStoreBuffered defer:NO];
 
-	if (!window_)
+	if (!window)
 		return 0;
 
-	[window_ setTitle:[NSString stringWithUTF8String:name]];
-	[window_ setReleasedWhenClosed:NO];
-	[window_ performSelectorOnMainThread:@selector(makeKeyAndOrderFront:) withObject:nil waitUntilDone:YES];
+	window->draw_buffer = malloc(width * height * 4);
 
-	[window_ center];
+	if (!window->draw_buffer)
+		return 0;
+
+	window->width = width;
+	window->height = height;
+	window->scale = scale;
+
+	[window updateSize];
+
+	[window setTitle:[NSString stringWithUTF8String:name]];
+	[window setReleasedWhenClosed:NO];
+	[window performSelectorOnMainThread:@selector(makeKeyAndOrderFront:) withObject:nil waitUntilDone:YES];
+
+	[window center];
 
 	[NSApp activateIgnoringOtherApps:YES];
 
 	[pool drain];
 
-	return 1;
+	return window;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void mfb_close()
+void mfb_close(void* win)
 {
+	NSWindow* window = (NSWindow*)win;
+
 	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 
-	if (window_)
-		[window_ close]; 
+	if (window)
+		[window close]; 
 
 	[pool drain];
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static int updateEvents()
+static int update_events()
 {
 	int state = 0;
 	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 	NSEvent* event = [NSApp nextEventMatchingMask:NSAnyEventMask untilDate:[NSDate distantPast] inMode:NSDefaultRunLoopMode dequeue:YES];
-	if (event) 
-	{
-		switch ([event type])
-		{
-			case NSKeyDown:
-			case NSKeyUp:
-			{
-				state = -1;
-				break;
-			}
-
-			default :
-			{
-				[NSApp sendEvent:event];
-				break;
-			}
-		}
-	}
+	[NSApp sendEvent:event];
 	[pool release];
 
 	return state;
@@ -87,10 +78,13 @@ static int updateEvents()
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-int mfb_update(void* buffer)
+int mfb_update(void* window, void* buffer)
 {
-	g_updateBuffer = buffer;
-	int state = updateEvents();
-	[[window_ contentView] setNeedsDisplay:YES];
+	OSXWindow* win = (OSXWindow*)window;
+	memcpy(win->draw_buffer, buffer, win->width * win->height * 4);
+
+	//g_updateBuffer = buffer;
+	int state = update_events();
+	[[win contentView] setNeedsDisplay:YES];
 	return state;
 }

@@ -1,10 +1,12 @@
 #import <Cocoa/Cocoa.h>
 
-// @class OSXWindowFrameView;
-
 @interface OSXWindow : NSWindow
 {
 	NSView* childContentView;
+	@public int width;
+	@public int height;
+	@public int scale;
+	@public void* draw_buffer;
 }
 
 @end

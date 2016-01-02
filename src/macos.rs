@@ -1,377 +1,93 @@
 #![cfg(target_os = "macos")]
 
-use Scale;
-use Vsync;
-use Key;
+use {Scale, Key, KeyRepeat};
 
-use libc;
-//use cocoa::appkit;
-use cocoa::appkit::*;
-//use cocoa::appkit::NSEventSubtype::*;
+use libc::{c_void, c_char, c_uchar};
+use std::ffi::{CString};
+use std::ptr;
 
-#[allow(unused_imports)]
-use cocoa::base::{id, nil};
-#[allow(unused_imports)]
-use objc::runtime::{Class, Object, Sel, BOOL, YES, NO};
-use objc::declare::ClassDecl;
-
-#[allow(unused_imports)]
-use cocoa::foundation::{NSAutoreleasePool, NSDate, NSDefaultRunLoopMode, NSPoint, NSRect, NSSize, 
-    NSString, NSUInteger}; 
-
-use std::ops::Deref;
+#[link(name = "Cocoa", kind = "framework")]
+extern {
+    fn mfb_open(name: *const c_char, width: u32, height: u32, scale: u32) -> *mut c_void;
+    fn mfb_close(window: *mut c_void);
+    fn mfb_update(window: *mut c_void, buffer: *const c_uchar);
+}
 
 pub struct Window {
-    view: IdRef,
-    window: IdRef,
-    delegate: WindowDelegate,
-    view_delegate: ViewDelegate,
+    window_handle: *mut c_void,
 }
-
-struct DelegateState {
-    view: IdRef,
-    window: IdRef,
-    resize_handler: Option<fn(u32, u32)>,
-}
-
-struct WindowDelegate {
-    state: Box<DelegateState>,
-    _this: IdRef,
-}
-
-struct ViewDelegateState {
-    view: IdRef,
-}
-
-struct ViewDelegate {
-    state: Box<ViewDelegateState>,
-    _this: IdRef,
-}
-
-impl WindowDelegate {
-    /// Get the delegate class, initiailizing it neccessary
-    fn class() -> *const Class {
-        use std::sync::{Once, ONCE_INIT};
-
-        extern fn window_should_close(this: &Object, _: Sel, _: id) -> BOOL {
-            println!("Should close");
-            unsafe {
-                //let state: *mut libc::c_void = *this.get_ivar("minifb_window_state");
-                //let state = state as *mut DelegateState;
-                //(*state).pending_events.lock().unwrap().push_back(Closed);
-            }
-            YES
-        }
-
-        extern fn window_did_resize(this: &Object, _: Sel, _: id) {
-            unsafe {
-                let state: *mut libc::c_void = *this.get_ivar("minifb_window_state");
-                let state = &mut *(state as *mut DelegateState);
-
-                println!("did_resize");
-
-                //let _: () = msg_send![*state.context, update];
-
-                if let Some(handler) = state.resize_handler {
-                    let rect = NSView::frame(*state.view);
-                    let scale_factor = NSWindow::backingScaleFactor(*state.window) as f32;
-                    (handler)((scale_factor * rect.size.width as f32) as u32,
-                    (scale_factor * rect.size.height as f32) as u32);
-                }
-            }
-        }
-
-        extern fn window_did_become_key(this: &Object, _: Sel, _: id) {
-            unsafe {
-                // TODO: center the cursor if the window had mouse grab when it
-                // lost focus
-
-                println!("became key window");
-                let state: *mut libc::c_void = *this.get_ivar("minifb_window_state");
-                let state = state as *mut DelegateState;
-                //(*state).pending_events.lock().unwrap().push_back(Focused(true));
-            }
-        }
-
-        extern fn window_did_resign_key(this: &Object, _: Sel, _: id) {
-            unsafe {
-                let state: *mut libc::c_void = *this.get_ivar("minifb_window_state");
-                let state = state as *mut DelegateState;
-                //(*state).pending_events.lock().unwrap().push_back(Focused(false));
-            }
-        }
-
-        static mut delegate_class: *const Class = 0 as *const Class;
-        static INIT: Once = ONCE_INIT;
-
-        INIT.call_once(|| unsafe {
-            println!("Create new NSWindowDelegate");
-            let superclass = Class::get("NSObject").unwrap();
-            let mut decl = ClassDecl::new(superclass, "minifb_window_delegate").unwrap();
-            
-            // Add callback methods
-            decl.add_method(sel!(windowShouldClose:),
-            window_should_close as extern fn(&Object, Sel, id) -> BOOL);
-            decl.add_method(sel!(windowDidResize:),
-            window_did_resize as extern fn(&Object, Sel, id));
-
-            decl.add_method(sel!(windowDidBecomeKey:),
-            window_did_become_key as extern fn(&Object, Sel, id));
-            decl.add_method(sel!(windowDidResignKey:),
-            window_did_resign_key as extern fn(&Object, Sel, id));
-
-            // Store internal state as user data
-            decl.add_ivar::<*mut libc::c_void>("minifb_window_state");
-
-            delegate_class = decl.register();
-        });
-
-        unsafe {
-            delegate_class
-        }
-    }
-
-    fn new(state: DelegateState) -> WindowDelegate {
-        // Box the state so we can give a pointer to it
-        let mut state = Box::new(state);
-        let state_ptr: *mut DelegateState = &mut *state;
-        unsafe {
-            let delegate = IdRef::new(msg_send![WindowDelegate::class(), new]);
-
-            (&mut **delegate).set_ivar("minifb_window_state", state_ptr as *mut libc::c_void);
-            let _: () = msg_send![*state.window, setDelegate:*delegate];
-
-            println!("Setup delegate");
-
-            WindowDelegate { state: state, _this: delegate }
-        }
-    }
-}
-
-impl Drop for WindowDelegate {
-    fn drop(&mut self) {
-        unsafe {
-            // Nil the window's delegate so it doesn't still reference us
-            let _: () = msg_send![*self.state.window, setDelegate:nil];
-        }
-    }
-}
-
-impl ViewDelegate {
-    fn class() -> *const Class {
-        use std::sync::{Once, ONCE_INIT};
-
-        extern fn draw_rect(this: &Object, _: Sel, _: id) {
-            println!("draw_rect");
-        }
-
-        static mut delegate_class: *const Class = 0 as *const Class;
-        static INIT: Once = ONCE_INIT;
-
-        INIT.call_once(|| unsafe {
-            println!("Create new ViewDelegate");
-            let superclass = Class::get("NSObject").unwrap();
-            let mut decl = ClassDecl::new(superclass, "minifb_view_delegate").unwrap();
-
-            // Add callback methods
-            decl.add_method(sel!(drawRect:),
-            draw_rect as extern fn(&Object, Sel, id));
-            // Store internal state as user data
-            decl.add_ivar::<*mut libc::c_void>("minifb_view_state");
-
-            delegate_class = decl.register();
-        });
-
-        unsafe {
-            delegate_class
-        }
-    }
-
-    fn new(state: ViewDelegateState) -> ViewDelegate {
-        let mut state = Box::new(state);
-        let state_ptr: *mut ViewDelegateState = &mut *state;
-        unsafe {
-            let delegate = IdRef::new(msg_send![ViewDelegate::class(), new]);
-
-            (&mut **delegate).set_ivar("minifb_view_state", state_ptr as *mut libc::c_void); 
-            let _: () = msg_send![*state.view, setDelegate:*delegate];
-
-            ViewDelegate { state: state, _this: delegate }
-        }
-    }
-}
-
-impl Drop for ViewDelegate {
-    fn drop(&mut self) {
-        unsafe {
-            // Nil the views's delegate so it doesn't still reference us
-            let _: () = msg_send![*self.state.view, setDelegate:nil];
-        }
-    }
-}
-
-
 
 impl Window {
-    pub fn new(name: &str, width: usize, height: usize, _: Scale, _: Vsync) -> Result<Window, &str> {
-        unsafe  {
-            let app = match Self::create_app() {
-                Some(app) => app,
-                None => { 
-                    return Err("Couldn't create NSApplication"); 
-                },
-            };
-
-            let window = match Self::create_window(name, width, height) {
-                Some(window) => window,
-                None => {
-                    return Err("Unable to create NSWindow");
-                }
-            };
-
-            let view = match Self::create_view(*window) {
-                Some(view) => view,
-                None => {
-                    return Err("Unable to create NSView");
-                }
-            };
-
-            app.activateIgnoringOtherApps_(YES);
-            window.makeKeyAndOrderFront_(nil);
-
-            let ds = DelegateState {
-                view: view.clone(),
-                window: window.clone(),
-                resize_handler: None,
-            };
-
-            let vs = ViewDelegateState {
-                view: view.clone(),
-            };
-
-            println!("Created window and view");
-
-            return Ok(Window {
-                window: window,
-                view: view,
-                delegate: WindowDelegate::new(ds),
-                view_delegate: ViewDelegate::new(vs),
-            });
-        }
-    }
-
-    unsafe fn create_window(name: &str, width: usize, height: usize) -> Option<IdRef> {
-        let masks = NSResizableWindowMask as NSUInteger | 
-            NSClosableWindowMask as NSUInteger |
-            NSTitledWindowMask as NSUInteger;
-
-        let frame = NSRect::new(NSPoint::new(0., 0.), NSSize::new(width as f64, height as f64));
-
-        let window = IdRef::new(NSWindow::alloc(nil).initWithContentRect_styleMask_backing_defer_(
-                frame,
-                masks,
-                NSBackingStoreBuffered,
-                NO,
-                ));
-
-        window.non_nil().map(|window| {
-            let title = IdRef::new(NSString::alloc(nil).init_str(name));
-            window.setLevel_(NSMainMenuWindowLevel as i64 + 1);
-            window.setTitle_(*title);
-            window.center();
-            window
-        })
-    }
-
-    unsafe fn create_view(window: id) -> Option<IdRef> {
-        let view = IdRef::new(NSView::alloc(nil).init());
-        view.non_nil().map(|view| {
-            window.setContentView_(*view);
-            view
-        })
-    }
-
-    pub fn update(&self, _: &[u32]) { 
-        unsafe {
-            let event = NSApp().nextEventMatchingMask_untilDate_inMode_dequeue_(
-                NSAnyEventMask.bits(),
-                NSDate::distantPast(nil),
-                NSDefaultRunLoopMode,
-                YES);
-
-            if event != nil {
-                NSApp().sendEvent_(event);
+    pub fn new(name: &str,
+               width: usize,
+               height: usize,
+               scale: Scale)
+               -> Result<Window, &str> {
+        let n = match CString::new(name) {
+            Err(_) => { 
+                println!("Unable to convert {} to c_string", name);
+                return Err("Unable to set correct name"); 
             }
+            Ok(n) => n,
+        };
+
+        unsafe {
+            let handle = mfb_open(n.as_ptr(), width as u32, height as u32, scale as u32);
+
+            if handle == ptr::null_mut() {
+                return Err("Unable to open Window");
+            }
+            
+            Ok(Window { window_handle: handle })
         }
     }
 
-    pub fn get_keys() -> Option<Vec<Key>> {
-        return None;
+    pub fn update(&mut self, buffer: &[u32]) {
+        unsafe {
+            mfb_update(self.window_handle, buffer.as_ptr() as *const u8);
+        }
     }
 
-    pub fn is_esc_pressed() -> bool {
+    pub fn get_keys(&self) -> Option<Vec<Key>> {
+        None
+    }
+
+    pub fn get_keys_pressed(&self, _: KeyRepeat) -> Option<Vec<Key>> {
+        None
+    }
+
+    #[inline]
+    pub fn is_key_down(&self, _: Key) -> bool {
         false
     }
 
-    pub fn close() {
-
+    #[inline]
+    pub fn set_key_repeat_delay(&mut self, _: f32) {
     }
 
-    fn create_app() -> Option<id> {
-        unsafe {
-            let app = NSApp();
-            if app == nil {
-                None
-            } else {
-                app.setActivationPolicy_(NSApplicationActivationPolicyRegular);
-                Some(app)
-            }
-        }
-    }
-}
-
-
-
-struct IdRef(id);
-
-impl IdRef {
-    fn new(i: id) -> IdRef {
-        IdRef(i)
+    #[inline]
+    pub fn set_key_repeat_rate(&mut self, _: f32) {
     }
 
-    #[allow(dead_code)]
-    fn retain(i: id) -> IdRef {
-        if i != nil {
-            let _: id = unsafe { msg_send![i, retain] };
-        }
-        IdRef(i)
+    pub fn key_pressed(&self, _: usize, _: KeyRepeat) -> bool {
+        false
     }
 
-    fn non_nil(self) -> Option<IdRef> {
-        if self.0 == nil { None } else { Some(self) }
+    pub fn is_key_pressed(&self, _: Key, _: KeyRepeat) -> bool {
+        false
+    }
+
+    #[inline]
+    pub fn is_open(&self) -> bool {
+        true
     }
 }
 
-impl Drop for IdRef {
+impl Drop for Window {
     fn drop(&mut self) {
-        if self.0 != nil {
-            let _: () = unsafe { msg_send![self.0, release] };
+        unsafe {
+            mfb_close(self.window_handle);
         }
     }
 }
 
-impl Deref for IdRef {
-    type Target = id;
-    fn deref<'a>(&'a self) -> &'a id {
-        &self.0
-    }
-}
-
-impl Clone for IdRef {
-    fn clone(&self) -> IdRef {
-        if self.0 != nil {
-            let _: id = unsafe { msg_send![self.0, retain] };
-        }
-        IdRef(self.0)
-    }
-}
