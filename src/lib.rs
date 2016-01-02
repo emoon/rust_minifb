@@ -30,6 +30,7 @@ pub enum KeyRepeat {
     No,
 }
 
+#[derive(PartialEq, Clone, Copy)]
 pub enum Key {
     Key0 = 0,
     Key1 = 1,
@@ -144,10 +145,21 @@ pub enum Key {
     NumPadPlus,
     NumPadEnter,
 
-    Count = 103,
+    LeftAlt,
+    RightAlt,
+
+    LeftSuper,
+    RightSuper,
+
+    /// Used when an Unknown key has been pressed
+    Unknown,
+
+    Count = 107,
 }
 
 extern crate libc;
+
+pub mod key_handler;
 
 #[cfg(target_os = "windows")]
 pub mod windows;

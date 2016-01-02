@@ -6,9 +6,7 @@ extern crate winapi;
 extern crate gdi32;
 extern crate time;
 
-use Scale;
-use Key;
-use KeyRepeat;
+use {Scale, Key, KeyRepeat, KeyHandler};
 
 use std::ptr;
 use std::os::windows::ffi::OsStrExt;
@@ -217,17 +215,12 @@ fn to_wstring(str: &str) -> Vec<u16> {
 pub struct Window {
     dc: Option<HDC>,
     window: Option<HWND>,
-    keys: [bool; 512],
-    keys_down_duration: [f32; 512],
     buffer: Vec<u32>,
     is_open : bool,
     scale_factor: i32,
     width: i32,
     height: i32,
-    prev_time: f64,
-    delta_time: f32,
-    key_repeat_delay: f32,
-    key_repeat_rate: f32,
+    key_handler: KeyHandler,
 }
 
 impl Window {
@@ -316,13 +309,8 @@ impl Window {
             let window = Window {
                 dc: Some(user32::GetDC(handle.unwrap())),
                 window: Some(handle.unwrap()),
-                keys: [false; 512],
-                keys_down_duration: [-1.0; 512],
-                prev_time: time::precise_time_s(),
-                delta_time: 0.0,
-                key_repeat_delay: 0.250,
-                key_repeat_rate: 0.050,
                 buffer: Vec::new(),
+                key_handler: KeyHandler::new(),
                 is_open: true,
                 scale_factor: scale_factor,
                 width: width as i32,
@@ -414,23 +402,6 @@ impl Window {
         unsafe {
             let mut msg = mem::uninitialized();
             let window = self.window.unwrap();
-
-            let current_time = time::precise_time_s();
-            let delta_time = (current_time - self.prev_time) as f32;
-            self.prev_time = current_time;
-            self.delta_time = delta_time;
-
-            for i in 0..self.keys.len() {
-                if self.keys[i] {
-                    if self.keys_down_duration[i] < 0.0 {
-                        self.keys_down_duration[i] = 0.0;
-                    } else {
-                        self.keys_down_duration[i] += delta_time;
-                    }
-                } else {
-                    self.keys_down_duration[i] = -1.0;
-                }
-            }
 
             // TODO: Optimize
 

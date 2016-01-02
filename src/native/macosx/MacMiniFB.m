@@ -5,6 +5,7 @@
 
 static bool s_init = false;
 
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void* mfb_open(const char* name, int width, int height, int scale)
@@ -25,6 +26,12 @@ void* mfb_open(const char* name, int width, int height, int scale)
 	if (!window)
 		return 0;
 
+	NSRect e = [[NSScreen mainScreen] frame];
+	int H = (int)e.size.height;
+	int W = (int)e.size.width;
+
+	printf("H %d W %d\n", W, H);
+
 	window->draw_buffer = malloc(width * height * 4);
 
 	if (!window->draw_buffer)
@@ -33,6 +40,7 @@ void* mfb_open(const char* name, int width, int height, int scale)
 	window->width = width;
 	window->height = height;
 	window->scale = scale;
+	window->key_callback = 0;
 
 	[window updateSize];
 
@@ -88,3 +96,31 @@ int mfb_update(void* window, void* buffer)
 	[[win contentView] setNeedsDisplay:YES];
 	return state;
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+int mfb_should_close(void* window) 
+{
+	OSXWindow* win = (OSXWindow*)window;
+	return win->should_close;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+uint32_t mfb_get_screen_size() 
+{
+	NSRect e = [[NSScreen mainScreen] frame];
+	uint32_t w = (uint32_t)e.size.width;
+	uint32_t h = (uint32_t)e.size.height;
+	return (w << 16) | h;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void mfb_set_key_callback(void* window, void* rust_data, void (*key_callback)(void* user_data, int key, int state))
+{
+	OSXWindow* win = (OSXWindow*)window;
+	win->key_callback = key_callback;
+	win->rust_data = rust_data;
+}
+
