@@ -6,7 +6,9 @@ extern crate winapi;
 extern crate gdi32;
 extern crate time;
 
-use {Scale, Key, KeyRepeat, KeyHandler};
+use {Scale, Key, KeyRepeat};
+
+use key_handler::KeyHandler;
 
 use std::ptr;
 use std::os::windows::ffi::OsStrExt;
@@ -29,105 +31,105 @@ struct BitmapInfo {
 
 fn update_key_state(window: &mut Window, wparam: u32, state: bool) {
     match wparam & 0x1ff {
-        0x00B => window.keys[Key::Key0 as usize] = state,
-        0x002 => window.keys[Key::Key1 as usize] = state,
-        0x003 => window.keys[Key::Key2 as usize] = state,
-        0x004 => window.keys[Key::Key3 as usize] = state,
-        0x005 => window.keys[Key::Key4 as usize] = state,
-        0x006 => window.keys[Key::Key5 as usize] = state,
-        0x007 => window.keys[Key::Key6 as usize] = state,
-        0x008 => window.keys[Key::Key7 as usize] = state,
-        0x009 => window.keys[Key::Key8 as usize] = state,
-        0x00A => window.keys[Key::Key9 as usize] = state,
-        0x01E => window.keys[Key::A as usize] = state,
-        0x030 => window.keys[Key::B as usize] = state,
-        0x02E => window.keys[Key::C as usize] = state,
-        0x020 => window.keys[Key::D as usize] = state,
-        0x012 => window.keys[Key::E as usize] = state,
-        0x021 => window.keys[Key::F as usize] = state,
-        0x022 => window.keys[Key::G as usize] = state,
-        0x023 => window.keys[Key::H as usize] = state,
-        0x017 => window.keys[Key::I as usize] = state,
-        0x024 => window.keys[Key::J as usize] = state,
-        0x025 => window.keys[Key::K as usize] = state,
-        0x026 => window.keys[Key::L as usize] = state,
-        0x032 => window.keys[Key::M as usize] = state,
-        0x031 => window.keys[Key::N as usize] = state,
-        0x018 => window.keys[Key::O as usize] = state,
-        0x019 => window.keys[Key::P as usize] = state,
-        0x010 => window.keys[Key::Q as usize] = state,
-        0x013 => window.keys[Key::R as usize] = state,
-        0x01F => window.keys[Key::S as usize] = state,
-        0x014 => window.keys[Key::T as usize] = state,
-        0x016 => window.keys[Key::U as usize] = state,
-        0x02F => window.keys[Key::V as usize] = state,
-        0x011 => window.keys[Key::W as usize] = state,
-        0x02D => window.keys[Key::X as usize] = state,
-        0x015 => window.keys[Key::Y as usize] = state,
-        0x02C => window.keys[Key::Z as usize] = state,
-        0x03B => window.keys[Key::F1 as usize] = state,
-        0x03C => window.keys[Key::F2 as usize] = state,
-        0x03D => window.keys[Key::F3 as usize] = state,
-        0x03E => window.keys[Key::F4 as usize] = state,
-        0x03F => window.keys[Key::F5 as usize] = state,
-        0x040 => window.keys[Key::F6 as usize] = state,
-        0x041 => window.keys[Key::F7 as usize] = state,
-        0x042 => window.keys[Key::F8 as usize] = state,
-        0x043 => window.keys[Key::F9 as usize] = state,
-        0x044 => window.keys[Key::F10 as usize] = state,
-        0x057 => window.keys[Key::F11 as usize] = state,
-        0x058 => window.keys[Key::F12 as usize] = state,
-        0x150 => window.keys[Key::Down as usize] = state,
-        0x14B => window.keys[Key::Left as usize] = state,
-        0x14D => window.keys[Key::Right as usize] = state,
-        0x148 => window.keys[Key::Up as usize] = state,
-        0x028 => window.keys[Key::Apostrophe as usize] = state,
-        0x029 => window.keys[Key::Backquote as usize] = state,
-        0x02B => window.keys[Key::Backslash as usize] = state,
-        0x033 => window.keys[Key::Comma as usize] = state,
-        0x00D => window.keys[Key::Equal as usize] = state,
-        0x01A => window.keys[Key::LeftBracket as usize] = state,
-        0x00C => window.keys[Key::Minus as usize] = state,
-        0x034 => window.keys[Key::Period as usize] = state,
-        0x01B => window.keys[Key::RightBracket as usize] = state,
-        0x027 => window.keys[Key::Semicolon as usize] = state,
-        0x035 => window.keys[Key::Slash as usize] = state,
-        0x00E => window.keys[Key::Backspace as usize] = state,
-        0x153 => window.keys[Key::Delete as usize] = state,
-        0x14F => window.keys[Key::End as usize] = state,
-        0x01C => window.keys[Key::Enter as usize] = state,
-        0x001 => window.keys[Key::Escape as usize] = state,
-        0x147 => window.keys[Key::Home as usize] = state,
-        0x152 => window.keys[Key::Insert as usize] = state,
-        0x15D => window.keys[Key::Menu as usize] = state,
-        0x151 => window.keys[Key::PageDown as usize] = state,
-        0x149 => window.keys[Key::PageUp as usize] = state,
-        0x045 => window.keys[Key::Pause as usize] = state,
-        0x039 => window.keys[Key::Space as usize] = state,
-        0x00F => window.keys[Key::Tab as usize] = state,
-        0x145 => window.keys[Key::NumLock as usize] = state,
-        0x03A => window.keys[Key::CapsLock as usize] = state,
-        0x046 => window.keys[Key::ScrollLock as usize] = state,
-        0x02A => window.keys[Key::LeftShift as usize] = state,
-        0x036 => window.keys[Key::RightShift as usize] = state,
-        0x01D => window.keys[Key::LeftCtrl as usize] = state,
-        0x11D => window.keys[Key::RightCtrl as usize] = state,
-        0x052 => window.keys[Key::NumPad0 as usize] = state,
-        0x04F => window.keys[Key::NumPad1 as usize] = state,
-        0x050 => window.keys[Key::NumPad2 as usize] = state,
-        0x051 => window.keys[Key::NumPad3 as usize] = state,
-        0x04B => window.keys[Key::NumPad4 as usize] = state,
-        0x04C => window.keys[Key::NumPad5 as usize] = state,
-        0x04D => window.keys[Key::NumPad6 as usize] = state,
-        0x047 => window.keys[Key::NumPad7 as usize] = state,
-        0x048 => window.keys[Key::NumPad8 as usize] = state,
-        0x049 => window.keys[Key::NumPad9 as usize] = state,
-        0x053 => window.keys[Key::NumPadDot as usize] = state,
-        0x135 => window.keys[Key::NumPadSlash as usize] = state,
-        0x037 => window.keys[Key::NumPadAsterisk as usize] = state,
-        0x04A => window.keys[Key::NumPadMinus as usize] = state,
-        0x04E => window.keys[Key::NumPadPlus as usize] = state,
-        0x11C => window.keys[Key::NumPadEnter as usize] = state,
+        0x00B => window.key_handler.set_key_state(Key::Key0, state),
+        0x002 => window.key_handler.set_key_state(Key::Key1, state),
+        0x003 => window.key_handler.set_key_state(Key::Key2, state),
+        0x004 => window.key_handler.set_key_state(Key::Key3, state),
+        0x005 => window.key_handler.set_key_state(Key::Key4, state),
+        0x006 => window.key_handler.set_key_state(Key::Key5, state),
+        0x007 => window.key_handler.set_key_state(Key::Key6, state),
+        0x008 => window.key_handler.set_key_state(Key::Key7, state),
+        0x009 => window.key_handler.set_key_state(Key::Key8, state),
+        0x00A => window.key_handler.set_key_state(Key::Key9, state),
+        0x01E => window.key_handler.set_key_state(Key::A, state),
+        0x030 => window.key_handler.set_key_state(Key::B, state),
+        0x02E => window.key_handler.set_key_state(Key::C, state),
+        0x020 => window.key_handler.set_key_state(Key::D, state),
+        0x012 => window.key_handler.set_key_state(Key::E, state),
+        0x021 => window.key_handler.set_key_state(Key::F, state),
+        0x022 => window.key_handler.set_key_state(Key::G, state),
+        0x023 => window.key_handler.set_key_state(Key::H, state),
+        0x017 => window.key_handler.set_key_state(Key::I, state),
+        0x024 => window.key_handler.set_key_state(Key::J, state),
+        0x025 => window.key_handler.set_key_state(Key::K, state),
+        0x026 => window.key_handler.set_key_state(Key::L, state),
+        0x032 => window.key_handler.set_key_state(Key::M, state),
+        0x031 => window.key_handler.set_key_state(Key::N, state),
+        0x018 => window.key_handler.set_key_state(Key::O, state),
+        0x019 => window.key_handler.set_key_state(Key::P, state),
+        0x010 => window.key_handler.set_key_state(Key::Q, state),
+        0x013 => window.key_handler.set_key_state(Key::R, state),
+        0x01F => window.key_handler.set_key_state(Key::S, state),
+        0x014 => window.key_handler.set_key_state(Key::T, state),
+        0x016 => window.key_handler.set_key_state(Key::U, state),
+        0x02F => window.key_handler.set_key_state(Key::V, state),
+        0x011 => window.key_handler.set_key_state(Key::W, state),
+        0x02D => window.key_handler.set_key_state(Key::X, state),
+        0x015 => window.key_handler.set_key_state(Key::Y, state),
+        0x02C => window.key_handler.set_key_state(Key::Z, state),
+        0x03B => window.key_handler.set_key_state(Key::F1, state),
+        0x03C => window.key_handler.set_key_state(Key::F2, state),
+        0x03D => window.key_handler.set_key_state(Key::F3, state),
+        0x03E => window.key_handler.set_key_state(Key::F4, state),
+        0x03F => window.key_handler.set_key_state(Key::F5, state),
+        0x040 => window.key_handler.set_key_state(Key::F6, state),
+        0x041 => window.key_handler.set_key_state(Key::F7, state),
+        0x042 => window.key_handler.set_key_state(Key::F8, state),
+        0x043 => window.key_handler.set_key_state(Key::F9, state),
+        0x044 => window.key_handler.set_key_state(Key::F10, state),
+        0x057 => window.key_handler.set_key_state(Key::F11, state),
+        0x058 => window.key_handler.set_key_state(Key::F12, state),
+        0x150 => window.key_handler.set_key_state(Key::Down, state),
+        0x14B => window.key_handler.set_key_state(Key::Left, state),
+        0x14D => window.key_handler.set_key_state(Key::Right, state),
+        0x148 => window.key_handler.set_key_state(Key::Up, state),
+        0x028 => window.key_handler.set_key_state(Key::Apostrophe, state),
+        0x029 => window.key_handler.set_key_state(Key::Backquote, state),
+        0x02B => window.key_handler.set_key_state(Key::Backslash, state),
+        0x033 => window.key_handler.set_key_state(Key::Comma, state),
+        0x00D => window.key_handler.set_key_state(Key::Equal, state),
+        0x01A => window.key_handler.set_key_state(Key::LeftBracket, state),
+        0x00C => window.key_handler.set_key_state(Key::Minus, state),
+        0x034 => window.key_handler.set_key_state(Key::Period, state),
+        0x01B => window.key_handler.set_key_state(Key::RightBracket, state),
+        0x027 => window.key_handler.set_key_state(Key::Semicolon, state),
+        0x035 => window.key_handler.set_key_state(Key::Slash, state),
+        0x00E => window.key_handler.set_key_state(Key::Backspace, state),
+        0x153 => window.key_handler.set_key_state(Key::Delete, state),
+        0x14F => window.key_handler.set_key_state(Key::End, state),
+        0x01C => window.key_handler.set_key_state(Key::Enter, state),
+        0x001 => window.key_handler.set_key_state(Key::Escape, state),
+        0x147 => window.key_handler.set_key_state(Key::Home, state),
+        0x152 => window.key_handler.set_key_state(Key::Insert, state),
+        0x15D => window.key_handler.set_key_state(Key::Menu, state),
+        0x151 => window.key_handler.set_key_state(Key::PageDown, state),
+        0x149 => window.key_handler.set_key_state(Key::PageUp, state),
+        0x045 => window.key_handler.set_key_state(Key::Pause, state),
+        0x039 => window.key_handler.set_key_state(Key::Space, state),
+        0x00F => window.key_handler.set_key_state(Key::Tab, state),
+        0x145 => window.key_handler.set_key_state(Key::NumLock, state),
+        0x03A => window.key_handler.set_key_state(Key::CapsLock, state),
+        0x046 => window.key_handler.set_key_state(Key::ScrollLock, state),
+        0x02A => window.key_handler.set_key_state(Key::LeftShift, state),
+        0x036 => window.key_handler.set_key_state(Key::RightShift, state),
+        0x01D => window.key_handler.set_key_state(Key::LeftCtrl, state),
+        0x11D => window.key_handler.set_key_state(Key::RightCtrl, state),
+        0x052 => window.key_handler.set_key_state(Key::NumPad0, state),
+        0x04F => window.key_handler.set_key_state(Key::NumPad1, state),
+        0x050 => window.key_handler.set_key_state(Key::NumPad2, state),
+        0x051 => window.key_handler.set_key_state(Key::NumPad3, state),
+        0x04B => window.key_handler.set_key_state(Key::NumPad4, state),
+        0x04C => window.key_handler.set_key_state(Key::NumPad5, state),
+        0x04D => window.key_handler.set_key_state(Key::NumPad6, state),
+        0x047 => window.key_handler.set_key_state(Key::NumPad7, state),
+        0x048 => window.key_handler.set_key_state(Key::NumPad8, state),
+        0x049 => window.key_handler.set_key_state(Key::NumPad9, state),
+        0x053 => window.key_handler.set_key_state(Key::NumPadDot, state),
+        0x135 => window.key_handler.set_key_state(Key::NumPadSlash, state),
+        0x037 => window.key_handler.set_key_state(Key::NumPadAsterisk, state),
+        0x04A => window.key_handler.set_key_state(Key::NumPadMinus, state),
+        0x04E => window.key_handler.set_key_state(Key::NumPadPlus, state),
+        0x11C => window.key_handler.set_key_state(Key::NumPadEnter, state),
         _ => (),
     }
 }
@@ -300,7 +302,7 @@ impl Window {
         unsafe {
             let scale_factor = Self::get_scale_factor(width, height, scale);
 
-            let handle = Self::open_window(name, width, height, scale_factor, vsync);
+            let handle = Self::open_window(name, width, height, scale_factor);
 
             if handle.is_none() {
                 return Err("Unable to create Window");
@@ -321,77 +323,36 @@ impl Window {
         }
     }
 
+    #[inline]
     pub fn get_keys(&self) -> Option<Vec<Key>> {
-        let mut index: u16 = 0;
-        let mut keys: Vec<Key> = Vec::new();
-
-        for i in self.keys.iter() {
-            if *i {
-                unsafe {
-                    keys.push(mem::transmute(index as u8));
-                }
-            }
-
-            index += 1;
-        }
-
-        Some(keys)
+        self.key_handler.get_keys()
     }
 
+    #[inline]
     pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
-        let mut index: u16 = 0;
-        let mut keys: Vec<Key> = Vec::new();
-
-        for i in self.keys.iter() {
-            if *i {
-                unsafe {
-                    if Self::key_pressed(self, index as usize, repeat) {
-                        keys.push(mem::transmute(index as u8));
-                    }
-                }
-            }
-
-            index += 1;
-        }
-
-        Some(keys)
+        self.key_handler.get_keys_pressed(repeat)
     }
 
     #[inline]
     pub fn is_key_down(&self, key: Key) -> bool {
-        return self.keys[key as usize];
+        self.key_handler.is_key_down(key)
     }
 
     #[inline]
     pub fn set_key_repeat_delay(&mut self, delay: f32) {
-        self.key_repeat_delay = delay;
+        self.key_handler.set_key_repeat_delay(delay)
     }
 
     #[inline]
     pub fn set_key_repeat_rate(&mut self, rate: f32) {
-        self.key_repeat_rate = rate;
+        self.key_handler.set_key_repeat_rate(rate)
     }
 
-    pub fn key_pressed(&self, index: usize, repeat: KeyRepeat) -> bool {
-        let t = self.keys_down_duration[index];
-
-        if t == 0.0 {
-            return true;
-        }
-
-        if repeat == KeyRepeat::Yes && t > self.key_repeat_delay {
-            let delay = self.key_repeat_delay;
-            let rate = self.key_repeat_rate;
-            if ((((t - delay) % rate) > rate * 0.5)) != (((t - delay - self.delta_time) % rate) > rate * 0.5) {
-                return true;
-            }
-        }
-        return false;
-    }
-
+    #[inline]
     pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
-        return Self::key_pressed(self, key as usize, repeat);
+        self.key_handler.is_key_pressed(key, repeat)
     }
+
 
     #[inline]
     pub fn is_open(&self) -> bool {
@@ -402,6 +363,8 @@ impl Window {
         unsafe {
             let mut msg = mem::uninitialized();
             let window = self.window.unwrap();
+
+            self.key_handler.update();
 
             // TODO: Optimize
 
