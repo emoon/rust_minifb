@@ -5,6 +5,7 @@ authors = ["Daniel Collin <daniel@collin.com>"]
 description = "Cross-platform window setup for bitmap rendering"
 keywords = ["windowing", "framebuffer"]
 repository = "https://github.com/emoon/rust_minifb"
+documentation = "http://prodbg.com/minifb/minifb/index.html"
 build = "build.rs"
 
 [build-dependencies]
