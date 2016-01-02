@@ -12,11 +12,13 @@ fn main() {
 
     let mut buffer: [u32; WIDTH * HEIGHT] = [0; WIDTH * HEIGHT];
 
-    let mut window = Window::new("Noise Test - Press ESC to exit",
-                                 WIDTH,
-                                 HEIGHT,
-                                 Scale::X2)
-                         .unwrap();
+    let mut window = match Window::new("Noise Test - Press ESC to exit", WIDTH, HEIGHT, Scale::X2) {
+        Ok(win) => win,
+        Err(err) => {
+            println!("Unable to create window {}", err);
+            return;
+        }
+    };
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         for i in buffer.iter_mut() {
