@@ -19,7 +19,7 @@ fn main() {
                                  Vsync::No)
                          .unwrap();
 
-    while window.update(&buffer) {
+    while window.is_open() && !window.is_key_down(Key::Escape) {
         for i in buffer.iter_mut() {
             noise = seed;
             noise >>= 3;
@@ -32,12 +32,17 @@ fn main() {
             *i = (noise << 16) | (noise << 8) | noise;
         }
 
-        for key in window.get_keys().iter() {
-            match *key {
-                Key::A => println!("Pressed A"),
-                Key::B => println!("Pressed B"),
-                _ => (),
+        window.get_keys_pressed(KeyRepeat::No).map(|keys| {
+            for t in keys.iter() {
+                match *t {
+                    Key::W => println!("holding w!"),
+                    Key::T => println!("holding t!"),
+                    _ => (),
+                }
             }
-        }
+        });
+
+
+        window.update(&buffer);
     }
 }

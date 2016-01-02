@@ -4,12 +4,13 @@ extern crate user32;
 extern crate kernel32;
 extern crate winapi;
 extern crate gdi32;
+extern crate time;
 
 use Scale;
 use Vsync;
 use Key;
+use KeyRepeat;
 
-use std::ffi::CString;
 use std::ptr;
 use std::os::windows::ffi::OsStrExt;
 use std::ffi::OsStr;
@@ -21,8 +22,6 @@ use self::winapi::winuser::WS_OVERLAPPEDWINDOW;
 use self::winapi::winuser::WNDCLASSW;
 use self::winapi::wingdi::BITMAPINFOHEADER;
 use self::winapi::wingdi::RGBQUAD;
-
-static mut CLOSE_APP: bool = false;
 
 // Wrap this so we can have a proper numbef of bmiColors to write in
 #[repr(C)]
@@ -86,6 +85,7 @@ fn update_key_state(window: &mut Window, wparam: u32, state: bool) {
         0x14D => window.keys[Key::Right as usize] = state,
         0x148 => window.keys[Key::Up as usize] = state,
         0x028 => window.keys[Key::Apostrophe as usize] = state,
+        0x029 => window.keys[Key::Backquote as usize] = state,
         0x02B => window.keys[Key::Backslash as usize] = state,
         0x033 => window.keys[Key::Comma as usize] = state,
         0x00D => window.keys[Key::Equal as usize] = state,
@@ -108,7 +108,29 @@ fn update_key_state(window: &mut Window, wparam: u32, state: bool) {
         0x045 => window.keys[Key::Pause as usize] = state,
         0x039 => window.keys[Key::Space as usize] = state,
         0x00F => window.keys[Key::Tab as usize] = state,
+        0x145 => window.keys[Key::NumLock as usize] = state,
         0x03A => window.keys[Key::CapsLock as usize] = state,
+        0x046 => window.keys[Key::ScrollLock as usize] = state,
+        0x02A => window.keys[Key::LeftShift as usize] = state,
+        0x036 => window.keys[Key::RightShift as usize] = state,
+        0x01D => window.keys[Key::LeftCtrl as usize] = state,
+        0x11D => window.keys[Key::RightCtrl as usize] = state,
+        0x052 => window.keys[Key::NumPad0 as usize] = state,
+        0x04F => window.keys[Key::NumPad1 as usize] = state,
+        0x050 => window.keys[Key::NumPad2 as usize] = state,
+        0x051 => window.keys[Key::NumPad3 as usize] = state,
+        0x04B => window.keys[Key::NumPad4 as usize] = state,
+        0x04C => window.keys[Key::NumPad5 as usize] = state,
+        0x04D => window.keys[Key::NumPad6 as usize] = state,
+        0x047 => window.keys[Key::NumPad7 as usize] = state,
+        0x048 => window.keys[Key::NumPad8 as usize] = state,
+        0x049 => window.keys[Key::NumPad9 as usize] = state,
+        0x053 => window.keys[Key::NumPadDot as usize] = state,
+        0x135 => window.keys[Key::NumPadSlash as usize] = state,
+        0x037 => window.keys[Key::NumPadAsterisk as usize] = state,
+        0x04A => window.keys[Key::NumPadMinus as usize] = state,
+        0x04E => window.keys[Key::NumPadPlus as usize] = state,
+        0x11C => window.keys[Key::NumPadEnter as usize] = state,
         _ => (),
     }
 }
@@ -133,30 +155,27 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
     match msg {
         winapi::winuser::WM_KEYDOWN => {
             update_key_state(wnd, (lparam as u32) >> 16, true);
-            if (wparam & 0x1ff) == 27 {
-                CLOSE_APP = true;
-            }
+            return 0;
+        }
+
+        winapi::winuser::WM_CLOSE => {
+            wnd.is_open = false;
         }
 
         winapi::winuser::WM_KEYUP => {
             update_key_state(wnd, (lparam as u32) >> 16, false);
+            return 0;
         }
 
         winapi::winuser::WM_PAINT => {
-            let mut rect: winapi::RECT = mem::uninitialized();
-
-            user32::GetClientRect(window, &mut rect);
-
             let mut bitmap_info: BitmapInfo = mem::zeroed();
-            let width = rect.right - rect.left;
-            let height = rect.bottom - rect.top;
 
             bitmap_info.bmi_header.biSize = mem::size_of::<BITMAPINFOHEADER>() as u32;
             bitmap_info.bmi_header.biPlanes = 1;
             bitmap_info.bmi_header.biBitCount = 32;
             bitmap_info.bmi_header.biCompression = winapi::wingdi::BI_BITFIELDS;
-            bitmap_info.bmi_header.biWidth = width;
-            bitmap_info.bmi_header.biHeight = -height;
+            bitmap_info.bmi_header.biWidth = wnd.width;
+            bitmap_info.bmi_header.biHeight = -wnd.height;
             bitmap_info.bmi_colors[0].rgbRed = 0xff;
             bitmap_info.bmi_colors[1].rgbGreen = 0xff;
             bitmap_info.bmi_colors[2].rgbBlue = 0xff;
@@ -164,19 +183,22 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
             gdi32::StretchDIBits(wnd.dc.unwrap(),
                                  0,
                                  0,
-                                 width,
-                                 height,
+                                 wnd.width * wnd.scale_factor,
+                                 wnd.height * wnd.scale_factor,
                                  0,
                                  0,
-                                 width,
-                                 height,
+                                 wnd.width,
+                                 wnd.height,
                                  mem::transmute(wnd.buffer.as_ptr()),
                                  mem::transmute(&bitmap_info),
                                  winapi::wingdi::DIB_RGB_COLORS,
                                  winapi::wingdi::SRCCOPY);
 
             user32::ValidateRect(window, ptr::null_mut());
+
+            return 0;
         }
+
         _ => (),
     }
 
@@ -187,24 +209,32 @@ pub enum MinifbError {
     UnableToCreateWindow,
 }
 
-fn to_wstring(str: &str) -> *const u16 {
-    let v: Vec<u16> = OsStr::new(str).encode_wide().chain(Some(0).into_iter()).collect();
-    v.as_ptr()
+fn to_wstring(str: &str) -> Vec<u16> {
+    let mut v: Vec<u16> = OsStr::new(str).encode_wide().chain(Some(0).into_iter()).collect();
+    v.push(0u16);
+    v
 }
 
 pub struct Window {
     dc: Option<HDC>,
     window: Option<HWND>,
     keys: [bool; 512],
+    keys_down_duration: [f32; 512],
     buffer: Vec<u32>,
+    is_open : bool,
+    scale_factor: i32,
+    width: i32,
+    height: i32,
+    prev_time: f64,
+    delta_time: f32,
+    key_repeat_delay: f32,
+    key_repeat_rate: f32,
 }
 
 impl Window {
-    fn open_window(name: &str, width: usize, height: usize, _: Scale, _: Vsync) -> HWND {
+    fn open_window(name: &str, width: usize, height: usize, scale_factor: i32, _: Vsync) -> Option<HWND> {
         unsafe {
             let class_name = to_wstring("minifb_window");
-            let s = CString::new(name).unwrap();
-
             let class = WNDCLASSW {
                 style: winapi::CS_HREDRAW | winapi::CS_VREDRAW | winapi::CS_OWNDC,
                 lpfnWndProc: Some(wnd_proc),
@@ -215,16 +245,25 @@ impl Window {
                 hCursor: ptr::null_mut(),
                 hbrBackground: ptr::null_mut(),
                 lpszMenuName: ptr::null(),
-                lpszClassName: class_name,
+                lpszClassName: class_name.as_ptr(),
             };
 
-            user32::RegisterClassW(&class);
+            if user32::RegisterClassW(&class) == 0 {
+                // ignore the "Class already exists" error for multiple windows
+                if kernel32::GetLastError() as u32 != 1410 {
+                    println!("Unable to register class, error {}", kernel32::GetLastError() as u32);
+                    return None;
+                }
+            }
+
+            let new_width = width * scale_factor as usize;
+            let new_height = height * scale_factor as usize;
 
             let mut rect = winapi::RECT {
                 left: 0,
-                right: width as winapi::LONG,
+                right: new_width as winapi::LONG,
                 top: 0,
-                bottom: height as winapi::LONG,
+                bottom: new_height as winapi::LONG,
             };
 
             user32::AdjustWindowRect(&mut rect,
@@ -234,9 +273,11 @@ impl Window {
             rect.right -= rect.left;
             rect.bottom -= rect.top;
 
-            let handle = user32::CreateWindowExA(0,
-                                                 "minifb_window".as_ptr() as *mut _,
-                                                 s.as_ptr(),
+            let window_name = to_wstring(name);
+
+            let handle = user32::CreateWindowExW(0,
+                                                 class_name.as_ptr(), 
+                                                 window_name.as_ptr(),
                                                  winapi::WS_OVERLAPPEDWINDOW &
                                                  !winapi::WS_MAXIMIZEBOX &
                                                  !winapi::WS_THICKFRAME,
@@ -248,13 +289,14 @@ impl Window {
                                                  ptr::null_mut(),
                                                  ptr::null_mut(),
                                                  ptr::null_mut());
-
-            if !handle.is_null() {
-                user32::ShowWindow(handle, winapi::SW_NORMAL);
+            if handle.is_null() {
+                println!("Unable to create window, error {}", kernel32::GetLastError() as u32);
+                return None;
             }
 
+            user32::ShowWindow(handle, winapi::SW_NORMAL);
 
-            return handle;
+            return Some(handle);
         }
     }
 
@@ -265,44 +307,132 @@ impl Window {
                vsync: Vsync)
                -> Result<Window, &str> {
         unsafe {
-            let handle = Self::open_window(name, width, height, scale, vsync);
+            let scale_factor = Self::get_scale_factor(width, height, scale);
 
-            if handle.is_null() {
+            let handle = Self::open_window(name, width, height, scale_factor, vsync);
+
+            if handle.is_none() {
                 return Err("Unable to create Window");
             }
 
             let window = Window {
-                dc: Some(user32::GetDC(handle)),
-                window: Some(handle),
+                dc: Some(user32::GetDC(handle.unwrap())),
+                window: Some(handle.unwrap()),
                 keys: [false; 512],
+                keys_down_duration: [-1.0; 512],
+                prev_time: time::precise_time_s(),
+                delta_time: 0.0,
+                key_repeat_delay: 0.250,
+                key_repeat_rate: 0.050,
                 buffer: Vec::new(),
+                is_open: true,
+                scale_factor: scale_factor,
+                width: width as i32,
+                height: height as i32,
             };
 
             Ok(window)
         }
     }
 
-    pub fn get_keys(&self) -> Vec<Key> {
-        let mut index: u8 = 0;
+    pub fn get_keys(&self) -> Option<Vec<Key>> {
+        let mut index: u16 = 0;
         let mut keys: Vec<Key> = Vec::new();
 
         for i in self.keys.iter() {
             if *i {
                 unsafe {
-                    keys.push(mem::transmute(index));
+                    keys.push(mem::transmute(index as u8));
                 }
             }
 
             index += 1;
         }
 
-        keys
+        Some(keys)
     }
 
-    pub fn update(&mut self, buffer: &[u32]) -> bool {
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
+        let mut index: u16 = 0;
+        let mut keys: Vec<Key> = Vec::new();
+
+        for i in self.keys.iter() {
+            if *i {
+                unsafe {
+                    if Self::key_pressed(self, index as usize, repeat) {
+                        keys.push(mem::transmute(index as u8));
+                    }
+                }
+            }
+
+            index += 1;
+        }
+
+        Some(keys)
+    }
+
+    #[inline]
+    pub fn is_key_down(&self, key: Key) -> bool {
+        return self.keys[key as usize];
+    }
+
+    #[inline]
+    pub fn set_key_repeat_delay(&mut self, delay: f32) {
+        self.key_repeat_delay = delay;
+    }
+
+    #[inline]
+    pub fn set_key_repeat_rate(&mut self, rate: f32) {
+        self.key_repeat_rate = rate;
+    }
+
+    pub fn key_pressed(&self, index: usize, repeat: KeyRepeat) -> bool {
+        let t = self.keys_down_duration[index];
+
+        if t == 0.0 {
+            return true;
+        }
+
+        if repeat == KeyRepeat::Yes && t > self.key_repeat_delay {
+            let delay = self.key_repeat_delay;
+            let rate = self.key_repeat_rate;
+            if ((((t - delay) % rate) > rate * 0.5)) != (((t - delay - self.delta_time) % rate) > rate * 0.5) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
+        return Self::key_pressed(self, key as usize, repeat);
+    }
+
+    #[inline]
+    pub fn is_open(&self) -> bool {
+        return self.is_open
+    }
+
+    pub fn update(&mut self, buffer: &[u32]) {
         unsafe {
             let mut msg = mem::uninitialized();
             let window = self.window.unwrap();
+
+            let current_time = time::precise_time_s();
+            let delta_time = (current_time - self.prev_time) as f32;
+            self.prev_time = current_time;
+            self.delta_time = delta_time;
+
+            for i in 0..self.keys.len() {
+                if self.keys[i] {
+                    if self.keys_down_duration[i] < 0.0 {
+                        self.keys_down_duration[i] = 0.0;
+                    } else {
+                        self.keys_down_duration[i] += delta_time;
+                    }
+                } else {
+                    self.keys_down_duration[i] = -1.0;
+                }
+            }
 
             // TODO: Optimize
 
@@ -316,10 +446,38 @@ impl Window {
                 user32::DispatchMessageW(&mut msg);
             }
         }
+    }
 
-        unsafe {
-            return !CLOSE_APP;
-        }
+    unsafe fn get_scale_factor(width: usize, height: usize, scale: Scale) -> i32 {
+        let factor: i32 = match scale {
+            Scale::X1 => 1,
+            Scale::X2 => 2,
+            Scale::X4 => 4,
+            Scale::X8 => 8,
+            Scale::X16 => 16,
+            Scale::X32 => 32,
+            Scale::FitScreen => {
+                let screen_x = user32::GetSystemMetrics(winapi::winuser::SM_CXSCREEN) as i32;
+                let screen_y = user32::GetSystemMetrics(winapi::winuser::SM_CYSCREEN) as i32;
+
+                let mut scale = 1i32;
+
+                loop {
+                    let w = width as i32 * (scale + 1);
+                    let h = height as i32 * (scale + 1);
+
+                    if w > screen_x || h > screen_y {
+                        break;
+                    }
+
+                    scale *= 2;
+                }
+
+                scale
+            }
+        };
+
+        return factor;
     }
 }
 

@@ -12,6 +12,7 @@ extern crate core_foundation;
 /// Scale will scale the frame buffer and the window that is being sent in when calling the update
 /// function. This is useful if you for example want to display a 320 x 256 window on a screen with
 /// much higher resolution which would result in that the window is very small.
+#[derive(Clone, Copy)]
 pub enum Scale {
     /// This mode checks your current screen resolution and will caluclate the largest window size
     /// that can be used within that limit and resize it. Useful if you have a small buffer to
@@ -43,6 +44,15 @@ pub enum Vsync {
     /// accurate. What this means is if the lib is unable to create a accurate syncing approach
     /// a 'emulated' one will be used (for example using a timer to approximate syncing)
     BestGuess,
+}
+
+/// Used for is_key_pressed and get_keys_pressed() to indicated if repeat of presses is wanted
+#[derive(PartialEq, Clone, Copy)]
+pub enum KeyRepeat {
+    /// Use repeat
+    Yes,
+    /// Don't use repeat
+    No,
 }
 
 pub enum Key {
@@ -105,6 +115,7 @@ pub enum Key {
     Right,
     Up,
     Apostrophe,
+    Backquote,
 
     Backslash,
     Comma,
@@ -133,9 +144,32 @@ pub enum Key {
     Pause,
     Space,
     Tab,
+    NumLock,
     CapsLock,
+    ScrollLock,
+    LeftShift,
+    RightShift,
+    LeftCtrl,
+    RightCtrl,
 
-    Count = 80,
+    NumPad0,
+    NumPad1,
+    NumPad2,
+    NumPad3,
+    NumPad4,
+    NumPad5,
+    NumPad6,
+    NumPad7,
+    NumPad8,
+    NumPad9,
+    NumPadDot,
+    NumPadSlash,
+    NumPadAsterisk,
+    NumPadMinus,
+    NumPadPlus,
+    NumPadEnter,
+
+    Count = 103,
 }
 
 #[cfg(target_os = "windows")]
