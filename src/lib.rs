@@ -205,8 +205,8 @@ impl Window {
     ///    }
     ///};
     /// ```
-    pub fn new(name: &str, width: usize, height: usize, scale: Scale) -> Result<imp::Window, &str> {
-        imp::Window::new(name, width, height, scale)
+    pub fn new(name: &str, width: usize, height: usize, scale: Scale) -> Result<Window, &str> {
+        imp::Window::new(name, width, height, scale).map(Window)
     }
 
     ///
