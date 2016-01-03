@@ -17,8 +17,8 @@ extern {
     fn mfb_close(window: *mut c_void);
     fn mfb_update(window: *mut c_void, buffer: *const c_uchar);
     fn mfb_set_key_callback(window: *mut c_void, target: *mut c_void, cb: unsafe extern fn(*mut c_void, i32, i32));
-    //fn mfb_should_close(window: *mut c_void) -> i32;
-    //fn mfb_get_screen_size() -> u32;
+    fn mfb_should_close(window: *mut c_void) -> i32;
+    fn mfb_get_screen_size() -> u32;
 }
 
 pub struct Window {
@@ -85,6 +85,7 @@ unsafe extern "C" fn key_callback(window: *mut c_void, key: i32, s: i32) {
         XK_Left => (*win).key_handler.set_key_state(Key::Left, state),
         XK_Right => (*win).key_handler.set_key_state(Key::Right, state),
         XK_Up => (*win).key_handler.set_key_state(Key::Up, state),
+        XK_Escape => (*win).key_handler.set_key_state(Key::Escape, state),
         XK_apostrophe => (*win).key_handler.set_key_state(Key::Apostrophe, state),
         XK_grave => (*win).key_handler.set_key_state(Key::Backquote, state),
         XK_backslash => (*win).key_handler.set_key_state(Key::Backslash, state),
@@ -100,7 +101,6 @@ unsafe extern "C" fn key_callback(window: *mut c_void, key: i32, s: i32) {
         XK_Delete => (*win).key_handler.set_key_state(Key::Delete, state),
         XK_End => (*win).key_handler.set_key_state(Key::End, state),
         XK_Return => (*win).key_handler.set_key_state(Key::Enter, state),
-        XK_Escape => (*win).key_handler.set_key_state(Key::Escape, state),
         XK_Home => (*win).key_handler.set_key_state(Key::Home, state),
         XK_Insert => (*win).key_handler.set_key_state(Key::Insert, state),
         XK_Menu => (*win).key_handler.set_key_state(Key::Menu, state),
@@ -203,20 +203,44 @@ impl Window {
 
     #[inline]
     pub fn is_open(&self) -> bool {
-    	true
-        //unsafe { mfb_should_close(self.window_handle) == 0 }
+        unsafe { mfb_should_close(self.window_handle) == 1 }
     }
 
-    unsafe fn get_scale_factor(_: usize, _: usize, scale: Scale) -> i32 {
+    unsafe fn get_scale_factor(width: usize, height: usize, scale: Scale) -> i32 {
         let factor: i32 = match scale {
             Scale::X1 => 1,
             Scale::X2 => 2,
             Scale::X4 => 4,
-            Scale::X8 => 8,
-            Scale::X16 => 16,
-            Scale::X32 => 32,
             Scale::FitScreen => {
-            	1
+                let wh: u32 = mfb_get_screen_size();
+                let screen_x = (wh >> 16) as i32; 
+                let screen_y = (wh & 0xffff) as i32; 
+
+                println!("{} - {}", screen_x, screen_y);
+
+                let mut scale = 1i32;
+
+                loop {
+                    let w = width as i32 * (scale + 1);
+                    let h = height as i32 * (scale + 1);
+
+                    if w > screen_x || h > screen_y {
+                        break;
+                    }
+
+                    scale *= 2;
+                }
+
+                if scale >= 4 {
+                	4
+                } else {
+                	scale
+				}
+            }
+
+            _ => {
+            	println!("Scale above 4 not support currently, defaults to 4");
+            	4
             }
         };
 

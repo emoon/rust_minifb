@@ -10,13 +10,13 @@
 #define KEY_FUNCTION 0xFF
 #define KEY_ESC 0x1B
 
+void mfb_close(void* window_info);
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 static int s_window_count = 0;
 static Display* s_display;
 static int s_screen;
-static int s_width;
-static int s_height;
 static GC s_gc;
 static int s_depth;
 static int s_setup_done = 0;
@@ -24,6 +24,7 @@ static Visual* s_visual;
 static int s_screen_width;
 static int s_screen_height;
 static XContext s_context;
+static Atom s_wm_delete_window;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -36,6 +37,7 @@ typedef struct WindowInfo {
 	int scale;
 	int width;
 	int height;
+	int update;
 } WindowInfo;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -84,6 +86,9 @@ static int setup_display() {
 	s_screen_width = DisplayWidth(s_display, s_screen);
 	s_screen_height = DisplayHeight(s_display, s_screen);
 
+	const char* wmDeleteWindowName = "WM_DELETE_WINDOW";
+    XInternAtoms(s_display, (char**)&wmDeleteWindowName, 1, False, &s_wm_delete_window);
+
 	s_setup_done = 1;
 
 	printf("setup done\n");
@@ -104,6 +109,9 @@ void* mfb_open(const char* title, int width, int height, int scale)
 	if (!setup_display()) {
 		return 0;
 	}
+
+	width *= scale;
+	height *= scale;
 
 	Window defaultRootWindow = DefaultRootWindow(s_display);
 
@@ -154,6 +162,9 @@ void* mfb_open(const char* title, int width, int height, int scale)
 	window_info->width = width;
 	window_info->height = height;
 	window_info->draw_buffer = malloc(width * height * 4);
+	window_info->update = 1;
+
+	XSetWMProtocols(s_display, window, &s_wm_delete_window, 1);
 
 	XSaveContext(s_display, window, s_context, (XPointer) window_info);
 
@@ -179,13 +190,22 @@ static WindowInfo* find_handle(Window handle)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static void process_event(XEvent* event) {
+static int process_event(XEvent* event) {
 	KeySym sym;
 
 	WindowInfo* info = find_handle(event->xany.window);
 
 	if (!info)
-		return;
+		return 1;
+
+	if (event->type == ClientMessage) {
+		if ((Atom)event->xclient.data.l[0] == s_wm_delete_window) {
+			info->update = 0;
+			mfb_close(info);
+
+			return 0;
+		}
+	}
 
 	if ((event->type == KeyPress) || (event->type == KeyRelease) && info->key_callback) {
 		int sym = XLookupKeysym(&event->xkey, 0);
@@ -196,6 +216,8 @@ static void process_event(XEvent* event) {
 			info->key_callback(info->rust_data, sym, 0);
 		}
 	}
+
+	return 1;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -212,10 +234,59 @@ static int process_events()
     {
         XEvent event;
         XNextEvent(s_display, &event);
-        process_event(&event);
+		
+		// Don't process any more messages if event is 0
+        if (process_event(&event) == 0)
+        	return 0;
     }
 
 	return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static void scale_2x(unsigned int* dest, unsigned int* source, int width, int height, int scale) {
+	int x, y;
+	for (y = 0; y < height; y += scale) {
+		for (x = 0; x < width; x += scale) {
+			const unsigned int t = *source++;
+			dest[0] = t;
+			dest[1] = t;
+			dest[width + 0] = t;
+			dest[width + 1] = t;
+			dest += scale;
+		}
+
+		dest += width * (scale - 1);
+	}
+}
+
+static void scale_4x(unsigned int* dest, unsigned int* source, int width, int height, int scale) {
+	int x, y;
+	for (y = 0; y < height; y += scale) {
+		for (x = 0; x < width; x += scale) {
+			const unsigned int t = *source++;
+			dest[(width * 0) + 0] = t;
+			dest[(width * 0) + 1] = t;
+			dest[(width * 0) + 2] = t;
+			dest[(width * 0) + 3] = t;
+			dest[(width * 1) + 0] = t;
+			dest[(width * 1) + 1] = t;
+			dest[(width * 1) + 2] = t;
+			dest[(width * 1) + 3] = t;
+			dest[(width * 2) + 0] = t;
+			dest[(width * 2) + 1] = t;
+			dest[(width * 2) + 2] = t;
+			dest[(width * 2) + 3] = t;
+			dest[(width * 3) + 0] = t;
+			dest[(width * 3) + 1] = t;
+			dest[(width * 3) + 2] = t;
+			dest[(width * 3) + 3] = t;
+			dest += scale;
+		}
+
+		dest += width * (scale - 1);
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -225,11 +296,28 @@ void mfb_update(void* window_info, void* buffer)
 	WindowInfo* info = (WindowInfo*)window_info;
 	int width = info->width;
 	int height = info->height;
+	int scale = info->scale;
 
-	memcpy(info->draw_buffer, buffer, width * height * 4);
+	if (info->update) {
+		switch (scale) {
+			case 1: {
+				memcpy(info->draw_buffer, buffer, width * height * 4);
+				break;
+			}
+			case 2: {
+				scale_2x(info->draw_buffer, buffer, width, height, scale); 
+				break;
+			}
 
-	XPutImage(s_display, info->window, s_gc, info->ximage, 0, 0, 0, 0, width, height);
-	XFlush(s_display);
+			case 4: {
+				scale_4x(info->draw_buffer, buffer, width, height, scale); 
+				break;
+			}
+		}
+
+		XPutImage(s_display, info->window, s_gc, info->ximage, 0, 0, 0, 0, width, height);
+		XFlush(s_display);
+	}
 
 	process_events();
 }
@@ -240,18 +328,18 @@ void mfb_close(void* window_info)
 {
 	WindowInfo* info = (WindowInfo*)window_info;
 
+	if (!info->draw_buffer)
+		return;
+
+	XSaveContext(s_display, info->window, s_context, (XPointer)0);
+
+	free(info->draw_buffer);
+
 	info->ximage->data = NULL;
+	info->draw_buffer = 0;
 
 	XDestroyImage(info->ximage);
 	XDestroyWindow(s_display, info->window);
-
-	s_window_count--;
-
-	// Only close display when there are no windows left
-
-	if (s_window_count == 0) {
-		XCloseDisplay(s_display);
-	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -261,5 +349,19 @@ void mfb_set_key_callback(void* window, void* rust_data, void (*key_callback)(vo
 	WindowInfo* win = (WindowInfo*)window;
 	win->key_callback = key_callback;
 	win->rust_data = rust_data;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+int mfb_should_close(void* window) {
+	WindowInfo* win = (WindowInfo*)window;
+	return !!win->update;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+unsigned int mfb_get_screen_size() {
+	setup_display();
+	return (s_screen_width << 16) | s_screen_height;
 }
 
