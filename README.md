@@ -44,7 +44,7 @@ fn main() {
 
 Status
 ------
-Currently Windows and Mac are the current supported platforms. X11 (Linux/FreeBSD/etc) support is coming soon.
+Currently Mac, Linux and Windows are the current supported platforms. X11 (Linux/FreeBSD/etc) support has been tested on Ubuntu (x64). Bug report(s) for other OSes/CPUs are welcome! 
 
 
 Build instructions
