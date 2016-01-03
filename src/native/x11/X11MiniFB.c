@@ -28,6 +28,8 @@ static XContext s_context;
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 typedef struct WindowInfo {
+	void (*key_callback)(void* user_data, int key, int state);
+	void* rust_data;
 	Window window;
 	XImage* ximage;
 	void* draw_buffer;
@@ -129,6 +131,7 @@ void* mfb_open(const char* title, int width, int height, int scale)
 	sizeHints.min_height = height;
 	sizeHints.max_height = height;
 
+	XSelectInput(s_display, window, KeyPressMask | KeyReleaseMask);
   	XSetWMNormalHints(s_display, window, &sizeHints);
   	XClearWindow(s_display, window);
   	XMapRaised(s_display, window);
@@ -143,6 +146,8 @@ void* mfb_open(const char* title, int width, int height, int scale)
 	}
 
 	window_info = (WindowInfo*)malloc(sizeof(WindowInfo));
+	window_info->key_callback = 0;
+	window_info->rust_data = 0;
 	window_info->window = window;
 	window_info->ximage = image;
 	window_info->scale = scale;
@@ -161,19 +166,36 @@ void* mfb_open(const char* title, int width, int height, int scale)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+static WindowInfo* find_handle(Window handle)
+{
+    WindowInfo* info;
+
+    if (XFindContext(s_display, handle, s_context, (XPointer*) &info) != 0) {
+        return 0;
+    }
+
+    return info;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 static void process_event(XEvent* event) {
 	KeySym sym;
 
-	if (event->type != KeyPress)
+	WindowInfo* info = find_handle(event->xany.window);
+
+	if (!info)
 		return;
 
-	sym = XLookupKeysym(&event->xkey, 0);
+	if ((event->type == KeyPress) || (event->type == KeyRelease) && info->key_callback) {
+		int sym = XLookupKeysym(&event->xkey, 0);
 
-	if ((sym >> 8) != KEY_FUNCTION)
-		return;
-
-	if ((sym & 0xFF) == KEY_ESC)
-		return;
+		if (event->type == KeyPress) {
+			info->key_callback(info->rust_data, sym, 1);
+		} else if (event->type == KeyRelease) {
+			info->key_callback(info->rust_data, sym, 0);
+		}
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -185,6 +207,7 @@ static int process_events()
 	KeySym sym;
 
 	count = XPending(s_display);
+
     while (count--)
     {
         XEvent event;
@@ -230,3 +253,13 @@ void mfb_close(void* window_info)
 		XCloseDisplay(s_display);
 	}
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void mfb_set_key_callback(void* window, void* rust_data, void (*key_callback)(void* user_data, int key, int state))
+{
+	WindowInfo* win = (WindowInfo*)window;
+	win->key_callback = key_callback;
+	win->rust_data = rust_data;
+}
+
