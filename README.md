@@ -3,11 +3,20 @@ rust_minifb
 
 rust_minifb (Mini FrameBuffer) is a small cross platform library written in [Rust](https://www.rust-lang.org) and that makes it easy to render (32-bit) pixels in a window. An example is the best way to show how it works:
 
+Usage
+-----
+
+```toml
+# Cargo.toml
+[dependencies]
+minifb = "0.2.1"
+```
+
+Example
+-------
 
 ```rust
 extern crate minifb;
-
-use minifb::*;
 
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
@@ -15,12 +24,13 @@ const HEIGHT: usize = 360;
 fn main() {
     let mut buffer: [u32; WIDTH * HEIGHT] = [0; WIDTH * HEIGHT];
 
-    let mut window = Window::new("Noise Test - Press ESC to exit",
-                                 WIDTH,
-                                 HEIGHT,
-                                 Scale::X1,
-                                 Vsync::No)
-                         .unwrap();
+    let mut window = match minifb::Window::new("Test - ESC to exit", WIDTH, HEIGHT, Scale::X1) {
+        Ok(win) => win,
+        Err(err) => {
+            println!("Unable to create window {}", err);
+            return;
+        }
+    };
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         for i in buffer.iter_mut() {
@@ -37,7 +47,7 @@ Status
 Currently Windows and Mac are the current supported platforms. X11 (Linux/FreeBSD/etc) support is coming soon.
 
 
-Build instruction
+Build instructions
 ------------------
 
 ```
