@@ -167,7 +167,11 @@ mod key_handler;
 use self::os::macos as imp;
 #[cfg(target_os = "windows")]
 use self::os::windows as imp;
-#[cfg(unix)]
+#[cfg(any(target_os="linux",
+    target_os="freebsd",
+    target_os="dragonfly",
+    target_os="netbsd",
+    target_os="openbsd"))]
 use self::os::unix as imp;
 
 ///
