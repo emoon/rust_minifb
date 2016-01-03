@@ -167,6 +167,8 @@ mod key_handler;
 use self::os::macos as imp;
 #[cfg(target_os = "windows")]
 use self::os::windows as imp;
+#[cfg(unix)]
+use self::os::unix as imp;
 
 ///
 /// Window used for displaying a 32-bit RGB buffer. Here is a small example on how to use it:
