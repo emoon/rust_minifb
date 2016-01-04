@@ -10,9 +10,3 @@ install:
   - SET PATH=%PATH%;C:\MinGW\bin
   - rustc -V
   - cargo -V
-
-build: false
-
-test_script:
-  - cargo test --verbose
-  - cargo test --manifest-path env/Cargo.toml
