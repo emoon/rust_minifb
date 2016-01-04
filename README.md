@@ -1,7 +1,8 @@
-rust_minifb
-======
+[![Crates.io](https://img.shields.io/crates/v/minifb.svg)](https://crates.io/crates/minifb)
 
 rust_minifb (Mini FrameBuffer) is a small cross platform library written in [Rust](https://www.rust-lang.org) and that makes it easy to render (32-bit) pixels in a window. An example is the best way to show how it works:
+
+[Documentation](http://prodbg.com/minifb/minifb/index.html)
 
 Usage
 -----
@@ -9,7 +10,7 @@ Usage
 ```toml
 # Cargo.toml
 [dependencies]
-minifb = "0.2.2"
+minifb = "0.2.3"
 ```
 
 Example
