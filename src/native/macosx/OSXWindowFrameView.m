@@ -4,23 +4,6 @@
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-- (NSRect)resizeRect
-{
-	const CGFloat resizeBoxSize = 16.0;
-	const CGFloat contentViewPadding = 5.5;
-	
-	NSRect contentViewRect = [[self window] contentRectForFrameRect:[[self window] frame]];
-	NSRect resizeRect = NSMakeRect(
-		NSMaxX(contentViewRect) + contentViewPadding,
-		NSMinY(contentViewRect) - resizeBoxSize - contentViewPadding,
-		resizeBoxSize,
-		resizeBoxSize);
-	
-	return resizeRect;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 - (void)drawRect:(NSRect)rect
 {
 	CGContextRef context = [[NSGraphicsContext currentContext] graphicsPort];

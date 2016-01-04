@@ -5,38 +5,6 @@
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-- (id)initWithContentRect:(NSRect)contentRect
-	styleMask:(NSUInteger)windowStyle
-	backing:(NSBackingStoreType)bufferingType
-	defer:(BOOL)deferCreation
-{
-	self = [super
-		initWithContentRect:contentRect
-		styleMask:windowStyle
-		backing:bufferingType
-		defer:deferCreation];
-	if (self)
-	{
-		[self setOpaque:YES];
-		[self setBackgroundColor:[NSColor clearColor]];
-		
-		[[NSNotificationCenter defaultCenter]
-			addObserver:self
-			selector:@selector(mainWindowChanged:)
-			name:NSWindowDidBecomeMainNotification
-			object:self];
-		
-		[[NSNotificationCenter defaultCenter]
-			addObserver:self
-			selector:@selector(mainWindowChanged:)
-			name:NSWindowDidResignMainNotification
-			object:self];
-	}
-	return self;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 - (void)dealloc
 {
 	[[NSNotificationCenter defaultCenter]
@@ -142,9 +110,7 @@
 - (void)setContentView:(NSView *)aView
 {
 	if ([childContentView isEqualTo:aView])
-	{
 		return;
-	}
 	
 	NSRect bounds = [self frame];
 	bounds.origin = NSZeroPoint;
@@ -162,6 +128,8 @@
 	
 	if (childContentView)
 		[childContentView removeFromSuperview];
+
+	NSRect t = [self contentRectForFrameRect:bounds];
 
 	childContentView = aView;
 	[childContentView setFrame:[self contentRectForFrameRect:bounds]];
@@ -196,13 +164,6 @@
 {
 	windowFrame.origin = NSZeroPoint;
 	return NSInsetRect(windowFrame, 0, 0);
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-+ (NSRect)frameRectForContentRect:(NSRect)windowContentRect styleMask:(NSUInteger)windowStyle
-{
-	return NSInsetRect(windowContentRect, 0, 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
