@@ -4,8 +4,6 @@ rust_minifb (Mini FrameBuffer) is a small cross platform library written in [Rus
 
 [Documentation](http://prodbg.com/minifb/minifb/index.html)
 
-
-
 Usage
 -----
 
