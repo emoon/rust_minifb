@@ -17,7 +17,6 @@ use std::mem;
 
 use self::winapi::windef::HWND;
 use self::winapi::windef::HDC;
-use self::winapi::winuser::WS_OVERLAPPEDWINDOW;
 use self::winapi::winuser::WNDCLASSW;
 use self::winapi::wingdi::BITMAPINFOHEADER;
 use self::winapi::wingdi::RGBQUAD;
@@ -135,6 +134,26 @@ fn update_key_state(window: &mut Window, wparam: u32, state: bool) {
 }
 
 
+#[cfg(target_arch = "x86_64")]
+unsafe fn set_window_long(window: winapi::HWND, data: winapi::LONG_PTR) -> winapi::LONG_PTR {
+    user32::SetWindowLongPtrW(window, winapi::winuser::GWLP_USERDATA, data)
+}
+
+#[cfg(target_arch = "x86_64")]
+unsafe fn get_window_long(window: winapi::HWND) -> winapi::LONG_PTR {
+    user32::GetWindowLongPtrW(window, winapi::winuser::GWLP_USERDATA)
+}
+
+#[cfg(target_arch = "x86")]
+unsafe fn set_window_long(window: winapi::HWND, data: winapi::LONG) -> winapi::LONG {
+    user32::SetWindowLongW(window, winapi::winuser::GWLP_USERDATA, data)
+}
+
+#[cfg(target_arch = "x86")]
+unsafe fn get_window_long(window: winapi::HWND) -> winapi::LONG {
+    user32::GetWindowLongW(window, winapi::winuser::GWLP_USERDATA)
+}
+
 unsafe extern "system" fn wnd_proc(window: winapi::HWND,
                                    msg: winapi::UINT,
                                    wparam: winapi::WPARAM,
@@ -143,7 +162,7 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
     // This make sure we actually don't do anything before the user data has been setup for the
     // window
 
-    let user_data = user32::GetWindowLongPtrW(window, winapi::winuser::GWLP_USERDATA);
+    let user_data = get_window_long(window);
 
     if user_data == 0 {
         return user32::DefWindowProcW(window, msg, wparam, lparam);
@@ -370,7 +389,7 @@ impl Window {
 
             self.buffer = buffer.iter().cloned().collect();
 
-            user32::SetWindowLongPtrW(window, winapi::winuser::GWLP_USERDATA, mem::transmute(self));
+            set_window_long(window, mem::transmute(self));
             user32::InvalidateRect(window, ptr::null_mut(), winapi::TRUE);
 
             while user32::PeekMessageW(&mut msg, window, 0, 0, winapi::winuser::PM_REMOVE) != 0 {
