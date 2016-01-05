@@ -183,7 +183,7 @@ use self::os::unix as imp;
 /// const WIDTH: usize = 640;
 /// const HEIGHT: usize = 360;
 ///
-/// let mut buffer: [u32; WIDTH * HEIGHT] = [0; WIDTH * HEIGHT];
+/// let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 ///
 /// let mut window = match Window::new("Test - Press ESC to exit", WIDTH, HEIGHT, Scale::X1).unwrap()
 ///
@@ -222,7 +222,7 @@ impl Window {
     /// # Examples
     ///
     /// ```ignore
-    /// let mut buffer: [u32; 640 * 400] = [0; 640 * 400];
+    /// let mut buffer: Vec<u32> = vec![0; 640 * 400];
     ///
     /// let mut window = match Window::new("Test", 640, 400, Scale::X1).unwrap();
     ///

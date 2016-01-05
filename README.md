@@ -12,7 +12,7 @@ Usage
 ```toml
 # Cargo.toml
 [dependencies]
-minifb = "0.2.3"
+minifb = "0.2.4"
 ```
 
 Example
@@ -25,7 +25,7 @@ const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
 
 fn main() {
-    let mut buffer: [u32; WIDTH * HEIGHT] = [0; WIDTH * HEIGHT];
+    let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 
     let mut window = match minifb::Window::new("Test - ESC to exit", WIDTH, HEIGHT, Scale::X1) {
         Ok(win) => win,

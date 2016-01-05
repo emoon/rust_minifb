@@ -1,6 +1,6 @@
 extern crate minifb;
 
-use minifb::*;
+use minifb::{Window, Key, Scale};
 
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
@@ -10,7 +10,7 @@ fn main() {
     let mut carry;
     let mut seed = 0xbeefu32;
 
-    let mut buffer: [u32; WIDTH * HEIGHT] = [0; WIDTH * HEIGHT];
+    let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 
     let mut window = match Window::new("Noise Test - Press ESC to exit", WIDTH, HEIGHT, Scale::X2) {
         Ok(win) => win,
