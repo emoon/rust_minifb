@@ -177,7 +177,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_position(&mut self, _: isize, _: isize) {
+    pub fn set_position(&mut self, x: isize, y: isize) {
         unsafe { mfb_set_position(self.window_handle, x as i32, y as i32) }
     }
 
