@@ -343,6 +343,14 @@ impl Window {
     }
 
     #[inline]
+    pub fn set_position(&mut self, x: isize, y: isize) {
+        unsafe {
+            user32::SetWindowPos(self.window.unwrap(), ptr::null_mut(), x as i32, y as i32, 
+                                 0, 0, winapi::SWP_SHOWWINDOW | winapi::SWP_NOSIZE);
+        }
+    }
+
+    #[inline]
     pub fn get_keys(&self) -> Option<Vec<Key>> {
         self.key_handler.get_keys()
     }

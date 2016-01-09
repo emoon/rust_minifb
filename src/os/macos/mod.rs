@@ -202,6 +202,10 @@ impl Window {
     }
 
     #[inline]
+    pub fn set_position(&mut self, _: isize, _: isize) {
+    }
+
+    #[inline]
     pub fn get_keys(&self) -> Option<Vec<Key>> {
         self.key_handler.get_keys()
     }

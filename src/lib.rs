@@ -250,6 +250,23 @@ impl Window {
     }
 
     ///
+    /// Sets the position of the window. This is useful if you have
+    /// more than one window and want to align them up on the screen
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// // Moves the window to pixel postion 20, 20 on the screen
+    /// window.set_position(20, 20);
+    /// }
+    /// ```
+    ///
+    #[inline]
+    pub fn set_position(&mut self, x: isize, y: isize) {
+        self.0.set_position(x, y)
+    }
+
+    ///
     /// Get the current keys that are down. 
     ///
     /// # Examples
