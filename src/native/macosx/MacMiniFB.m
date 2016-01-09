@@ -93,6 +93,26 @@ int mfb_update(void* window, void* buffer)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+static float transformY(float y)
+{
+	float b = CGDisplayBounds(CGMainDisplayID()).size.height; 
+	float t = b - y;
+	return t;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void mfb_set_position(void* window, int x, int y) 
+{
+	OSXWindow* win = (OSXWindow*)window;
+	const NSRect contentRect = [[win contentView] frame];
+    const NSRect dummyRect = NSMakeRect(x, transformY(y + contentRect.size.height), 0, 0);
+    const NSRect frameRect = [win frameRectForContentRect:dummyRect];
+    [win setFrameOrigin:frameRect.origin];
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 int mfb_should_close(void* window) 
 {
 	OSXWindow* win = (OSXWindow*)window;

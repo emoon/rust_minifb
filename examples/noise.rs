@@ -20,8 +20,6 @@ fn main() {
         }
     };
 
-    window.set_position(10, 10);
-
     while window.is_open() && !window.is_key_down(Key::Escape) {
         for i in buffer.iter_mut() {
             noise = seed;
