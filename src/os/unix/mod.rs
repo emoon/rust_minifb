@@ -20,6 +20,7 @@ extern {
     fn mfb_open(name: *const c_char, width: u32, height: u32, scale: i32) -> *mut c_void;
     fn mfb_close(window: *mut c_void);
     fn mfb_update(window: *mut c_void, buffer: *const c_uchar);
+    fn mfb_set_position(window: *mut c_void, x: i32, y: i32);
     fn mfb_set_key_callback(window: *mut c_void, target: *mut c_void, cb: unsafe extern fn(*mut c_void, i32, i32));
     fn mfb_should_close(window: *mut c_void) -> i32;
     fn mfb_get_screen_size() -> u32;
@@ -177,6 +178,7 @@ impl Window {
 
     #[inline]
     pub fn set_position(&mut self, _: isize, _: isize) {
+        unsafe { mfb_set_position(self.window_handle, x as i32, y as i32) }
     }
 
     #[inline]
