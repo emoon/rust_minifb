@@ -326,8 +326,7 @@ void mfb_update(void* window_info, void* buffer)
 
 void mfb_set_position(void* window, int x, int y) 
 {
-	WindowInfo* info = (WindowInfo*)window_info;
-
+	WindowInfo* info = (WindowInfo*)window;
     XMoveWindow(s_display, info->window, x, y);
 	XFlush(s_display);
 }
