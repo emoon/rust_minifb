@@ -158,6 +158,17 @@ pub enum Key {
     Count = 107,
 }
 
+/// Key is used by the get key functions to check if some keys on the keyboard has been pressed
+#[derive(PartialEq, Clone, Copy)]
+pub enum MouseMode {
+    /// Return mouse coords from outside of the window (may be negative)
+    Pass,
+    /// Clamp the mouse coordinates within the window
+    Clamp,
+    /// Discared if the mouse is outside the window
+    Discard,
+}
+
 extern crate libc;
 
 pub mod os;

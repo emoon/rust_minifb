@@ -41,6 +41,7 @@ void* mfb_open(const char* name, int width, int height, int scale)
 	[window setTitle:[NSString stringWithUTF8String:name]];
 	[window setReleasedWhenClosed:NO];
 	[window performSelectorOnMainThread:@selector(makeKeyAndOrderFront:) withObject:nil waitUntilDone:YES];
+	[window setAcceptsMouseMovedEvents:YES];
 
 	[window center];
 
