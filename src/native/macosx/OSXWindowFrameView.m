@@ -43,6 +43,18 @@
 
 - (void)mouseMoved:(NSEvent *)event
 {
+    NSWindow* window = [self window];
+    NSRect originalFrame = [window frame];
+    NSPoint location = [window mouseLocationOutsideOfEventStream];
+    NSRect adjustFrame = [NSWindow contentRectForFrameRect: originalFrame styleMask: NSTitledWindowMask];
+
+    printf("%f %f - %f %f\n", 
+   		adjustFrame.origin.x, 
+   		adjustFrame.origin.y, 
+   		adjustFrame.size.width, 
+   		adjustFrame.size.height);
+
+
 	printf("mouse moved\n");
 }
 
@@ -62,9 +74,16 @@
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-- (void)right:(NSEvent*)event
+- (void)rightMouseDown:(NSEvent*)event
 {
-	printf("mouse up\n");
+	printf("right mouseDown up\n");
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+- (void)rightMouseUp:(NSEvent*)event
+{
+	printf("right mouseDown down\n");
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
