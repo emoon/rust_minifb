@@ -171,6 +171,14 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
     let mut wnd: &mut Window = mem::transmute(user_data);
 
     match msg {
+        winapi::winuser::WM_MOUSEMOVE => {
+            let mouse_coords = lparam as u32;
+            let scale = user_data.scale as f32;
+            user_data.mouse.local_x = (((mouse_coords >> 16) & 0xffff) as f32) / scale;
+            user_data.mouse.local_y = ((mouse_coords & 0xffff) as f32) / scale;
+            return 0;
+        }
+
         winapi::winuser::WM_KEYDOWN => {
             update_key_state(wnd, (lparam as u32) >> 16, true);
             return 0;
@@ -233,7 +241,17 @@ fn to_wstring(str: &str) -> Vec<u16> {
     v
 }
 
+#[derive(Default)]
+struct MouseData {
+    world_x: f32,
+    world_y: f32,
+    local_x: f32,
+    local_y: f32,
+    state: [bool; 5],
+}
+
 pub struct Window {
+    mouse: MouseData,
     dc: Option<HDC>,
     window: Option<HWND>,
     buffer: Vec<u32>,
@@ -328,6 +346,7 @@ impl Window {
             }
 
             let window = Window {
+                mouse: MouseData::default(),
                 dc: Some(user32::GetDC(handle.unwrap())),
                 window: Some(handle.unwrap()),
                 buffer: Vec::new(),
