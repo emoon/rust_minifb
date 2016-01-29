@@ -278,6 +278,16 @@ impl Window {
     }
 
     ///
+    ///
+    ///
+    ///
+    ///
+    #[inline]
+    pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
+        self.0.get_mouse_pos(mode)
+    }
+
+    ///
     /// Get the current keys that are down. 
     ///
     /// # Examples

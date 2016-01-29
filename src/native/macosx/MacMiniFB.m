@@ -1,5 +1,6 @@
 
 #include "OSXWindow.h"
+#include "OSXWindowFrameView.h"
 #include <Cocoa/Cocoa.h>
 #include <unistd.h>
 
@@ -35,6 +36,7 @@ void* mfb_open(const char* name, int width, int height, int scale)
 	window->height = height;
 	window->scale = scale;
 	window->key_callback = 0;
+	window->shared_data = 0;
 
 	[window updateSize];
 
@@ -86,8 +88,16 @@ int mfb_update(void* window, void* buffer)
 	OSXWindow* win = (OSXWindow*)window;
 	memcpy(win->draw_buffer, buffer, win->width * win->height * 4);
 
-	//g_updateBuffer = buffer;
 	int state = update_events();
+
+    if (win->shared_data) {
+		NSPoint p = [win mouseLocationOutsideOfEventStream];
+		NSRect originalFrame = [win frame];
+		NSRect contentRect = [NSWindow contentRectForFrameRect: originalFrame styleMask: NSTitledWindowMask];
+		win->shared_data->mouse_x = p.x;
+		win->shared_data->mouse_y = contentRect.size.height - p.y;
+	}
+
 	[[win contentView] setNeedsDisplay:YES];
 	return state;
 }
@@ -138,4 +148,13 @@ void mfb_set_key_callback(void* window, void* rust_data, void (*key_callback)(vo
 	win->key_callback = key_callback;
 	win->rust_data = rust_data;
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void mfb_set_mouse_data(void* window, SharedData* shared_data)
+{
+	OSXWindow* win = (OSXWindow*)window;
+	win->shared_data = shared_data;
+}
+
 

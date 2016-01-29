@@ -1,6 +1,6 @@
 extern crate minifb;
 
-use minifb::{Window, Key, Scale};
+use minifb::{MouseMode, Window, Key, Scale};
 
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
@@ -41,6 +41,10 @@ fn main() {
                     _ => (),
                 }
             }
+        });
+
+        window.get_mouse_pos(MouseMode::Discard).map(|mouse| {
+            println!("mouse x {} mouse y {}", mouse.0, mouse.1);
         });
 
         window.update(&buffer);

@@ -1,4 +1,5 @@
 #import "OSXWindowFrameView.h"
+#import "OSXWindow.h"
 
 @implementation OSXWindowFrameView
 
@@ -43,19 +44,24 @@
 
 - (void)mouseMoved:(NSEvent *)event
 {
-    NSWindow* window = [self window];
+    OSXWindow* window = [self window];
     NSRect originalFrame = [window frame];
     NSPoint location = [window mouseLocationOutsideOfEventStream];
     NSRect adjustFrame = [NSWindow contentRectForFrameRect: originalFrame styleMask: NSTitledWindowMask];
+
+    //window->mouse_data->mov
+
+	/*
+    printf("%p\n", window->shared_data);
 
     printf("%f %f - %f %f\n", 
    		adjustFrame.origin.x, 
    		adjustFrame.origin.y, 
    		adjustFrame.size.width, 
    		adjustFrame.size.height);
-
-
-	printf("mouse moved\n");
+	
+		printf("mouse moved\n");
+	*/
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,6 +1,6 @@
 #![cfg(target_os = "macos")]
 
-use {Scale, Key, KeyRepeat};
+use {MouseMode, Scale, Key, KeyRepeat};
 use key_handler::KeyHandler;
 
 use libc::{c_void, c_char, c_uchar};
@@ -147,25 +147,27 @@ extern {
     fn mfb_close(window: *mut c_void);
     fn mfb_update(window: *mut c_void, buffer: *const c_uchar);
     fn mfb_set_position(window: *mut c_void, x: i32, y: i32);
-    //fn mfb_set_data_key_callback(shared_data: *mut c_void, target: *mut c_void, cb: unsafe extern fn(*mut c_void, i32, i32));
-    fn mfb_set_key_callback(shared_data: *mut c_void, target: *mut c_void, cb: unsafe extern fn(*mut c_void, i32, i32));
+    fn mfb_set_key_callback(window: *mut c_void, target: *mut c_void, cb: unsafe extern fn(*mut c_void, i32, i32));
+    fn mfb_set_mouse_data(window_handle: *mut c_void, shared_data: *mut SharedData);
     fn mfb_should_close(window: *mut c_void) -> i32;
     fn mfb_get_screen_size() -> u32;
 }
 
 #[derive(Default)]
+#[repr(C)]
 pub struct SharedData {
-    pub local_mx: f32,
-    pub local_my: f32,
-    pub world_mx: f32,
-    pub world_my: f32,
+    pub width: u32,
+    pub height: u32,
+    pub mouse_x: f32,
+    pub mouse_y: f32,
     pub scroll_x: f32,
     pub scroll_y: f32,
-    pub state: [bool; 5],
+    pub state: [u8; 8],
 }
 
 pub struct Window {
     window_handle: *mut c_void,
+    scale_factor: usize, 
     pub shared_data: SharedData,
     key_handler: KeyHandler,
     pub has_set_data: bool,
@@ -194,7 +196,8 @@ impl Window {
         };
 
         unsafe {
-            let handle = mfb_open(n.as_ptr(), width as u32, height as u32, Self::get_scale_factor(width, height, scale));
+            let scale_factor = Self::get_scale_factor(width, height, scale) as usize;
+            let handle = mfb_open(n.as_ptr(), width as u32, height as u32, scale_factor as i32);
 
             if handle == ptr::null_mut() {
                 return Err("Unable to open Window");
@@ -202,11 +205,20 @@ impl Window {
 
             Ok(Window { 
                 window_handle: handle,
-                shared_data: SharedData::default(),
+                scale_factor: scale_factor,
+                shared_data: SharedData { 
+                    width: width as u32 * scale_factor as u32,
+                    height: height as u32 * scale_factor as u32,
+                    .. SharedData::default()
+                },
                 key_handler: KeyHandler::new(),
                 has_set_data: false,
             })
         }
+    }
+
+    unsafe fn set_mouse_data(&mut self) {
+        mfb_set_mouse_data(self.window_handle, &mut self.shared_data);
     }
 
     pub fn update(&mut self, buffer: &[u32]) {
@@ -214,14 +226,41 @@ impl Window {
 
         unsafe {
             mfb_update(self.window_handle, buffer.as_ptr() as *const u8);
-            //mfb_set_data_key_callback(self.shared_data.window_handle, mem::transmute(&mut self.shared_data), key_callback);
+            Self::set_mouse_data(self);
             mfb_set_key_callback(self.window_handle, mem::transmute(self), key_callback);
         }
+    }
+
+    fn clamp(v: f32, lb: f32, ub: f32) -> f32 {
+        f32::min(f32::max(v, lb), ub)
     }
 
     #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
         unsafe { mfb_set_position(self.window_handle, x as i32, y as i32) }
+    }
+
+    pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
+        let s = 1.0 / self.scale_factor as f32;
+        let x = self.shared_data.mouse_x * s;
+        let y = self.shared_data.mouse_y * s;
+        let window_width = self.shared_data.width as f32 * s;
+        let window_height = self.shared_data.height as f32 * s;
+
+        match mode {
+            MouseMode::Pass => Some((x, y)),
+            MouseMode::Clamp => {
+                Some((Self::clamp(x, 0.0, window_width),
+                      Self::clamp(y, 0.0, window_height)))
+            },
+            MouseMode::Discard => {
+                if x < 0.0 || y < 0.0 || x >= window_width || y >= window_height {
+                    None
+                } else {
+                    Some((x, y))
+                }
+            },
+        }
     }
 
     #[inline]
