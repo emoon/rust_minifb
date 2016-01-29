@@ -1,4 +1,5 @@
 #import <Cocoa/Cocoa.h>
+#include "shared_data.h"
 
 @interface OSXWindow : NSWindow
 {
@@ -9,6 +10,7 @@
 	@public int scale;
 	@public void* draw_buffer;
 	@public void* rust_data;
+	@public SharedData* shared_data;
 	@public bool should_close;
 }
 

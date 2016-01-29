@@ -30,6 +30,18 @@ pub enum KeyRepeat {
     No,
 }
 
+/// The various mouse buttons that are availible
+#[derive(PartialEq, Clone, Copy)]
+pub enum MouseButton
+{
+    /// Left mouse button
+    Left,
+    /// Middle mouse button
+    Middle,
+    /// Right mouse button
+    Right,
+}
+
 /// Key is used by the get key functions to check if some keys on the keyboard has been pressed
 #[derive(PartialEq, Clone, Copy)]
 pub enum Key {
@@ -158,9 +170,22 @@ pub enum Key {
     Count = 107,
 }
 
+/// Key is used by the get key functions to check if some keys on the keyboard has been pressed
+#[derive(PartialEq, Clone, Copy)]
+pub enum MouseMode {
+    /// Return mouse coords from outside of the window (may be negative)
+    Pass,
+    /// Clamp the mouse coordinates within the window
+    Clamp,
+    /// Discared if the mouse is outside the window
+    Discard,
+}
+
 extern crate libc;
 
+#[doc(hidden)]
 pub mod os;
+mod mouse_handler;
 mod key_handler;
 
 #[cfg(target_os = "macos")]
@@ -258,12 +283,64 @@ impl Window {
     /// ```ignore
     /// // Moves the window to pixel postion 20, 20 on the screen
     /// window.set_position(20, 20);
-    /// }
     /// ```
     ///
     #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
         self.0.set_position(x, y)
+    }
+
+    ///
+    /// Get the current position of the mouse relative to the current window
+    /// The coordinate system is as 0, 0 as the upper left corner
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// window.get_mouse_pos(MouseMode::Clamp).map(|mouse| {
+    ///     println!("x {} y {}", mouse.0, mouse.1);
+    /// });
+    /// ```
+    /// 
+    #[inline]
+    pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
+        self.0.get_mouse_pos(mode)
+    }
+
+    ///
+    /// Check if a mouse button is down or not 
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let left_down = window.get_mouse_down(MouseButton::Left);
+    /// println!("is left down? {}", left_down) 
+    /// ```
+    /// 
+    #[inline]
+    pub fn get_mouse_down(&self, button: MouseButton) -> bool { 
+        self.0.get_mouse_down(button)
+    }
+
+    ///
+    /// Get the current movement of the scroll wheel.
+    /// Scroll wheel can mean different thing depending on the device attach.
+    /// For example on Mac with trackpad "scroll wheel" means two finger 
+    /// swiping up/down (y axis) and to the sides (x-axis)
+    /// When using a mouse this assumes the scroll wheel which often is only y direction.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// window.get_scroll_wheel().map(|scroll| {
+    ///     println!("scrolling - x {} y {}", scroll.0, scroll.1);
+    /// });
+    /// ```
+    ///
+    ///
+    #[inline]
+    pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
+        self.0.get_scroll_wheel()
     }
 
     ///

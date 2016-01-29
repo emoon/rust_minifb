@@ -6,7 +6,7 @@
 
 extern crate x11_dl;
 
-use {Scale, Key, KeyRepeat};
+use {MouseMode, MouseButton, Scale, Key, KeyRepeat};
 use key_handler::KeyHandler;
 use self::x11_dl::keysym::*;
 
@@ -14,6 +14,7 @@ use libc::{c_void, c_char, c_uchar};
 use std::ffi::{CString};
 use std::ptr;
 use std::mem;
+use mouse_handler;
 
 #[link(name = "X11")]
 extern {
@@ -22,12 +23,27 @@ extern {
     fn mfb_update(window: *mut c_void, buffer: *const c_uchar);
     fn mfb_set_position(window: *mut c_void, x: i32, y: i32);
     fn mfb_set_key_callback(window: *mut c_void, target: *mut c_void, cb: unsafe extern fn(*mut c_void, i32, i32));
+    fn mfb_set_shared_data(window: *mut c_void, target: *mut SharedData);
     fn mfb_should_close(window: *mut c_void) -> i32;
     fn mfb_get_screen_size() -> u32;
 }
 
+#[derive(Default)]
+#[repr(C)]
+pub struct SharedData {
+    pub width: u32,
+    pub height: u32,
+    pub scale: f32,
+    pub mouse_x: f32,
+    pub mouse_y: f32,
+    pub scroll_x: f32,
+    pub scroll_y: f32,
+    pub state: [u8; 3],
+}
+
 pub struct Window {
     window_handle: *mut c_void,
+    shared_data: SharedData,
     key_handler: KeyHandler,
 }
 
@@ -154,7 +170,8 @@ impl Window {
         };
 
         unsafe {
-            let handle = mfb_open(n.as_ptr(), width as u32, height as u32, Self::get_scale_factor(width, height, scale));
+        	let scale = Self::get_scale_factor(width, height, scale);
+            let handle = mfb_open(n.as_ptr(), width as u32, height as u32, scale);
 
             if handle == ptr::null_mut() {
                 return Err("Unable to open Window");
@@ -162,15 +179,24 @@ impl Window {
 
             Ok(Window { 
                 window_handle: handle,
+                shared_data: SharedData { 
+                	scale: scale as f32, 
+                	.. SharedData::default()
+				},
                 key_handler: KeyHandler::new(),
             })
         }
+    }
+
+    unsafe fn set_shared_data(&mut self) {
+        mfb_set_shared_data(self.window_handle, &mut self.shared_data);
     }
 
     pub fn update(&mut self, buffer: &[u32]) {
         self.key_handler.update();
 
         unsafe {
+            Self::set_shared_data(self);
             mfb_update(self.window_handle, buffer.as_ptr() as *const u8);
             mfb_set_key_callback(self.window_handle, mem::transmute(self), key_callback);
         }
@@ -179,6 +205,31 @@ impl Window {
     #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
         unsafe { mfb_set_position(self.window_handle, x as i32, y as i32) }
+    }
+
+    pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
+        let s = self.shared_data.scale as f32;
+        let w = self.shared_data.width as f32;
+        let h = self.shared_data.height as f32;
+
+        mouse_handler::get_pos(mode, self.shared_data.mouse_x, self.shared_data.mouse_y, s, w, h)
+    }
+
+    pub fn get_mouse_down(&self, button: MouseButton) -> bool {
+    	match button { 
+    		MouseButton::Left => self.shared_data.state[0] > 0,
+    		MouseButton::Middle => self.shared_data.state[1] > 0,
+    		MouseButton::Right => self.shared_data.state[2] > 0,
+    	}
+    }
+
+    pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
+        if self.shared_data.scroll_x.abs() > 0.0 || 
+           self.shared_data.scroll_y.abs() > 0.0 {
+            Some((self.shared_data.scroll_x, self.shared_data.scroll_y))
+        } else {
+            None
+        }
     }
 
     #[inline]
