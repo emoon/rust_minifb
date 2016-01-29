@@ -6,7 +6,7 @@ extern crate winapi;
 extern crate gdi32;
 extern crate time;
 
-use {Scale, Key, KeyRepeat};
+use {Scale, Key, KeyRepeat, MouseButton, MouseMode};
 
 use key_handler::KeyHandler;
 
@@ -14,6 +14,7 @@ use std::ptr;
 use std::os::windows::ffi::OsStrExt;
 use std::ffi::OsStr;
 use std::mem;
+use mouse_handler;
 
 use self::winapi::windef::HWND;
 use self::winapi::windef::HDC;
@@ -171,17 +172,48 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
     let mut wnd: &mut Window = mem::transmute(user_data);
 
     match msg {
+        /*
         winapi::winuser::WM_MOUSEMOVE => {
             let mouse_coords = lparam as u32;
             let scale = user_data.scale as f32;
             user_data.mouse.local_x = (((mouse_coords >> 16) & 0xffff) as f32) / scale;
             user_data.mouse.local_y = ((mouse_coords & 0xffff) as f32) / scale;
+
             return 0;
+        }
+        */
+        winapi::winuser::WM_MOUSEWHEEL => {
+            let scroll = ((((wparam as u32) >> 16) & 0xffff) as i16) as f32 * 0.1;
+            wnd.mouse.scroll = scroll;
         }
 
         winapi::winuser::WM_KEYDOWN => {
             update_key_state(wnd, (lparam as u32) >> 16, true);
             return 0;
+        }
+
+        winapi::winuser::WM_LBUTTONDOWN => {
+            wnd.mouse.state[0] = true
+        }
+
+        winapi::winuser::WM_LBUTTONUP => {
+            wnd.mouse.state[0] = false
+        }
+
+        winapi::winuser::WM_MBUTTONDOWN => {
+            wnd.mouse.state[1] = true
+        }
+
+        winapi::winuser::WM_MBUTTONUP => {
+            wnd.mouse.state[1] = false
+        }
+
+        winapi::winuser::WM_RBUTTONDOWN => {
+            wnd.mouse.state[2] = true
+        }
+
+        winapi::winuser::WM_RBUTTONUP => {
+            wnd.mouse.state[2] = false
         }
 
         winapi::winuser::WM_CLOSE => {
@@ -243,11 +275,10 @@ fn to_wstring(str: &str) -> Vec<u16> {
 
 #[derive(Default)]
 struct MouseData {
-    world_x: f32,
-    world_y: f32,
-    local_x: f32,
-    local_y: f32,
-    state: [bool; 5],
+    pub x: f32,
+    pub y: f32,
+    pub state: [bool; 8],
+    pub scroll: f32,
 }
 
 pub struct Window {
@@ -369,6 +400,31 @@ impl Window {
         }
     }
 
+    pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
+        let s = self.scale_factor as f32;
+        let w = self.width as f32;
+        let h = self.height as f32;
+
+        // TODO: Needs to be fixed with resize support
+        mouse_handler::get_pos(mode, self.mouse.x, self.mouse.y, s, w * s, h * s)
+    }
+
+    pub fn get_mouse_down(&self, button: MouseButton) -> bool {
+        match button {
+            MouseButton::Left => self.mouse.state[0],
+            MouseButton::Middle => self.mouse.state[1],
+            MouseButton::Right => self.mouse.state[2],
+        }
+    }
+
+    pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
+        if self.mouse.scroll.abs() > 0.0 {
+            Some((0.0, self.mouse.scroll))
+        } else {
+            None
+        }
+    }
+
     #[inline]
     pub fn get_keys(&self) -> Option<Vec<Key>> {
         self.key_handler.get_keys()
@@ -409,6 +465,18 @@ impl Window {
         unsafe {
             let mut msg = mem::uninitialized();
             let window = self.window.unwrap();
+
+            let mut point: winapi::POINT = mem::uninitialized();
+            user32::GetCursorPos(&mut point);
+            user32::ScreenToClient(window, &mut point);
+
+            self.mouse.x = point.x as f32;
+            self.mouse.y = point.y as f32;
+            self.mouse.scroll = 0.0;
+
+            //self.mouse_data.x 
+
+            //println!("{} {}", point.x, point.y);
 
             self.key_handler.update();
 

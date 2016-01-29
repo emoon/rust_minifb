@@ -1,6 +1,6 @@
 extern crate minifb;
 
-use minifb::{MouseButton, MouseMode, Window, Key, Scale};
+use minifb::{Window, Key, Scale};
 
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
