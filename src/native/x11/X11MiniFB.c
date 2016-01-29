@@ -9,6 +9,8 @@
 
 #define KEY_FUNCTION 0xFF
 #define KEY_ESC 0x1B
+#define Button6 6
+#define Button7 7
 
 void mfb_close(void* window_info);
 
@@ -28,9 +30,22 @@ static Atom s_wm_delete_window;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+typedef struct SharedData {
+	unsigned int width;
+	unsigned int height;
+    float mouse_x;
+    float mouse_y;
+    float scroll_x;
+    float scroll_y;
+    unsigned char state[3];
+} SharedData;
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 typedef struct WindowInfo {
 	void (*key_callback)(void* user_data, int key, int state);
 	void* rust_data;
+	SharedData* shared_data;
 	Window window;
 	XImage* ximage;
 	void* draw_buffer;
@@ -115,6 +130,12 @@ void* mfb_open(const char* title, int width, int height, int scale)
 
 	Window defaultRootWindow = DefaultRootWindow(s_display);
 
+	windowAttributes.border_pixel = 0;
+	windowAttributes.event_mask = StructureNotifyMask | KeyPressMask | KeyReleaseMask |
+					PointerMotionMask | ButtonPressMask | ButtonReleaseMask |
+					ExposureMask | FocusChangeMask | VisibilityChangeMask |
+					EnterWindowMask | LeaveWindowMask | PropertyChangeMask;
+
 	windowAttributes.border_pixel = BlackPixel(s_display, s_screen);
 	windowAttributes.background_pixel = BlackPixel(s_display, s_screen);
 	windowAttributes.backing_store = NotUseful;
@@ -127,6 +148,10 @@ void* mfb_open(const char* title, int width, int height, int scale)
 		printf("Unable to create X11 Window\n");
 		return 0;
 	}
+
+	XSelectInput(s_display, window, ExposureMask | ButtonPressMask |
+         KeyPressMask | KeyReleaseMask | ButtonReleaseMask | ButtonMotionMask
+         | PointerMotionHintMask);
 
 	//XSelectInput(s_display, s_window, KeyPressMask | KeyReleaseMask);
 	XStoreName(s_display, window, title);
@@ -207,17 +232,86 @@ static int process_event(XEvent* event) {
 		}
 	}
 
-	if ((event->type == KeyPress) || (event->type == KeyRelease) && info->key_callback) {
-		int sym = XLookupKeysym(&event->xkey, 0);
+	switch (event->type) {
+		case KeyPress:
+		{
+  			sym = XLookupKeysym(&event->xkey, 0);
 
-		if (event->type == KeyPress) {
-			info->key_callback(info->rust_data, sym, 1);
-		} else if (event->type == KeyRelease) {
-			info->key_callback(info->rust_data, sym, 0);
+			if (info->key_callback)
+				info->key_callback(info->rust_data, sym, 1);
+
+			break;
+		}
+
+		case KeyRelease:
+		{
+  			sym = XLookupKeysym(&event->xkey, 0);
+
+			if (info->key_callback)
+				info->key_callback(info->rust_data, sym, 0);
+			break;
+		}
+
+		case ButtonPress:
+        {
+        	printf("button %p\n", info->shared_data);
+
+        	if (!info->shared_data)
+        		break;
+
+            if (event->xbutton.button == Button1)
+            	info->shared_data->state[0] = 1;
+            else if (event->xbutton.button == Button2)
+            	info->shared_data->state[1] = 1;
+            else if (event->xbutton.button == Button3)
+            	info->shared_data->state[2] = 1;
+            else if (event->xbutton.button == Button4)
+            	info->shared_data->scroll_y = 10.0f;
+            else if (event->xbutton.button == Button5)
+            	info->shared_data->scroll_y = -10.0f;
+            else if (event->xbutton.button == Button6)
+            	info->shared_data->scroll_x = 10.0f;
+            else if (event->xbutton.button == Button7)
+            	info->shared_data->scroll_y = -10.0f;
+
+            break;
+		}
+
+		case ButtonRelease:
+        {
+        	if (!info->shared_data)
+        		break;
+
+            if (event->xbutton.button == Button1)
+            	info->shared_data->state[0] = 0;
+            else if (event->xbutton.button == Button2)
+            	info->shared_data->state[1] = 0;
+            else if (event->xbutton.button == Button3)
+            	info->shared_data->state[2] = 0;
+
+            break;
 		}
 	}
 
 	return 1;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static void get_mouse_pos(WindowInfo* info) {
+	Window root, child;
+	int rootX, rootY, childX, childY;
+	unsigned int mask;
+
+	XQueryPointer(s_display, info->window,
+					&root, &child,
+					&rootX, &rootY, &childX, &childY,
+					&mask);
+
+	if (info->shared_data) {
+		info->shared_data->mouse_x = (float)childX;
+		info->shared_data->mouse_y = (float)childY;
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -260,6 +354,8 @@ static void scale_2x(unsigned int* dest, unsigned int* source, int width, int he
 		dest += width * (scale - 1);
 	}
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 static void scale_4x(unsigned int* dest, unsigned int* source, int width, int height, int scale) {
 	int x, y;
@@ -319,6 +415,14 @@ void mfb_update(void* window_info, void* buffer)
 		XFlush(s_display);
 	}
 
+	// clear before processing new events
+
+	if (info->shared_data) {
+		info->shared_data->scroll_x = 0.0f;
+		info->shared_data->scroll_y = 0.0f;
+	}
+
+	get_mouse_pos(info);
 	process_events();
 }
 
@@ -358,6 +462,16 @@ void mfb_set_key_callback(void* window, void* rust_data, void (*key_callback)(vo
 	WindowInfo* win = (WindowInfo*)window;
 	win->key_callback = key_callback;
 	win->rust_data = rust_data;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void mfb_set_shared_data(void* window, SharedData* data)
+{
+	WindowInfo* win = (WindowInfo*)window;
+	win->shared_data = data;
+	win->shared_data->width = win->width;
+	win->shared_data->height = win->height;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

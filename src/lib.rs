@@ -184,8 +184,8 @@ pub enum MouseMode {
 extern crate libc;
 
 pub mod os;
-mod key_handler;
 mod mouse_handler;
+mod key_handler;
 
 #[cfg(target_os = "macos")]
 use self::os::macos as imp;
