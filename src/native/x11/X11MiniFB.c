@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -31,13 +32,14 @@ static Atom s_wm_delete_window;
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 typedef struct SharedData {
-	unsigned int width;
-	unsigned int height;
+	uint32_t width;
+	uint32_t height;
+	float scale;
     float mouse_x;
     float mouse_y;
     float scroll_x;
     float scroll_y;
-    unsigned char state[3];
+    uint8_t state[3];
 } SharedData;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -106,8 +108,6 @@ static int setup_display() {
 
 	s_setup_done = 1;
 
-	printf("setup done\n");
-
 	return 1;
 }
 
@@ -130,12 +130,6 @@ void* mfb_open(const char* title, int width, int height, int scale)
 
 	Window defaultRootWindow = DefaultRootWindow(s_display);
 
-	windowAttributes.border_pixel = 0;
-	windowAttributes.event_mask = StructureNotifyMask | KeyPressMask | KeyReleaseMask |
-					PointerMotionMask | ButtonPressMask | ButtonReleaseMask |
-					ExposureMask | FocusChangeMask | VisibilityChangeMask |
-					EnterWindowMask | LeaveWindowMask | PropertyChangeMask;
-
 	windowAttributes.border_pixel = BlackPixel(s_display, s_screen);
 	windowAttributes.background_pixel = BlackPixel(s_display, s_screen);
 	windowAttributes.backing_store = NotUseful;
@@ -149,10 +143,6 @@ void* mfb_open(const char* title, int width, int height, int scale)
 		return 0;
 	}
 
-	XSelectInput(s_display, window, ExposureMask | ButtonPressMask |
-         KeyPressMask | KeyReleaseMask | ButtonReleaseMask | ButtonMotionMask
-         | PointerMotionHintMask);
-
 	//XSelectInput(s_display, s_window, KeyPressMask | KeyReleaseMask);
 	XStoreName(s_display, window, title);
 
@@ -164,7 +154,7 @@ void* mfb_open(const char* title, int width, int height, int scale)
 	sizeHints.min_height = height;
 	sizeHints.max_height = height;
 
-	XSelectInput(s_display, window, KeyPressMask | KeyReleaseMask);
+	XSelectInput(s_display, window, ButtonPressMask | KeyPressMask | KeyReleaseMask | ButtonReleaseMask);
   	XSetWMNormalHints(s_display, window, &sizeHints);
   	XClearWindow(s_display, window);
   	XMapRaised(s_display, window);
@@ -232,7 +222,8 @@ static int process_event(XEvent* event) {
 		}
 	}
 
-	switch (event->type) {
+	switch (event->type) 
+	{
 		case KeyPress:
 		{
   			sym = XLookupKeysym(&event->xkey, 0);
@@ -254,8 +245,6 @@ static int process_event(XEvent* event) {
 
 		case ButtonPress:
         {
-        	printf("button %p\n", info->shared_data);
-
         	if (!info->shared_data)
         		break;
 
@@ -282,7 +271,7 @@ static int process_event(XEvent* event) {
         	if (!info->shared_data)
         		break;
 
-            if (event->xbutton.button == Button1)
+            if (event->xbutton.button == Button1) 
             	info->shared_data->state[0] = 0;
             else if (event->xbutton.button == Button2)
             	info->shared_data->state[1] = 0;

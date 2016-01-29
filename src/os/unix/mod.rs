@@ -217,9 +217,9 @@ impl Window {
 
     pub fn get_mouse_down(&self, button: MouseButton) -> bool {
     	match button { 
-    		MouseButton::Left => self.shared_data.state[0] > 1,
-    		MouseButton::Middle => self.shared_data.state[1] > 1,
-    		MouseButton::Right => self.shared_data.state[2] > 1,
+    		MouseButton::Left => self.shared_data.state[0] > 0,
+    		MouseButton::Middle => self.shared_data.state[1] > 0,
+    		MouseButton::Right => self.shared_data.state[2] > 0,
     	}
     }
 
