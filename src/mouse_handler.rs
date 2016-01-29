@@ -14,8 +14,8 @@ pub fn get_pos(mode: MouseMode, mx: f32, my: f32, scale: f32, width: f32, height
     match mode {
         MouseMode::Pass => Some((x, y)),
         MouseMode::Clamp => {
-            Some((clamp(x, 0.0, window_width),
-                  clamp(y, 0.0, window_height)))
+            Some((clamp(x, 0.0, window_width - 1.0),
+                  clamp(y, 0.0, window_height - 1.0)))
         },
         MouseMode::Discard => {
             if x < 0.0 || y < 0.0 || x >= window_width || y >= window_height {
