@@ -183,6 +183,7 @@ pub enum MouseMode {
 
 extern crate libc;
 
+#[doc(hidden)]
 pub mod os;
 mod mouse_handler;
 mod key_handler;
@@ -282,7 +283,6 @@ impl Window {
     /// ```ignore
     /// // Moves the window to pixel postion 20, 20 on the screen
     /// window.set_position(20, 20);
-    /// }
     /// ```
     ///
     #[inline]
@@ -296,9 +296,11 @@ impl Window {
     ///
     /// # Examples
     ///
+    /// ```ignore
     /// window.get_mouse_pos(MouseMode::Clamp).map(|mouse| {
     ///     println!("x {} y {}", mouse.0, mouse.1);
     /// });
+    /// ```
     /// 
     #[inline]
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
@@ -310,8 +312,10 @@ impl Window {
     ///
     /// # Examples
     ///
+    /// ```ignore
     /// let left_down = window.get_mouse_down(MouseButton::Left);
     /// println!("is left down? {}", left_down) 
+    /// ```
     /// 
     #[inline]
     pub fn get_mouse_down(&self, button: MouseButton) -> bool { 
@@ -321,8 +325,17 @@ impl Window {
     ///
     /// Get the current movement of the scroll wheel.
     /// Scroll wheel can mean different thing depending on the device attach.
-    /// For example on Mac with trackpad it's the "two
+    /// For example on Mac with trackpad "scroll wheel" means two finger 
+    /// swiping up/down (y axis) and to the sides (x-axis)
+    /// When using a mouse this assumes the scroll wheel which often is only y direction.
     ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// window.get_scroll_wheel().map(|scroll| {
+    ///     println!("scrolling - x {} y {}", scroll.0, scroll.1);
+    /// });
+    /// ```
     ///
     ///
     #[inline]
