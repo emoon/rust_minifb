@@ -42,54 +42,34 @@
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-- (void)mouseMoved:(NSEvent *)event
-{
-    OSXWindow* window = [self window];
-    NSRect originalFrame = [window frame];
-    NSPoint location = [window mouseLocationOutsideOfEventStream];
-    NSRect adjustFrame = [NSWindow contentRectForFrameRect: originalFrame styleMask: NSTitledWindowMask];
-
-    //window->mouse_data->mov
-
-	/*
-    printf("%p\n", window->shared_data);
-
-    printf("%f %f - %f %f\n", 
-   		adjustFrame.origin.x, 
-   		adjustFrame.origin.y, 
-   		adjustFrame.size.width, 
-   		adjustFrame.size.height);
-	
-		printf("mouse moved\n");
-	*/
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 - (void)mouseDown:(NSEvent*)event
 {
-	printf("mouse down\n");
+    OSXWindow* window = (OSXWindow*)[self window];
+    window->shared_data->mouse_state[0] = 1;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 - (void)mouseUp:(NSEvent*)event
 {
-	printf("mouse up\n");
+    OSXWindow* window = (OSXWindow*)[self window];
+    window->shared_data->mouse_state[0] = 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 - (void)rightMouseDown:(NSEvent*)event
 {
-	printf("right mouseDown up\n");
+    OSXWindow* window = (OSXWindow*)[self window];
+    window->shared_data->mouse_state[2] = 1;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 - (void)rightMouseUp:(NSEvent*)event
 {
-	printf("right mouseDown down\n");
+    OSXWindow* window = (OSXWindow*)[self window];
+    window->shared_data->mouse_state[2] = 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

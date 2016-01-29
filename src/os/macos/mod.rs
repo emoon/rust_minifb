@@ -1,6 +1,6 @@
 #![cfg(target_os = "macos")]
 
-use {MouseMode, Scale, Key, KeyRepeat};
+use {MouseButton, MouseMode, Scale, Key, KeyRepeat};
 use key_handler::KeyHandler;
 
 use libc::{c_void, c_char, c_uchar};
@@ -238,6 +238,14 @@ impl Window {
     #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
         unsafe { mfb_set_position(self.window_handle, x as i32, y as i32) }
+    }
+
+    pub fn get_mouse_down(&self, button: MouseButton) -> bool {
+        match button {
+            MouseButton::Left => self.shared_data.state[0] > 0,
+            MouseButton::Middle => self.shared_data.state[1] > 0,
+            MouseButton::Right => self.shared_data.state[2] > 0,
+        }
     }
 
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
