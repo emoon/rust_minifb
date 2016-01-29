@@ -29,6 +29,10 @@ fn main() {
             }
         });
 
+        window.get_scroll_wheel().map(|scroll| {
+            println!("Scrolling {} - {}", scroll.0, scroll.1);
+        });
+
         window.update(&buffer);
     }
 }

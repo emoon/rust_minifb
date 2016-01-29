@@ -240,6 +240,17 @@ impl Window {
         unsafe { mfb_set_position(self.window_handle, x as i32, y as i32) }
     }
 
+    pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
+        let sx = self.shared_data.scroll_x;
+        let sy = self.shared_data.scroll_y;
+
+        if sx.abs() > 0.0001 || sy.abs() > 0.0001 {
+            Some((sx, sy))
+        } else {
+            None
+        }
+    }
+
     pub fn get_mouse_down(&self, button: MouseButton) -> bool {
         match button {
             MouseButton::Left => self.shared_data.state[0] > 0,

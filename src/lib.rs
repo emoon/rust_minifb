@@ -318,6 +318,18 @@ impl Window {
     }
 
     ///
+    /// Get the current movement of the scroll wheel.
+    /// Scroll wheel can mean different thing depending on the device attach.
+    /// For example on Mac with trackpad it's the "two
+    ///
+    ///
+    ///
+    #[inline]
+    pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
+        self.0.get_scroll_wheel()
+    }
+
+    ///
     /// Get the current keys that are down. 
     ///
     /// # Examples
