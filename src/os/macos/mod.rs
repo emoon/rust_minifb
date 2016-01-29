@@ -2,6 +2,7 @@
 
 use {MouseButton, MouseMode, Scale, Key, KeyRepeat};
 use key_handler::KeyHandler;
+use mouse_handler;
 
 use libc::{c_void, c_char, c_uchar};
 use std::ffi::{CString};
@@ -231,10 +232,6 @@ impl Window {
         }
     }
 
-    fn clamp(v: f32, lb: f32, ub: f32) -> f32 {
-        f32::min(f32::max(v, lb), ub)
-    }
-
     #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
         unsafe { mfb_set_position(self.window_handle, x as i32, y as i32) }
@@ -260,26 +257,11 @@ impl Window {
     }
 
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
-        let s = 1.0 / self.scale_factor as f32;
-        let x = self.shared_data.mouse_x * s;
-        let y = self.shared_data.mouse_y * s;
-        let window_width = self.shared_data.width as f32 * s;
-        let window_height = self.shared_data.height as f32 * s;
+        let s = self.scale_factor as f32;
+        let w = self.shared_data.width as f32;
+        let h = self.shared_data.height as f32;
 
-        match mode {
-            MouseMode::Pass => Some((x, y)),
-            MouseMode::Clamp => {
-                Some((Self::clamp(x, 0.0, window_width),
-                      Self::clamp(y, 0.0, window_height)))
-            },
-            MouseMode::Discard => {
-                if x < 0.0 || y < 0.0 || x >= window_width || y >= window_height {
-                    None
-                } else {
-                    Some((x, y))
-                }
-            },
-        }
+        mouse_handler::get_pos(mode, self.shared_data.mouse_x, self.shared_data.mouse_y, s, w, h)
     }
 
     #[inline]
