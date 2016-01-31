@@ -1,6 +1,6 @@
 extern crate minifb;
 
-use minifb::{MouseButton, MouseMode, Window, Key, Scale};
+use minifb::{MouseButton, MouseMode, Window, Key, Scale, WindowOptions};
 
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
@@ -8,7 +8,11 @@ const HEIGHT: usize = 360;
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 
-    let mut window = match Window::new("Mouse Draw - Press ESC to exit", WIDTH, HEIGHT, Scale::X2) {
+    let mut window = match Window::new("Mouse Draw - Press ESC to exit", WIDTH, HEIGHT, 
+                                       WindowOptions { 
+                                           scale: Scale::X2,
+                                           ..WindowOptions::default()
+                                       }) {
         Ok(win) => win,
         Err(err) => {
             println!("Unable to create window {}", err);
@@ -33,6 +37,6 @@ fn main() {
             println!("Scrolling {} - {}", scroll.0, scroll.1);
         });
 
-        window.update(&buffer);
+        window.update_with_buffer(&buffer);
     }
 }

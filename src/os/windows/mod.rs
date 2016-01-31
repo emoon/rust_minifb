@@ -6,7 +6,7 @@ extern crate winapi;
 extern crate gdi32;
 extern crate time;
 
-use {Scale, Key, KeyRepeat, MouseButton, MouseMode};
+use {Scale, Key, KeyRepeat, MouseButton, MouseMode, WindowOptions};
 
 use key_handler::KeyHandler;
 
@@ -14,6 +14,7 @@ use std::ptr;
 use std::os::windows::ffi::OsStrExt;
 use std::ffi::OsStr;
 use std::mem;
+use std::os::raw;
 use mouse_handler;
 
 use self::winapi::windef::HWND;
@@ -226,6 +227,12 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
         }
 
         winapi::winuser::WM_PAINT => {
+
+            // if we have nothing to draw here we return the default function
+            if wnd.buffer.len() == 0 {
+                return user32::DefWindowProcW(window, msg, wparam, lparam);
+            }
+
             let mut bitmap_info: BitmapInfo = mem::zeroed();
 
             bitmap_info.bmi_header.biSize = mem::size_of::<BITMAPINFOHEADER>() as u32;
@@ -294,7 +301,7 @@ pub struct Window {
 }
 
 impl Window {
-    fn open_window(name: &str, width: usize, height: usize, scale_factor: i32) -> Option<HWND> {
+    fn open_window(name: &str, width: usize, height: usize, opts: WindowOptions, scale_factor: i32) -> Option<HWND> {
         unsafe {
             let class_name = to_wstring("minifb_window");
             let class = WNDCLASSW {
@@ -337,12 +344,28 @@ impl Window {
 
             let window_name = to_wstring(name);
 
+            let mut flags = 0;
+
+            if opts.title {
+                flags |= winapi::WS_OVERLAPPEDWINDOW as u32; 
+            }
+
+            if opts.resize {
+                flags |= winapi::WS_THICKFRAME as u32 | winapi::WS_MAXIMIZEBOX as u32 ;
+
+            } else {
+                flags &= !winapi::WS_MAXIMIZEBOX;
+                flags &= !winapi::WS_THICKFRAME;
+            }
+
+            if opts.borderless {
+                flags &= !winapi::WS_THICKFRAME;
+            }
+
             let handle = user32::CreateWindowExW(0,
                                                  class_name.as_ptr(), 
                                                  window_name.as_ptr(),
-                                                 winapi::WS_OVERLAPPEDWINDOW &
-                                                 !winapi::WS_MAXIMIZEBOX &
-                                                 !winapi::WS_THICKFRAME,
+                                                 flags,
                                                  winapi::CW_USEDEFAULT,
                                                  winapi::CW_USEDEFAULT,
                                                  rect.right,
@@ -365,12 +388,12 @@ impl Window {
     pub fn new(name: &str,
                width: usize,
                height: usize,
-               scale: Scale)
+               opts: WindowOptions)
                -> Result<Window, &str> {
         unsafe {
-            let scale_factor = Self::get_scale_factor(width, height, scale);
+            let scale_factor = Self::get_scale_factor(width, height, opts.scale);
 
-            let handle = Self::open_window(name, width, height, scale_factor);
+            let handle = Self::open_window(name, width, height, opts, scale_factor);
 
             if handle.is_none() {
                 return Err("Unable to create Window");
@@ -390,6 +413,11 @@ impl Window {
 
             Ok(window)
         }
+    }
+
+    #[inline]
+    pub fn get_window_handle(&self) -> *mut raw::c_void {
+        self.window.unwrap() as *mut raw::c_void
     }
 
     #[inline]
@@ -461,10 +489,8 @@ impl Window {
         return self.is_open
     }
 
-    pub fn update(&mut self, buffer: &[u32]) {
+    fn generic_update(&mut self, window: HWND) {
         unsafe {
-            let mut msg = mem::uninitialized();
-            let window = self.window.unwrap();
 
             let mut point: winapi::POINT = mem::uninitialized();
             user32::GetCursorPos(&mut point);
@@ -474,24 +500,41 @@ impl Window {
             self.mouse.y = point.y as f32;
             self.mouse.scroll = 0.0;
 
-            //self.mouse_data.x 
-
-            //println!("{} {}", point.x, point.y);
-
             self.key_handler.update();
 
-            // TODO: Optimize
-
-            self.buffer = buffer.iter().cloned().collect();
-
             set_window_long(window, mem::transmute(self));
-            user32::InvalidateRect(window, ptr::null_mut(), winapi::TRUE);
+        }
+    }
+
+    fn message_loop(&mut self, window: HWND) {
+        unsafe {
+            let mut msg = mem::uninitialized();
 
             while user32::PeekMessageW(&mut msg, window, 0, 0, winapi::winuser::PM_REMOVE) != 0 {
                 user32::TranslateMessage(&mut msg);
                 user32::DispatchMessageW(&mut msg);
             }
         }
+    }
+
+    pub fn update_with_buffer(&mut self, buffer: &[u32]) {
+        let window = self.window.unwrap();
+
+        Self::generic_update(self, window);
+
+        self.buffer = buffer.iter().cloned().collect();
+        unsafe {
+            user32::InvalidateRect(window, ptr::null_mut(), winapi::TRUE);
+        }
+
+        Self::message_loop(self, window);
+    }
+
+    pub fn update(&mut self) {
+        let window = self.window.unwrap();
+
+        Self::generic_update(self, window);
+        Self::message_loop(self, window);
     }
 
     unsafe fn get_scale_factor(width: usize, height: usize, scale: Scale) -> i32 {

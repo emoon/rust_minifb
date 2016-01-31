@@ -1,6 +1,6 @@
 extern crate minifb;
 
-use minifb::{Window, Key, Scale};
+use minifb::{Window, Key, Scale, WindowOptions};
 
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
@@ -12,7 +12,12 @@ fn main() {
 
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 
-    let mut window = match Window::new("Noise Test - Press ESC to exit", WIDTH, HEIGHT, Scale::X2) {
+    let mut window = match Window::new("Noise Test - Press ESC to exit", WIDTH, HEIGHT, 
+                                       WindowOptions { 
+                                           resize: true,
+                                           scale: Scale::X2,
+                                           ..WindowOptions::default()
+                                       }) {
         Ok(win) => win,
         Err(err) => {
             println!("Unable to create window {}", err);
@@ -43,6 +48,6 @@ fn main() {
             }
         });
 
-        window.update(&buffer);
+        window.update_with_buffer(&buffer);
     }
 }

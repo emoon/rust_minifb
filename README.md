@@ -2,9 +2,11 @@
 [![Build Status](https://travis-ci.org/emoon/rust_minifb.svg)](https://travis-ci.org/emoon/rust_minifb)
 [![Build Status](https://ci.appveyor.com/api/projects/status/sfvgqq4d4sjulkbx?svg=true)](https://ci.appveyor.com/project/emoon/rust-minifb)
 
-minifb (Mini FrameBuffer) is a small cross platform library written in [Rust](https://www.rust-lang.org) and that makes it easy to render (32-bit) pixels in a window. An example is the best way to show how it works:
+minifb is a cross platform library written in [Rust](https://www.rust-lang.org) and that makes it easy to setup a window and to (optional) display 32-bit a pixel buffer.  It also makes it easy to get input from keyboard and mouse.
+An example is the best way to show how it works:
 
 [Documentation](http://prodbg.com/minifb/minifb/index.html)
+[Changelog](https://github.com/emoon/rust_minifb/blob/window-opts/CHANGELOG.md)
 
 Usage
 -----
@@ -12,7 +14,7 @@ Usage
 ```toml
 # Cargo.toml
 [dependencies]
-minifb = "0.3.1"
+minifb = "0.4.0"
 ```
 
 Example
@@ -21,7 +23,7 @@ Example
 ```rust
 extern crate minifb;
 
-use minifb::{Key, Scale};
+use minifb::{Key, Scale, WindowOptions};
 
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
@@ -29,7 +31,8 @@ const HEIGHT: usize = 360;
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 
-    let mut window = match minifb::Window::new("Test - ESC to exit", WIDTH, HEIGHT, Scale::X1) {
+    let mut window = match minifb::Window::new("Test - ESC to exit", WIDTH, HEIGHT, 
+    										   WindowOptions::default()) {
         Ok(win) => win,
         Err(err) => {
             println!("Unable to create window {}", err);
@@ -42,7 +45,7 @@ fn main() {
             *i = 0; // write something more funny here!
         }
 
-        window.update(&buffer);
+        window.update_with_buffer(&buffer);
     }
 }
 ```

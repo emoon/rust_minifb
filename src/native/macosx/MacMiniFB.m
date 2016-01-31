@@ -6,6 +6,11 @@
 
 static bool s_init = false;
 
+// window_handler.rs
+const uint32_t WINDOW_BORDERLESS = 1 << 1; 
+const uint32_t WINDOW_RESIZE = 1 << 2; 
+const uint32_t WINDOW_TITLE = 1 << 3; 
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #ifdef __clang__
@@ -14,7 +19,7 @@ static bool s_init = false;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void* mfb_open(const char* name, int width, int height, int scale)
+void* mfb_open(const char* name, int width, int height, uint32_t flags, int scale)
 {
 	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 
@@ -23,8 +28,18 @@ void* mfb_open(const char* name, int width, int height, int scale)
 		[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 		s_init = true;
 	}
+
+	uint32_t styles = NSClosableWindowMask | NSMiniaturizableWindowMask;
+
+	if (flags & WINDOW_BORDERLESS)
+		styles |= NSBorderlessWindowMask; 
+
+	if (flags & WINDOW_RESIZE)
+		styles |= NSResizableWindowMask; 
+
+	if (flags & WINDOW_TITLE)
+		styles |= NSTitledWindowMask; 
 		
-	unsigned int styles = NSClosableWindowMask | NSTitledWindowMask;
 	NSRect rectangle = NSMakeRect(0, 0, width * scale, (height * scale));
 		
 	OSXWindow* window = [[OSXWindow alloc] initWithContentRect:rectangle styleMask:styles backing:NSBackingStoreBuffered defer:NO];
@@ -88,11 +103,7 @@ static int update_events()
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-int mfb_update(void* window, void* buffer)
-{
-	OSXWindow* win = (OSXWindow*)window;
-	memcpy(win->draw_buffer, buffer, win->width * win->height * 4);
-
+static int generic_update(OSXWindow* win) {
 	int state = update_events();
 
     if (win->shared_data) {
@@ -102,6 +113,26 @@ int mfb_update(void* window, void* buffer)
 		win->shared_data->mouse_x = p.x;
 		win->shared_data->mouse_y = contentRect.size.height - p.y;
 	}
+
+	return state;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+int mfb_update(void* window, void* buffer)
+{
+	OSXWindow* win = (OSXWindow*)window;
+	return generic_update(win);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+int mfb_update_with_buffer(void* window, void* buffer)
+{
+	OSXWindow* win = (OSXWindow*)window;
+	memcpy(win->draw_buffer, buffer, win->width * win->height * 4);
+
+	int state = generic_update(win);
 
 	[[win contentView] setNeedsDisplay:YES];
 	return state;
