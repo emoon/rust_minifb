@@ -2,7 +2,7 @@
 
 This project follows semantic versioning.
 
-### UNRELEASED (to be 0.4.0)
+### v0.4.0 (2016-01-31)
 
 This release breaks some of the API by changing names and parameters to some functions.
 
