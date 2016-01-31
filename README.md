@@ -6,6 +6,7 @@ minifb is a cross platform library written in [Rust](https://www.rust-lang.org) 
 An example is the best way to show how it works:
 
 [Documentation](http://prodbg.com/minifb/minifb/index.html)
+[Changelog](https://github.com/emoon/rust_minifb/blob/window-opts/CHANGELOG.md)
 
 Usage
 -----
@@ -30,7 +31,8 @@ const HEIGHT: usize = 360;
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 
-    let mut window = match minifb::Window::new("Test - ESC to exit", WIDTH, HEIGHT, WindowOptions::default()) {
+    let mut window = match minifb::Window::new("Test - ESC to exit", WIDTH, HEIGHT, 
+    										   WindowOptions::default()) {
         Ok(win) => win,
         Err(err) => {
             println!("Unable to create window {}", err);
@@ -43,7 +45,7 @@ fn main() {
             *i = 0; // write something more funny here!
         }
 
-        window.update(&buffer);
+        window.update_with_buffer(&buffer);
     }
 }
 ```
