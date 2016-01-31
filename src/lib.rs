@@ -286,11 +286,9 @@ impl Window {
     /// Returns the native handle for a window which is an opaque pointer/handle which
     /// dependens on the current operating system:
     ///
-    /// ```
-    /// Windows: HWND
-    /// MacOS:   NSWindow
-    /// X11:     XWindow
-    /// ```
+    /// Windows HWND
+    /// MacOS   NSWindow
+    /// X11     XWindow
     ///
     #[inline]
     pub fn get_window_handle(&self) -> *mut raw::c_void {
