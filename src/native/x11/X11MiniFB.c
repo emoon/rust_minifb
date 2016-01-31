@@ -13,6 +13,11 @@
 #define Button6 6
 #define Button7 7
 
+// window_handler.rs
+const uint32_t WINDOW_BORDERLESS = 1 << 1; 
+const uint32_t WINDOW_RESIZE = 1 << 2; 
+const uint32_t WINDOW_TITLE = 1 << 3; 
+
 void mfb_close(void* window_info);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -113,7 +118,7 @@ static int setup_display() {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void* mfb_open(const char* title, int width, int height, int scale)
+void* mfb_open(const char* title, int width, int height, unsigned int flags, int scale)
 {
 	XSetWindowAttributes windowAttributes;
 	XSizeHints sizeHints;
@@ -124,6 +129,9 @@ void* mfb_open(const char* title, int width, int height, int scale)
 	if (!setup_display()) {
 		return 0;
 	}
+
+	//TODO: Handle no title/borderless 
+	(void)flags;
 
 	width *= scale;
 	height *= scale;
@@ -146,16 +154,19 @@ void* mfb_open(const char* title, int width, int height, int scale)
 	//XSelectInput(s_display, s_window, KeyPressMask | KeyReleaseMask);
 	XStoreName(s_display, window, title);
 
-	sizeHints.flags = PPosition | PMinSize | PMaxSize;
-	sizeHints.x = 0;
-	sizeHints.y = 0;
-	sizeHints.min_width = width;
-	sizeHints.max_width = width;
-	sizeHints.min_height = height;
-	sizeHints.max_height = height;
-
 	XSelectInput(s_display, window, ButtonPressMask | KeyPressMask | KeyReleaseMask | ButtonReleaseMask);
-  	XSetWMNormalHints(s_display, window, &sizeHints);
+
+	if (!(flags & WINDOW_RESIZE)) {
+		sizeHints.flags = PPosition | PMinSize | PMaxSize;
+		sizeHints.x = 0;
+		sizeHints.y = 0;
+		sizeHints.min_width = width;
+		sizeHints.max_width = width;
+		sizeHints.min_height = height;
+		sizeHints.max_height = height;
+  		XSetWMNormalHints(s_display, window, &sizeHints);
+	}
+
   	XClearWindow(s_display, window);
   	XMapRaised(s_display, window);
 	XFlush(s_display);
@@ -376,14 +387,14 @@ static void scale_4x(unsigned int* dest, unsigned int* source, int width, int he
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void mfb_update(void* window_info, void* buffer)
+void mfb_update_with_buffer(void* window_info, void* buffer)
 {
 	WindowInfo* info = (WindowInfo*)window_info;
 	int width = info->width;
 	int height = info->height;
 	int scale = info->scale;
 
-	if (info->update) {
+	if (info->update && buffer) {
 		switch (scale) {
 			case 1: {
 				memcpy(info->draw_buffer, buffer, width * height * 4);
@@ -413,6 +424,13 @@ void mfb_update(void* window_info, void* buffer)
 
 	get_mouse_pos(info);
 	process_events();
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void mfb_update(void* window_info, void* buffer)
+{
+	mfb_update_with_buffer(window_info, 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
