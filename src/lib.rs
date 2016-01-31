@@ -253,7 +253,7 @@ impl Window {
     /// Open up a window with default settings
     ///
     /// ```ignore
-    /// let mut window = match Window::new("Test", 640, 400, Scale::X1) {
+    /// let mut window = match Window::new("Test", 640, 400, WindowOptions::default()) {
     ///    Ok(win) => win,
     ///    Err(err) => {
     ///        println!("Unable to create window {}", err);
@@ -262,13 +262,12 @@ impl Window {
     ///};
     /// ```
     ///
-    /// Open up a window that is resizeable without a title
+    /// Open up a window that is resizeable
     ///
     /// ```ignore
     /// let mut window = match Window::new("Test", 640, 400, 
     ///                                     WindowOptions {
     ///                                         resize: true,
-    ///                                         title: false,
     ///                                         ..WindowOptions::default() 
     ///                                     }) {
     ///    Ok(win) => win,
@@ -286,9 +285,11 @@ impl Window {
     /// Returns the native handle for a window which is an opaque pointer/handle which
     /// dependens on the current operating system:
     ///
+    /// ```ignore
     /// Windows HWND
     /// MacOS   NSWindow
     /// X11     XWindow
+    /// ```
     ///
     #[inline]
     pub fn get_window_handle(&self) -> *mut raw::c_void {
@@ -323,7 +324,7 @@ impl Window {
     ///
     /// let mut window = match Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     ///
-    /// window.update_with_buffer(&buffer);
+    /// window.update();
     /// ```
     #[inline]
     pub fn update(&mut self) {
