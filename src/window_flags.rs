@@ -18,7 +18,7 @@ pub fn get_flags(opts: WindowOptions) -> u32 {
         flags |= WINDOW_TITLE;
     }
 
-    if opts.resizable {
+    if opts.resize {
         flags |= WINDOW_RESIZE;
     }
 

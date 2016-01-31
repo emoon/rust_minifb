@@ -212,7 +212,7 @@ pub struct WindowOptions {
     /// If the window should have a title (default: true)
     pub title: bool,
     /// If it should be possible to resize the window (default: false) 
-    pub resizable: bool,
+    pub resize: bool,
     /// Scale of the window that used in conjunction with update_with_buffer (default: X1)
     pub scale: Scale
 }
@@ -265,7 +265,7 @@ impl Window {
     /// ```ignore
     /// let mut window = match Window::new("Test", 640, 400, 
     ///                                     WindowOptions {
-    ///                                         resizable: true,
+    ///                                         resize: true,
     ///                                         title: false,
     ///                                         ..WindowOptions::default() 
     ///                                     }) {
@@ -514,7 +514,7 @@ impl Default for WindowOptions {
         WindowOptions {
             borderless: false,
             title: true,
-            resizable: false,
+            resize: false,
             scale: Scale::X1,
         }
     }

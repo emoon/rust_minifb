@@ -29,7 +29,7 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 		s_init = true;
 	}
 
-	uint32_t styles = NSClosableWindowMask;
+	uint32_t styles = NSClosableWindowMask | NSMiniaturizableWindowMask;
 
 	if (flags & WINDOW_BORDERLESS)
 		styles |= NSBorderlessWindowMask; 
