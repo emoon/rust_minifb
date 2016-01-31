@@ -6,10 +6,10 @@ This project follows semantic versioning.
 
 This release breaks some of the API by changing names and parameters to some functions.
 
-- [changed] ```Window::new(...)``` now takes WindowOptions struct to configure the creation of the Window.
-- [changed] ```window.update()``` Doesn't take a buffer anymore. See ```window.update_with_buffer```
-- [added] ```window.update_with_buffer()``` Old update version that takes buffer as input parameter
-- [added] ```window.get_window_handle()``` Returns the native handle (os dependant) 
+- [changed] ```Window::new(...)``` now takes WindowOptions struct to configure the creation of the Window. [doc](http://prodbg.com/minifb/minifb/struct.Window.html#method.new)
+- [changed] ```window.update()``` Doesn't take a buffer anymore. See ```window.update_with_buffer``` [doc](http://prodbg.com/minifb/minifb/struct.Window.html#method.update)
+- [added] ```window.update_with_buffer()``` Old update version that takes buffer as input parameter [doc](http://prodbg.com/minifb/minifb/struct.Window.html#method.update_with_buffer)
+- [added] ```window.get_window_handle()``` Returns the native handle (os dependant) [doc](http://prodbg.com/minifb/minifb/struct.Window.html#method.get_window_handle)
 
 ### v0.3.1 (2016-01-29)
 
