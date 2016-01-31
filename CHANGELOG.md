@@ -19,7 +19,7 @@ This release breaks some of the API by changing names and parameters to some fun
 
 This release adds support for mouse input. See the documentation and the examples for usage
 
-- [added] ```[get_mouse_pos]```(http://prodbg.com/minifb/minifb/struct.Window.html#method.get_mouse_pos)
+- [added] [get_mouse_pos](http://prodbg.com/minifb/minifb/struct.Window.html#method.get_mouse_pos)
 - [added] ```get_mouse_down```
 - [added] ```get_scroll_wheel```
 
