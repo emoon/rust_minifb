@@ -9,6 +9,7 @@ use libc::{c_void, c_char, c_uchar};
 use std::ffi::{CString};
 use std::ptr;
 use std::mem;
+use std::os::raw;
 
 // Table taken from GLFW and slightly modified
 
@@ -218,6 +219,11 @@ impl Window {
                 has_set_data: false,
             })
         }
+    }
+
+    #[inline]
+    pub fn get_window_handle(&self) -> *mut raw::c_void {
+        self.window_handle as *mut raw::c_void 
     }
 
     #[inline]

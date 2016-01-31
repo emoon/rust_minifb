@@ -183,6 +183,8 @@ pub enum MouseMode {
 
 extern crate libc;
 
+use std::os::raw;
+
 #[doc(hidden)]
 pub mod os;
 mod mouse_handler;
@@ -281,6 +283,21 @@ impl Window {
     }
 
     ///
+    /// Returns the native handle for a window which is an opaque pointer/handle which
+    /// dependens on the current operating system:
+    ///
+    /// ```
+    /// Windows: HWND
+    /// MacOS:   NSWindow
+    /// X11:     XWindow
+    /// ```
+    ///
+    #[inline]
+    pub fn get_window_handle(&self) -> *mut raw::c_void {
+        self.0.get_window_handle()
+    }
+
+    ///
     /// Updates the window with a 32-bit pixel buffer. Notice that the buffer needs to be at least 
     /// the size of the created window
     ///
@@ -293,6 +310,7 @@ impl Window {
     ///
     /// window.update_with_buffer(&buffer);
     /// ```
+    #[inline]
     pub fn update_with_buffer(&mut self, buffer: &[u32]) {
         self.0.update_with_buffer(buffer)
     }
@@ -309,6 +327,7 @@ impl Window {
     ///
     /// window.update_with_buffer(&buffer);
     /// ```
+    #[inline]
     pub fn update(&mut self) {
         self.0.update()
     }
