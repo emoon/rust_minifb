@@ -187,6 +187,7 @@ extern crate libc;
 pub mod os;
 mod mouse_handler;
 mod key_handler;
+mod window_flags;
 
 #[cfg(target_os = "macos")]
 use self::os::macos as imp;
@@ -199,33 +200,55 @@ use self::os::windows as imp;
     target_os="openbsd"))]
 use self::os::unix as imp;
 
+pub struct Window(imp::Window);
+
 ///
-/// Window used for displaying a 32-bit RGB buffer. Here is a small example on how to use it:
-/// (without error checking 
+/// WindowOptions is creation settings for the window. By default the settings are defined for
+/// displayng a 32-bit buffer (no scaling of window is possible) 
+///
+pub struct WindowOptions {
+    /// If the window should be borderless (default: false)
+    pub borderless: bool,
+    /// If the window should have a title (default: true)
+    pub title: bool,
+    /// If it should be possible to resize the window (default: false) 
+    pub resizable: bool,
+    /// Scale of the window that used in conjunction with update_with_buffer (default: X1)
+    pub scale: Scale
+}
+
+///
+/// Window is used to open up a window. It's possible to optionally display a 32-bit buffer when
+/// the widow is set as non-resizable.
+///
+/// # Examples
+///
+/// Open up a window and display a 32-bit RGB buffer (without error checking)
 ///
 /// ```ignore
-///
 /// const WIDTH: usize = 640;
 /// const HEIGHT: usize = 360;
 ///
 /// let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 ///
-/// let mut window = match Window::new("Test - Press ESC to exit", WIDTH, HEIGHT, Scale::X1).unwrap()
+/// let mut window = match Window::new("Test - Press ESC to exit", WIDTH, HEIGHT,
+///                                     WindowOptions::default()).unwrap()
 ///
 /// while window.is_open() && !window.is_key_down(Key::Escape) {
 ///     for i in buffer.iter_mut() {
 ///         *i = 0; // write something interesting here
 ///     }
-///     window.update(&buffer);
+///     window.update_with_buffer(&buffer);
 /// }
 /// ```
 ///
-
-pub struct Window(imp::Window);
-
 impl Window {
     ///
     /// Opens up a new window
+    ///
+    /// # Examples
+    ///
+    /// Open up a window with default settings
     ///
     /// ```ignore
     /// let mut window = match Window::new("Test", 640, 400, Scale::X1) {
@@ -236,8 +259,25 @@ impl Window {
     ///    }
     ///};
     /// ```
-    pub fn new(name: &str, width: usize, height: usize, scale: Scale) -> Result<Window, &str> {
-        imp::Window::new(name, width, height, scale).map(Window)
+    ///
+    /// Open up a window that is resizeable without a title
+    ///
+    /// ```ignore
+    /// let mut window = match Window::new("Test", 640, 400, 
+    ///                                     WindowOptions {
+    ///                                         resizable: true,
+    ///                                         title: false,
+    ///                                         ..WindowOptions::default() 
+    ///                                     }) {
+    ///    Ok(win) => win,
+    ///    Err(err) => {
+    ///        println!("Unable to create window {}", err);
+    ///        return;
+    ///    }
+    ///};
+    /// ```
+    pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window, &str> {
+        imp::Window::new(name, width, height, opts).map(Window)
     }
 
     ///
@@ -249,12 +289,28 @@ impl Window {
     /// ```ignore
     /// let mut buffer: Vec<u32> = vec![0; 640 * 400];
     ///
-    /// let mut window = match Window::new("Test", 640, 400, Scale::X1).unwrap();
+    /// let mut window = match Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     ///
-    /// window.update(&buffer);
+    /// window.update_with_buffer(&buffer);
     /// ```
-    pub fn update(&mut self, buffer: &[u32]) {
-        self.0.update(buffer)
+    pub fn update_with_buffer(&mut self, buffer: &[u32]) {
+        self.0.update_with_buffer(buffer)
+    }
+
+    ///
+    /// Updates the window (this is required to call in order to get keyboard/mouse input, etc) 
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let mut buffer: Vec<u32> = vec![0; 640 * 400];
+    ///
+    /// let mut window = match Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    ///
+    /// window.update_with_buffer(&buffer);
+    /// ```
+    pub fn update(&mut self) {
+        self.0.update()
     }
 
     ///
@@ -281,7 +337,7 @@ impl Window {
     /// # Examples
     ///
     /// ```ignore
-    /// // Moves the window to pixel postion 20, 20 on the screen
+    /// // Moves the window to pixel position 20, 20 on the screen
     /// window.set_position(20, 20);
     /// ```
     ///
@@ -435,7 +491,7 @@ impl Window {
     }
 
     ///
-    /// Sets the rate in between when the keys has passed the intital repeat_delay. The default
+    /// Sets the rate in between when the keys has passed the initial repeat_delay. The default
     /// value is 0.05 sec
     ///
     /// # Examples
@@ -449,3 +505,19 @@ impl Window {
         self.0.set_key_repeat_rate(rate)
     }
 }
+
+// Impl for WindowOptions
+
+#[doc(hidden)]
+impl Default for WindowOptions {
+    fn default() -> WindowOptions {
+        WindowOptions {
+            borderless: false,
+            title: true,
+            resizable: false,
+            scale: Scale::X1,
+        }
+    }
+}
+
+

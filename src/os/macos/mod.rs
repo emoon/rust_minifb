@@ -1,8 +1,9 @@
 #![cfg(target_os = "macos")]
 
-use {MouseButton, MouseMode, Scale, Key, KeyRepeat};
+use {MouseButton, MouseMode, Scale, Key, KeyRepeat, WindowOptions};
 use key_handler::KeyHandler;
 use mouse_handler;
+use window_flags;
 
 use libc::{c_void, c_char, c_uchar};
 use std::ffi::{CString};
@@ -144,9 +145,10 @@ static KEY_MAPPINGS: [Key; 128] = [
 
 #[link(name = "Cocoa", kind = "framework")]
 extern {
-    fn mfb_open(name: *const c_char, width: u32, height: u32, scale: i32) -> *mut c_void;
+    fn mfb_open(name: *const c_char, width: u32, height: u32, flags: u32, scale: i32) -> *mut c_void;
     fn mfb_close(window: *mut c_void);
-    fn mfb_update(window: *mut c_void, buffer: *const c_uchar);
+    fn mfb_update(window: *mut c_void);
+    fn mfb_update_with_buffer(window: *mut c_void, buffer: *const c_uchar);
     fn mfb_set_position(window: *mut c_void, x: i32, y: i32);
     fn mfb_set_key_callback(window: *mut c_void, target: *mut c_void, cb: unsafe extern fn(*mut c_void, i32, i32));
     fn mfb_set_mouse_data(window_handle: *mut c_void, shared_data: *mut SharedData);
@@ -187,7 +189,7 @@ unsafe extern "C" fn key_callback(window: *mut c_void, key: i32, state: i32) {
 }
 
 impl Window {
-    pub fn new(name: &str, width: usize, height: usize, scale: Scale) -> Result<Window, &str> {
+    pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window, &str> {
         let n = match CString::new(name) {
             Err(_) => { 
                 println!("Unable to convert {} to c_string", name);
@@ -197,8 +199,8 @@ impl Window {
         };
 
         unsafe {
-            let scale_factor = Self::get_scale_factor(width, height, scale) as usize;
-            let handle = mfb_open(n.as_ptr(), width as u32, height as u32, scale_factor as i32);
+            let scale_factor = Self::get_scale_factor(width, height, opts.scale) as usize;
+            let handle = mfb_open(n.as_ptr(), width as u32, height as u32, window_flags::get_flags(opts), scale_factor as i32);
 
             if handle == ptr::null_mut() {
                 return Err("Unable to open Window");
@@ -218,15 +220,26 @@ impl Window {
         }
     }
 
+    #[inline]
     unsafe fn set_mouse_data(&mut self) {
         mfb_set_mouse_data(self.window_handle, &mut self.shared_data);
     }
 
-    pub fn update(&mut self, buffer: &[u32]) {
+    pub fn update_with_buffer(&mut self, buffer: &[u32]) {
         self.key_handler.update();
 
         unsafe {
-            mfb_update(self.window_handle, buffer.as_ptr() as *const u8);
+            mfb_update_with_buffer(self.window_handle, buffer.as_ptr() as *const u8);
+            Self::set_mouse_data(self);
+            mfb_set_key_callback(self.window_handle, mem::transmute(self), key_callback);
+        }
+    }
+
+    pub fn update(&mut self) {
+        self.key_handler.update();
+
+        unsafe {
+            mfb_update(self.window_handle);
             Self::set_mouse_data(self);
             mfb_set_key_callback(self.window_handle, mem::transmute(self), key_callback);
         }

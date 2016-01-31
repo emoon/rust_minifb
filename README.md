@@ -12,7 +12,7 @@ Usage
 ```toml
 # Cargo.toml
 [dependencies]
-minifb = "0.3.1"
+minifb = "0.4.0"
 ```
 
 Example
@@ -21,7 +21,7 @@ Example
 ```rust
 extern crate minifb;
 
-use minifb::{Key, Scale};
+use minifb::{Key, Scale, WindowOptions};
 
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
@@ -29,7 +29,7 @@ const HEIGHT: usize = 360;
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 
-    let mut window = match minifb::Window::new("Test - ESC to exit", WIDTH, HEIGHT, Scale::X1) {
+    let mut window = match minifb::Window::new("Test - ESC to exit", WIDTH, HEIGHT, WindowOptions::default()) {
         Ok(win) => win,
         Err(err) => {
             println!("Unable to create window {}", err);
