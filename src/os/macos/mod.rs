@@ -221,6 +221,12 @@ impl Window {
         }
     }
 
+    //#[inline]
+    //pub fn add_menu(_name: &str, _menu: Menu) {
+        //let menu_name = CString::new(name).unwrap().as_ptr();
+        //mfb_add_menu(menu_name, convert_menu_to_c_menu(Box::new(menu)))
+    //}
+
     #[inline]
     pub fn get_window_handle(&self) -> *mut raw::c_void {
         self.window_handle as *mut raw::c_void 
