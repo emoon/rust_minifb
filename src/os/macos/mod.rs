@@ -4,6 +4,7 @@ use {MouseButton, MouseMode, Scale, Key, KeyRepeat, WindowOptions};
 use key_handler::KeyHandler;
 use mouse_handler;
 use window_flags;
+use menu::Menu;
 
 use libc::{c_void, c_char, c_uchar};
 use std::ffi::{CString};
@@ -144,6 +145,16 @@ static KEY_MAPPINGS: [Key; 128] = [
     /* 7f */ Key::Unknown,
 ];
 
+#[repr(C)]
+struct CMenu {
+    name: *const raw::c_char,
+    id: raw::c_int,
+    key: raw::c_int,
+    modifier: raw::c_int,
+    mac_mod: raw::c_int,
+    sub_menu: raw::c_int,   // index into array
+}
+
 #[link(name = "Cocoa", kind = "framework")]
 extern {
     fn mfb_open(name: *const c_char, width: u32, height: u32, flags: u32, scale: i32) -> *mut c_void;
@@ -155,6 +166,7 @@ extern {
     fn mfb_set_mouse_data(window_handle: *mut c_void, shared_data: *mut SharedData);
     fn mfb_should_close(window: *mut c_void) -> i32;
     fn mfb_get_screen_size() -> u32;
+    fn mfb_add_menu(window: *mut c_void, name: *const c_char, menu: *mut c_void, menu_len: u32);
 }
 
 #[derive(Default)]
@@ -223,8 +235,8 @@ impl Window {
 
     //#[inline]
     //pub fn add_menu(_name: &str, _menu: Menu) {
-        //let menu_name = CString::new(name).unwrap().as_ptr();
-        //mfb_add_menu(menu_name, convert_menu_to_c_menu(Box::new(menu)))
+    //let menu_name = CString::new(name).unwrap().as_ptr();
+    //mfb_add_menu(menu_name, convert_menu_to_c_menu(Box::new(menu)))
     //}
 
     #[inline]
@@ -320,6 +332,19 @@ impl Window {
     }
 
     #[inline]
+    pub fn add_menu(&mut self, name: &str, menu: &Vec<Menu>) {
+        let mut build_menu = Vec::<CMenu>::new(); 
+
+        unsafe {
+            Self::recursive_convert(&mut build_menu, &Some(menu));
+            mfb_add_menu(self.window_handle, 
+                         CString::new(name).unwrap().as_ptr(),
+                         build_menu.as_mut_ptr() as *mut c_void,
+                         build_menu.len() as u32);
+        }
+    }
+
+    #[inline]
     pub fn is_open(&self) -> bool {
         unsafe { mfb_should_close(self.window_handle) == 0 }
     }
@@ -355,6 +380,41 @@ impl Window {
         };
 
         return factor;
+    }
+
+    unsafe fn recursive_convert(menu_build: &mut Vec<CMenu>, in_menu: &Option<&Vec<Menu>>) -> raw::c_int {
+        if in_menu.is_none() {
+            return -1;
+        }
+
+        let index = (menu_build.len() - 1) as raw::c_int;
+        let menu_vec = in_menu.as_ref().unwrap();
+
+        for m in menu_vec.iter() {
+            let menu = CMenu {
+                name: CString::new(m.name).unwrap().as_ptr(),
+                id: m.id as raw::c_int, 
+                key: m.key as raw::c_int, 
+                modifier: m.modifier as raw::c_int, 
+                mac_mod: m.mac_mod as raw::c_int, 
+                sub_menu : Self::recursive_convert(menu_build, &m.sub_menu),
+            };
+
+            menu_build.push(menu);
+        }
+
+        // end marker
+
+        menu_build.push(CMenu {
+            name: ptr::null(),
+            id: 0, 
+            key: 0, 
+            modifier: 0, 
+            mac_mod: 0, 
+            sub_menu : -1,
+        });
+
+        index
     }
 }
 

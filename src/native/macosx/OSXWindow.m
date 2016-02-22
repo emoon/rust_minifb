@@ -64,12 +64,6 @@
 
 - (void)keyDown:(NSEvent *)event
 {
-	// Cmd+Q always closes app
-    if ([event.characters.uppercaseString isEqualToString:@"Q"] && ([event modifierFlags] & NSCommandKeyMask)) {
-        [self performClose:self];
-        return;
-    }
-
 	if (key_callback) {
 		key_callback(rust_data, [event keyCode], 1);
 	}

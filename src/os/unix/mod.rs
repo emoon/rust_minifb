@@ -8,6 +8,7 @@ extern crate x11_dl;
 
 use {MouseMode, MouseButton, Scale, Key, KeyRepeat, WindowOptions};
 use key_handler::KeyHandler;
+use menu::Menu;
 use self::x11_dl::keysym::*;
 
 use libc::{c_void, c_char, c_uchar};
@@ -328,6 +329,10 @@ impl Window {
         };
 
         return factor;
+    }
+
+    pub fn add_menu(&mut self, _menu_name: &str, _menu: &Vec<Menu>) {
+        println!("Menus aren't supported on *Nix :(");
     }
 }
 

@@ -1,49 +1,36 @@
 use Key;
-use std::os::raw;
-use std::ptr;
-use std::ffi::CString;
 
-pub const MENU_ID_SEPARATOR:usize = 0;
+pub const MENU_ID_SEPARATOR:usize = 0xffffffff;
 
-//#[derive(Debug, Default)]
-pub struct Menu {
-    name: &'static str,
-    id: usize,
-    key: Key,
-    modifier: usize,
-    mac_mod: usize,
-    sub_menu: Option<Box<Menu>>,
+pub struct Menu<'a> {
+    pub name: &'a str,
+    pub id: usize,
+    pub key: Key,
+    pub modifier: usize,
+    pub mac_mod: usize,
+    pub sub_menu: Option<&'a Vec<Menu<'a>>>,
 }
 
-#[repr(C)]
-struct CMenu {
-    name: *const raw::c_char,
-    id: raw::c_int,
-    key: raw::c_int,
-    modifier: raw::c_int,
-    mac_mod: raw::c_int,
-    sub_menu: *mut raw::c_void,
-}
-
-unsafe fn recursive_convert(in_menu: &Option<Box<Menu>>) -> *mut raw::c_void {
-    if in_menu.is_none() {
-        return ptr::null_mut();
+impl<'a> Menu<'a> {
+    pub fn separotor() -> Menu<'a> {
+        Menu {
+            id: MENU_ID_SEPARATOR,
+            .. Self::default()
+        }
     }
-
-    let m = in_menu.as_ref().unwrap();
-
-    let menu = Box::new(CMenu {
-        name: CString::new(m.name).unwrap().as_ptr(),
-        id: m.id as raw::c_int, 
-        key: m.key as raw::c_int, 
-        modifier: m.modifier as raw::c_int, 
-        mac_mod: m.mac_mod as raw::c_int, 
-        sub_menu : recursive_convert(&m.sub_menu),
-    });
-
-    Box::into_raw(menu) as *mut raw::c_void
 }
 
-pub fn convert_menu_to_c_menu(menu: Box<Menu>) -> *mut raw::c_void {
-    unsafe { recursive_convert(&Some(menu)) }
+impl<'a> Default for Menu<'a> {
+    fn default() -> Menu<'a> {
+        Menu {
+            name: "",
+            id: 0,
+            key: Key::Unknown,
+            modifier: 0,
+            mac_mod: 0,
+            sub_menu: None,
+        }
+    }
 }
+
+

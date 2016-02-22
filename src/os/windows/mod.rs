@@ -9,6 +9,7 @@ extern crate time;
 use {Scale, Key, KeyRepeat, MouseButton, MouseMode, WindowOptions};
 
 use key_handler::KeyHandler;
+use menu::Menu;
 
 use std::ptr;
 use std::os::windows::ffi::OsStrExt;
@@ -567,6 +568,10 @@ impl Window {
         };
 
         return factor;
+    }
+
+    pub fn add_menu(&mut self, _menu_name: &str, _menu: &Vec<Menu>) {
+        // not implemented yet
     }
 }
 

@@ -65,7 +65,8 @@ pub mod os;
 mod mouse_handler;
 mod key_handler;
 mod window_flags;
-mod menu;
+pub mod menu;
+use menu::Menu;
 
 #[cfg(target_os = "macos")]
 use self::os::macos as imp;
@@ -397,6 +398,26 @@ impl Window {
     #[inline]
     pub fn set_key_repeat_rate(&mut self, rate: f32) {
         self.0.set_key_repeat_rate(rate)
+    }
+
+    ///
+    /// This allows adding menus to your windows. As menus behaves a bit diffrently depending on
+    /// Operating system here is how it works. See [Menu] for description on each field.
+    ///
+    /// ```ignore
+    /// Windows:
+    ///   Each window has their own menu and shortcuts are active depending on active window.
+    /// Mac:
+    ///   As Mac uses one menu for the whole program the menu will change depending
+    ///   on which window you have active.
+    /// Linux/BSD/etc:
+    ///   Menus aren't supported as they depend on each WindowManager and is outside of the
+    ///   scope for this library to support.
+    /// ```
+    ///
+    #[inline]
+    pub fn add_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) {
+        self.0.add_menu(menu_name, menu)
     }
 }
 
