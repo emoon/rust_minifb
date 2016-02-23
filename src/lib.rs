@@ -66,7 +66,7 @@ mod mouse_handler;
 mod key_handler;
 mod window_flags;
 pub mod menu;
-use menu::Menu;
+pub use menu::Menu as Menu;
 
 #[cfg(target_os = "macos")]
 use self::os::macos as imp;

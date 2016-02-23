@@ -63,6 +63,9 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 	window->key_callback = 0;
 	window->shared_data = 0;
 
+	window->menu_data = malloc(sizeof(MenuData));
+	memset(window->menu_data, 0, sizeof(MenuData)); 
+
 	[window updateSize];
 
 	[window setTitle:[NSString stringWithUTF8String:name]];
@@ -326,14 +329,44 @@ void mfb_set_mouse_data(void* window, SharedData* shared_data)
 	win->shared_data = shared_data;
 }
 
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void mfb_add_menu(void* window, const char* name, void* menu, int menu_len)
+void mfb_add_menu(void* window, const char* name, void* m, int menu_len)
 {
-	(void)window;
-	(void)name;
-	(void)menu;
-	(void)menu_len;
+	OSXWindow* win = (OSXWindow*)window; 
+
+	const char* n = strdup(name);
+
+	NSString* ns_name = [NSString stringWithUTF8String: n];
+
+ 	NSMenu* main_menu = [NSApp mainMenu];
+
+    NSMenuItem* windowMenuItem = [main_menu addItemWithTitle:@"" action:NULL keyEquivalent:@""];
+    NSMenu* windowMenu = [[NSMenu alloc] initWithTitle:ns_name];
+    [NSApp setWindowsMenu:windowMenu];
+    [windowMenuItem setSubmenu:windowMenu];
+
+	/*
+    NSMenuItem* windowMenuItem = [bar addItemWithTitle:@"" action:NULL keyEquivalent:@""];
+    [bar release];
+    NSMenu* windowMenu = [[NSMenu alloc] initWithTitle:@"Window"];
+    [NSApp setWindowsMenu:windowMenu];
+    [windowMenuItem setSubmenu:windowMenu];
+
+	NSMenu* ns_menu = [[NSMenu alloc] initWithTitle:ns_name];
+    [NSApp setWindowsMenu:ns_menu];
+    [windowMenuItem setSubmenu:windowMenu];
+    */
+	
+	MenuDesc* menu_desc = (MenuDesc*)m; 
+
+	build_submenu(windowMenu, menu_desc);
+
+	Menu* menu = &win->menu_data->menus[win->menu_data->menu_count++];
+
+	menu->name = n;
+	menu->menu = windowMenu;
 }
 
 

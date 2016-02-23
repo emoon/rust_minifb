@@ -174,4 +174,77 @@
 	}
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+- (void)onMenuPress:(id)sender 
+{
+	int id = (int)((NSButton*)sender).tag;
+	printf("menu id %d\n", id);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void build_submenu(NSMenu* menu, MenuDesc* desc)
+{
+	[menu removeAllItems];
+
+	while (desc->menu_id != -2)
+	{
+		NSString* name = [NSString stringWithUTF8String: desc->name];
+
+		printf("building submenu %s\n", desc->name);
+
+		if (desc->menu_id == -1)
+		{
+			[menu addItem:[NSMenuItem separatorItem]];
+		}
+		/*
+		else if (desc->id == EDITOR_MENU_SUB_MENU)
+		{
+			MyMenuItem* newItem = [[MyMenuItem allocWithZone:[NSMenu menuZone]] initWithTitle:name action:NULL keyEquivalent:@""];
+			NSMenu* newMenu = [[NSMenu allocWithZone:[NSMenu menuZone]] initWithTitle:name];
+			[newItem setSubmenu:newMenu];
+			[newMenu release];
+			[menu addItem:newItem];
+			[newItem release];
+		}
+		*/
+		else
+		{
+			int mask = 0;
+			NSMenuItem* newItem = [[NSMenuItem alloc] initWithTitle:name action:@selector(onMenuPress:) keyEquivalent:@""];
+			[newItem setTag:desc->menu_id];
+
+			/*
+			if (desc->macMod & EMGUI_KEY_COMMAND)
+				mask |= NSCommandKeyMask;
+			if (desc->macMod & EMGUI_KEY_SHIFT)
+				mask |= NSShiftKeyMask;
+			if (desc->macMod & EMGUI_KEY_CTRL)
+				mask |= NSControlKeyMask; 
+			if (desc->macMod & EMGUI_KEY_ALT)
+				mask |= NSAlternateKeyMask; 
+			*/
+
+			NSString* key = 0; //convertKeyCodeToString(desc->key);
+
+			if (key)
+			{
+				[newItem setKeyEquivalentModifierMask: mask];
+				[newItem setKeyEquivalent:key];
+			}
+			else
+			{
+				//fprintf(stderr, "Unable to map keyboard shortcut for %s\n", desc->name);
+			}
+
+			[newItem setOnStateImage: newItem.offStateImage];
+			[menu addItem:newItem];
+			[newItem release];
+		}
+
+		desc++;
+	}
+}	
+
 @end

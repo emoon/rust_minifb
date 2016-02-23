@@ -145,9 +145,11 @@ static KEY_MAPPINGS: [Key; 128] = [
     /* 7f */ Key::Unknown,
 ];
 
+const STRING_SIZE: usize = 512;
+
 #[repr(C)]
 struct CMenu {
-    name: *const raw::c_char,
+    name: [i8; STRING_SIZE],
     id: raw::c_int,
     key: raw::c_int,
     modifier: raw::c_int,
@@ -232,12 +234,6 @@ impl Window {
             })
         }
     }
-
-    //#[inline]
-    //pub fn add_menu(_name: &str, _menu: Menu) {
-    //let menu_name = CString::new(name).unwrap().as_ptr();
-    //mfb_add_menu(menu_name, convert_menu_to_c_menu(Box::new(menu)))
-    //}
 
     #[inline]
     pub fn get_window_handle(&self) -> *mut raw::c_void {
@@ -387,12 +383,13 @@ impl Window {
             return -1;
         }
 
-        let index = (menu_build.len() - 1) as raw::c_int;
+        let index = menu_build.len() as raw::c_int;
         let menu_vec = in_menu.as_ref().unwrap();
 
         for m in menu_vec.iter() {
-            let menu = CMenu {
-                name: CString::new(m.name).unwrap().as_ptr(),
+            println!("Menu name {}", m.name);
+            let mut menu = CMenu {
+                name: mem::uninitialized(),
                 id: m.id as raw::c_int, 
                 key: m.key as raw::c_int, 
                 modifier: m.modifier as raw::c_int, 
@@ -400,14 +397,22 @@ impl Window {
                 sub_menu : Self::recursive_convert(menu_build, &m.sub_menu),
             };
 
+            let name = CString::new(m.name).unwrap();
+            let name_len = m.name.len();
+
+            ptr::copy_nonoverlapping(name.as_ptr(),
+                          menu.name.as_mut_ptr() as *mut i8,
+                          name_len);
+            menu.name[name_len] = 0;
+
             menu_build.push(menu);
         }
 
         // end marker
 
         menu_build.push(CMenu {
-            name: ptr::null(),
-            id: 0, 
+            name: [0; STRING_SIZE],
+            id: -2, 
             key: 0, 
             modifier: 0, 
             mac_mod: 0, 
