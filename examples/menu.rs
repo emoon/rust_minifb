@@ -23,21 +23,43 @@ fn main() {
                                  })
                          .expect("Unable to Open Window");
 
-    let menu = vec![Menu {
-                        name: "Some Menu",
-                        key: Key::W,
-                        id: 2,
-                        ..Menu::default()
-                    },
-                    Menu::separotor()];
-                    /*
-                    Menu {
-                        name: "Some other menu!",
-                        key: Key::S,
-                        id: 1,
-                        ..Menu::default()
-                    }];
-                    */
+    // Setup a sub menu
+
+    let sub_menu = vec![
+        Menu {
+            name: "Sub 0",
+            id: 3,
+            ..Menu::default()
+        },
+        Menu {
+            name: "Sub 1",
+            id: 4,
+            ..Menu::default()
+        },
+    ];
+
+    // Main menu
+
+    let menu = vec![
+        Menu {
+            name: "Some Menu",
+            key: Key::W,
+            id: 2,
+            ..Menu::default()
+        },
+        Menu::separotor(),
+        Menu {
+            name: "Some other menu!",
+            key: Key::S,
+            id: 1,
+            ..Menu::default()
+        },
+        Menu {
+            name: "Les sub!",
+            sub_menu: Some(&sub_menu),
+            ..Menu::default()
+        }
+    ];
 
     window.add_menu("Test", &menu);
 

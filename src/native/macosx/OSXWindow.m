@@ -254,23 +254,24 @@ void build_submenu(NSMenu* menu, MenuDesc* desc)
 	{
 		NSString* name = [NSString stringWithUTF8String: desc->name];
 
-		printf("building submenu %s\n", desc->name);
+		printf("building submenu %s %p\n", desc->name, desc->sub_menu);
 
 		if (desc->menu_id == -1)
 		{
 			[menu addItem:[NSMenuItem separatorItem]];
 		}
-		/*
-		else if (desc->id == EDITOR_MENU_SUB_MENU)
+		else if (desc->sub_menu)
 		{
-			MyMenuItem* newItem = [[MyMenuItem allocWithZone:[NSMenu menuZone]] initWithTitle:name action:NULL keyEquivalent:@""];
+			NSMenuItem* newItem = [[NSMenuItem allocWithZone:[NSMenu menuZone]] initWithTitle:name action:NULL keyEquivalent:@""];
 			NSMenu* newMenu = [[NSMenu allocWithZone:[NSMenu menuZone]] initWithTitle:name];
 			[newItem setSubmenu:newMenu];
+
+			build_submenu(newMenu, desc->sub_menu);
+
 			[newMenu release];
 			[menu addItem:newItem];
 			[newItem release];
 		}
-		*/
 		else
 		{
 			int mask = 0;
@@ -286,17 +287,13 @@ void build_submenu(NSMenu* menu, MenuDesc* desc)
 			if (desc->modifier_mac & MENU_KEY_ALT)
 				mask |= NSAlternateKeyMask; 
 
-			NSString* key = convert_key_code_to_string(desc->key);
-			//NSString* key = convert_key_code_to_string('s');
+			if (desc->key != 0x7f) {
+				NSString* key = convert_key_code_to_string(desc->key);
 
-			if (key)
-			{
-				[newItem setKeyEquivalentModifierMask: mask];
-				[newItem setKeyEquivalent:key];
-			}
-			else
-			{
-				//fprintf(stderr, "Unable to map keyboard shortcut for %s\n", desc->name);
+				if (key) {
+					[newItem setKeyEquivalentModifierMask: mask];
+					[newItem setKeyEquivalent:key];
+				}
 			}
 
 			[newItem setOnStateImage: newItem.offStateImage];

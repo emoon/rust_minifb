@@ -23,12 +23,12 @@ typedef struct MenuData
 
 typedef struct MenuDesc {
 	char name[512];
+	struct MenuDesc* sub_menu;
 	int menu_id;
 	int key;
 	int special_key;
 	int modifier;
 	int modifier_mac;
-	int sub_menu;
 } MenuDesc;
 
 void build_submenu(NSMenu* menu, MenuDesc* desc);
