@@ -262,8 +262,8 @@ void build_submenu(NSMenu* menu, MenuDesc* desc)
 		}
 		else if (desc->sub_menu)
 		{
-			NSMenuItem* newItem = [[NSMenuItem allocWithZone:[NSMenu menuZone]] initWithTitle:name action:NULL keyEquivalent:@""];
-			NSMenu* newMenu = [[NSMenu allocWithZone:[NSMenu menuZone]] initWithTitle:name];
+			NSMenuItem* newItem = [[NSMenuItem alloc] initWithTitle:name action:NULL keyEquivalent:@""];
+			NSMenu* newMenu = [[NSMenu alloc] initWithTitle:name];
 			[newItem setSubmenu:newMenu];
 
 			build_submenu(newMenu, desc->sub_menu);
@@ -295,6 +295,14 @@ void build_submenu(NSMenu* menu, MenuDesc* desc)
 					[newItem setKeyEquivalent:key];
 				}
 			}
+
+			printf("enabled %d\n", desc->enabled);
+
+			if (desc->enabled) {
+				[newItem setEnabled:YES];
+			} else {
+				[newItem setEnabled:NO];
+			}	
 
 			[newItem setOnStateImage: newItem.offStateImage];
 			[menu addItem:newItem];

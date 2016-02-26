@@ -29,6 +29,7 @@ typedef struct MenuDesc {
 	int special_key;
 	int modifier;
 	int modifier_mac;
+	int enabled;
 } MenuDesc;
 
 void build_submenu(NSMenu* menu, MenuDesc* desc);

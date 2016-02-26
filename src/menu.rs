@@ -27,6 +27,8 @@ pub struct Menu<'a> {
     pub modifier: usize,
     /// Modifier on Mac OS
     pub mac_mod: usize,
+    /// Menu item should be enabled on grayed out
+    pub enabled: bool,
     /// Sub-menu. Vector of a sub-menu, otherwise None if no sub-menu
     pub sub_menu: Option<&'a Vec<Menu<'a>>>,
 }
@@ -48,6 +50,7 @@ impl<'a> Default for Menu<'a> {
             key: Key::Unknown,
             modifier: 0,
             mac_mod: 0,
+            enabled: true,
             sub_menu: None,
         }
     }

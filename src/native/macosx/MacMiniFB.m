@@ -361,6 +361,8 @@ void mfb_add_menu(void* window, const char* name, void* m, int menu_len)
 	
 	MenuDesc* menu_desc = (MenuDesc*)m; 
 
+	[windowMenu setAutoenablesItems:NO];
+
 	build_submenu(windowMenu, menu_desc);
 
 	Menu* menu = &win->menu_data->menus[win->menu_data->menu_count++];

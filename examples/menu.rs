@@ -45,6 +45,7 @@ fn main() {
             name: "Some Menu",
             key: Key::W,
             id: 2,
+            enabled: false,
             ..Menu::default()
         },
         Menu::separotor(),

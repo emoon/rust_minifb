@@ -157,6 +157,7 @@ struct CMenu {
     special_key: raw::c_int,
     modifier: raw::c_int,
     mac_mod: raw::c_int,
+    enabled: raw::c_int,
 }
 
 #[link(name = "Cocoa", kind = "framework")]
@@ -512,6 +513,7 @@ impl Window {
                 special_key: 0, 
                 modifier: m.modifier as raw::c_int, 
                 mac_mod: m.mac_mod as raw::c_int, 
+                enabled: m.enabled as raw::c_int, 
                 sub_menu : Self::recursive_convert(menu_build_vec, &m.sub_menu),
             };
 
@@ -537,6 +539,7 @@ impl Window {
             special_key: 0,
             modifier: 0, 
             mac_mod: 0, 
+            enabled: 0,
             sub_menu : ptr::null_mut(),
         });
 
