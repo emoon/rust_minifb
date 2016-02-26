@@ -172,6 +172,7 @@ extern {
     fn mfb_set_mouse_data(window_handle: *mut c_void, shared_data: *mut SharedData);
     fn mfb_should_close(window: *mut c_void) -> i32;
     fn mfb_get_screen_size() -> u32;
+    fn mfb_is_active(window: *mut c_void) -> u32;
     fn mfb_add_menu(window: *mut c_void, name: *const c_char, menu: *mut c_void);
     fn mfb_remove_menu(window: *mut c_void, name: *const c_char);
     fn mfb_update_menu(window: *mut c_void, name: *const c_char, menu: *mut c_void);
@@ -366,6 +367,11 @@ impl Window {
     #[inline]
     pub fn is_open(&self) -> bool {
         unsafe { mfb_should_close(self.window_handle) == 0 }
+    }
+
+    #[inline]
+    pub fn is_active(&mut self) -> bool {
+        unsafe { mfb_is_active(self.window_handle) == 0 }
     }
 
     unsafe fn get_scale_factor(width: usize, height: usize, scale: Scale) -> i32 {

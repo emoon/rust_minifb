@@ -48,6 +48,7 @@ void build_submenu(NSMenu* menu, MenuDesc* desc);
 	@public void* rust_data;
 	@public SharedData* shared_data;
 	@public bool should_close;
+	@public bool is_active;
 	@public MenuData* menu_data;
 }
 

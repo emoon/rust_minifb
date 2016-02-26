@@ -348,7 +348,7 @@ impl Window {
             let mut flags = 0;
 
             if opts.title {
-                flags |= winapi::WS_OVERLAPPEDWINDOW as u32; 
+                flags |= winapi::WS_OVERLAPPEDWINDOW as u32;
             }
 
             if opts.resize {
@@ -364,7 +364,7 @@ impl Window {
             }
 
             let handle = user32::CreateWindowExW(0,
-                                                 class_name.as_ptr(), 
+                                                 class_name.as_ptr(),
                                                  window_name.as_ptr(),
                                                  flags,
                                                  winapi::CW_USEDEFAULT,
@@ -424,7 +424,7 @@ impl Window {
     #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
         unsafe {
-            user32::SetWindowPos(self.window.unwrap(), ptr::null_mut(), x as i32, y as i32, 
+            user32::SetWindowPos(self.window.unwrap(), ptr::null_mut(), x as i32, y as i32,
                                  0, 0, winapi::SWP_SHOWWINDOW | winapi::SWP_NOSIZE);
         }
     }
@@ -536,6 +536,12 @@ impl Window {
 
         Self::generic_update(self, window);
         Self::message_loop(self, window);
+    }
+
+    #[inline]
+    pub fn is_active(&mut self) -> bool {
+        // TODO: Proper implementation
+        true
     }
 
     unsafe fn get_scale_factor(width: usize, height: usize, scale: Scale) -> i32 {

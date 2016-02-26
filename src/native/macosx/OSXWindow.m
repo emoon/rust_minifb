@@ -85,8 +85,15 @@
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-- (void)mainWindowChanged:(NSNotification *)aNotification
+- (void)mainWindowChanged:(NSNotification *)note
 {
+	void* window = [note object];
+
+	if (window == self) {
+		self->is_active = true;
+	} else {
+		self->is_active = false;
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -117,6 +124,18 @@
 	OSXWindowFrameView* frameView = [super contentView];
 	if (!frameView)
 	{
+		[[NSNotificationCenter defaultCenter]
+			addObserver:self
+			selector:@selector(mainWindowChanged:)
+			name:NSWindowDidBecomeMainNotification
+			object:self];
+
+		[[NSNotificationCenter defaultCenter]
+			addObserver:self
+			selector:@selector(mainWindowChanged:)
+			name:NSWindowDidResignMainNotification
+			object:self];
+
 		frameView = [[[OSXWindowFrameView alloc] initWithFrame:bounds] autorelease];
 		frameView->width = width;
 		frameView->height = height;

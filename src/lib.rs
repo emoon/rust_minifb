@@ -88,14 +88,14 @@ pub struct Window(imp::Window);
 
 ///
 /// WindowOptions is creation settings for the window. By default the settings are defined for
-/// displayng a 32-bit buffer (no scaling of window is possible) 
+/// displayng a 32-bit buffer (no scaling of window is possible)
 ///
 pub struct WindowOptions {
     /// If the window should be borderless (default: false)
     pub borderless: bool,
     /// If the window should have a title (default: true)
     pub title: bool,
-    /// If it should be possible to resize the window (default: false) 
+    /// If it should be possible to resize the window (default: false)
     pub resize: bool,
     /// Scale of the window that used in conjunction with update_with_buffer (default: X1)
     pub scale: Scale
@@ -147,10 +147,10 @@ impl Window {
     /// Open up a window that is resizeable
     ///
     /// ```ignore
-    /// let mut window = match Window::new("Test", 640, 400, 
+    /// let mut window = match Window::new("Test", 640, 400,
     ///                                     WindowOptions {
     ///                                         resize: true,
-    ///                                         ..WindowOptions::default() 
+    ///                                         ..WindowOptions::default()
     ///                                     }) {
     ///    Ok(win) => win,
     ///    Err(err) => {
@@ -179,7 +179,7 @@ impl Window {
     }
 
     ///
-    /// Updates the window with a 32-bit pixel buffer. Notice that the buffer needs to be at least 
+    /// Updates the window with a 32-bit pixel buffer. Notice that the buffer needs to be at least
     /// the size of the created window
     ///
     /// # Examples
@@ -197,7 +197,7 @@ impl Window {
     }
 
     ///
-    /// Updates the window (this is required to call in order to get keyboard/mouse input, etc) 
+    /// Updates the window (this is required to call in order to get keyboard/mouse input, etc)
     ///
     /// # Examples
     ///
@@ -216,7 +216,7 @@ impl Window {
     ///
     /// Checks if the window is still open. A window can be closed by the user (by for example
     /// pressing the close button on the window) It's up to the user to make sure that this is
-    /// being checked and take action depending on the state. 
+    /// being checked and take action depending on the state.
     ///
     /// # Examples
     ///
@@ -257,31 +257,31 @@ impl Window {
     ///     println!("x {} y {}", mouse.0, mouse.1);
     /// });
     /// ```
-    /// 
+    ///
     #[inline]
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         self.0.get_mouse_pos(mode)
     }
 
     ///
-    /// Check if a mouse button is down or not 
+    /// Check if a mouse button is down or not
     ///
     /// # Examples
     ///
     /// ```ignore
     /// let left_down = window.get_mouse_down(MouseButton::Left);
-    /// println!("is left down? {}", left_down) 
+    /// println!("is left down? {}", left_down)
     /// ```
-    /// 
+    ///
     #[inline]
-    pub fn get_mouse_down(&self, button: MouseButton) -> bool { 
+    pub fn get_mouse_down(&self, button: MouseButton) -> bool {
         self.0.get_mouse_down(button)
     }
 
     ///
     /// Get the current movement of the scroll wheel.
     /// Scroll wheel can mean different thing depending on the device attach.
-    /// For example on Mac with trackpad "scroll wheel" means two finger 
+    /// For example on Mac with trackpad "scroll wheel" means two finger
     /// swiping up/down (y axis) and to the sides (x-axis)
     /// When using a mouse this assumes the scroll wheel which often is only y direction.
     ///
@@ -300,7 +300,7 @@ impl Window {
     }
 
     ///
-    /// Get the current keys that are down. 
+    /// Get the current keys that are down.
     ///
     /// # Examples
     ///
@@ -342,7 +342,7 @@ impl Window {
         self.0.get_keys_pressed(repeat)
     }
 
-    /// 
+    ///
     /// Check if a single key is down.
     ///
     /// # Examples
@@ -358,7 +358,7 @@ impl Window {
         self.0.is_key_down(key)
     }
 
-    /// 
+    ///
     /// Check if a single key is pressed. KeyRepeat will control if the key should be repeated or
     /// not while being pressed.
     ///
@@ -397,12 +397,20 @@ impl Window {
     /// # Examples
     ///
     /// ```ignore
-    /// window.set_key_repeat_rate(0.01) // 0.01 sec between keys 
+    /// window.set_key_repeat_rate(0.01) // 0.01 sec between keys
     /// ```
     ///
     #[inline]
     pub fn set_key_repeat_rate(&mut self, rate: f32) {
         self.0.set_key_repeat_rate(rate)
+    }
+
+    ///
+    /// Returns if this windows is the current active one
+    ///
+    #[inline]
+    pub fn is_active(&mut self) -> bool {
+        self.0.is_active()
     }
 
     ///
@@ -425,7 +433,7 @@ impl Window {
         self.0.add_menu(menu_name, menu)
     }
 
-    /// 
+    ///
     /// Updates an existing menu created with [add_menu]
     ///
     #[inline]
