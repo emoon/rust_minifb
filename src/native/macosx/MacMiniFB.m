@@ -362,7 +362,7 @@ void mfb_remove_menu(void* window, const char* name)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void mfb_add_menu(void* window, const char* name, void* m, int menu_len)
+void mfb_add_menu(void* window, const char* name, void* m)
 {
 	OSXWindow* win = (OSXWindow*)window;
 
@@ -390,4 +390,26 @@ void mfb_add_menu(void* window, const char* name, void* m, int menu_len)
 	menu->menu_item = windowMenuItem;
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void mfb_update_menu(void* window, const char* name, void* m)
+{
+	OSXWindow* win = (OSXWindow*)window;
+
+	NSString* ns_name = [NSString stringWithUTF8String: name];
+ 	NSMenu* main_menu = [NSApp mainMenu];
+
+ 	int len = win->menu_data->menu_count;
+
+ 	for (int i = 0; i < len; ++i)
+	{
+		Menu* menu = &win->menu_data->menus[i];
+
+		if (!strcmp(menu->name, name)) {
+			[menu->menu removeAllItems];
+			build_submenu(menu->menu, (MenuDesc*)m);
+			return;
+		}
+	}
+}
 
