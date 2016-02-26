@@ -334,6 +334,12 @@ impl Window {
     pub fn add_menu(&mut self, _menu_name: &str, _menu: &Vec<Menu>) {
         println!("Menus aren't supported on *Nix :(");
     }
+    pub fn update_menu(&mut self, _menu_name: &str, _menu: &Vec<Menu>) {
+        println!("Menus aren't supported on *Nix :(");
+    }
+    pub fn remove_menu(&mut self, _menu_name: &str) {
+        println!("Menus aren't supported on *Nix :(");
+    }
 }
 
 impl Drop for Window {

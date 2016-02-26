@@ -424,6 +424,22 @@ impl Window {
     pub fn add_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) {
         self.0.add_menu(menu_name, menu)
     }
+
+    /// 
+    /// Updates an existing menu created with [add_menu]
+    ///
+    #[inline]
+    pub fn update_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) {
+        self.0.update_menu(menu_name, menu)
+    }
+
+    ///
+    /// Remove a menu that has been added with [add_menu]
+    ///
+    #[inline]
+    pub fn remove_menu(&mut self, menu_name: &str) {
+        self.0.remove_menu(menu_name)
+    }
 }
 
 // Impl for WindowOptions

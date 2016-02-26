@@ -331,7 +331,6 @@ impl Window {
         self.key_handler.is_key_pressed(key, repeat)
     }
 
-    #[inline]
     pub fn add_menu(&mut self, name: &str, menu: &Vec<Menu>) {
         let mut build_menu = Vec::<Vec<CMenu>>::new(); 
 
@@ -344,6 +343,14 @@ impl Window {
                          build_menu[menu_len - 1].len() as u32);
         }
     }
+
+    pub fn update_menu(&mut self, _name: &str, _menu: &Vec<Menu>) {
+    }
+
+    pub fn remove_menu(&mut self, _menu_name: &str) {
+        // not implemented yet
+    }
+
 
     #[inline]
     pub fn is_open(&self) -> bool {

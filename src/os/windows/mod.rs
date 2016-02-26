@@ -573,6 +573,12 @@ impl Window {
     pub fn add_menu(&mut self, _menu_name: &str, _menu: &Vec<Menu>) {
         // not implemented yet
     }
+    pub fn update_menu(&mut self, _menu_name: &str, _menu: &Vec<Menu>) {
+        // not implemented yet
+    }
+    pub fn remove_menu(&mut self, _menu_name: &str) {
+        // not implemented yet
+    }
 }
 
 impl Drop for Window {
