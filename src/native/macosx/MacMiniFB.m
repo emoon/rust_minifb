@@ -7,9 +7,9 @@
 static bool s_init = false;
 
 // window_handler.rs
-const uint32_t WINDOW_BORDERLESS = 1 << 1; 
-const uint32_t WINDOW_RESIZE = 1 << 2; 
-const uint32_t WINDOW_TITLE = 1 << 3; 
+const uint32_t WINDOW_BORDERLESS = 1 << 1;
+const uint32_t WINDOW_RESIZE = 1 << 2;
+const uint32_t WINDOW_TITLE = 1 << 3;
 
 static void create_standard_menu();
 
@@ -23,7 +23,7 @@ static void create_standard_menu();
 
 void* mfb_open(const char* name, int width, int height, uint32_t flags, int scale)
 {
-	bool prev_init = s_init;	
+	bool prev_init = s_init;
 
 	//NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 
@@ -37,16 +37,16 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 	uint32_t styles = NSClosableWindowMask | NSMiniaturizableWindowMask;
 
 	if (flags & WINDOW_BORDERLESS)
-		styles |= NSBorderlessWindowMask; 
+		styles |= NSBorderlessWindowMask;
 
 	if (flags & WINDOW_RESIZE)
-		styles |= NSResizableWindowMask; 
+		styles |= NSResizableWindowMask;
 
 	if (flags & WINDOW_TITLE)
-		styles |= NSTitledWindowMask; 
-		
+		styles |= NSTitledWindowMask;
+
 	NSRect rectangle = NSMakeRect(0, 0, width * scale, (height * scale));
-		
+
 	OSXWindow* window = [[OSXWindow alloc] initWithContentRect:rectangle styleMask:styles backing:NSBackingStoreBuffered defer:NO];
 
 	if (!window)
@@ -64,7 +64,7 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 	window->shared_data = 0;
 
 	window->menu_data = malloc(sizeof(MenuData));
-	memset(window->menu_data, 0, sizeof(MenuData)); 
+	memset(window->menu_data, 0, sizeof(MenuData));
 
 	[window updateSize];
 
@@ -204,7 +204,7 @@ void mfb_close(void* win)
 	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 
 	if (window)
-		[window close]; 
+		[window close];
 
 	[pool drain];
 }
@@ -278,14 +278,14 @@ int mfb_update_with_buffer(void* window, void* buffer)
 
 static float transformY(float y)
 {
-	float b = CGDisplayBounds(CGMainDisplayID()).size.height; 
+	float b = CGDisplayBounds(CGMainDisplayID()).size.height;
 	float t = b - y;
 	return t;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void mfb_set_position(void* window, int x, int y) 
+void mfb_set_position(void* window, int x, int y)
 {
 	OSXWindow* win = (OSXWindow*)window;
 	const NSRect contentRect = [[win contentView] frame];
@@ -296,7 +296,7 @@ void mfb_set_position(void* window, int x, int y)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-int mfb_should_close(void* window) 
+int mfb_should_close(void* window)
 {
 	OSXWindow* win = (OSXWindow*)window;
 	return win->should_close;
@@ -304,7 +304,7 @@ int mfb_should_close(void* window)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-uint32_t mfb_get_screen_size() 
+uint32_t mfb_get_screen_size()
 {
 	NSRect e = [[NSScreen mainScreen] frame];
 	uint32_t w = (uint32_t)e.size.width;
@@ -329,12 +329,42 @@ void mfb_set_mouse_data(void* window, SharedData* shared_data)
 	win->shared_data = shared_data;
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void mfb_remove_menu(void* window, const char* name)
+{
+	OSXWindow* win = (OSXWindow*)window;
+
+	NSString* ns_name = [NSString stringWithUTF8String: name];
+ 	NSMenu* main_menu = [NSApp mainMenu];
+
+ 	int len = win->menu_data->menu_count;
+
+ 	for (int i = 0; i < len; ++i)
+	{
+		Menu* menu = &win->menu_data->menus[i];
+
+		if (strcmp(menu->name, name))
+			continue;
+
+		Menu* menu_end = &win->menu_data->menus[len - 1];
+
+		[main_menu removeItem:menu->menu_item];
+
+		// swap remove
+		menu->name = menu_end->name;
+		menu->menu = menu_end->menu;
+		menu->menu_item = menu_end->menu_item;
+
+		win->menu_data->menu_count--;
+	}
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void mfb_add_menu(void* window, const char* name, void* m, int menu_len)
 {
-	OSXWindow* win = (OSXWindow*)window; 
+	OSXWindow* win = (OSXWindow*)window;
 
 	const char* n = strdup(name);
 
@@ -347,19 +377,7 @@ void mfb_add_menu(void* window, const char* name, void* m, int menu_len)
     [NSApp setWindowsMenu:windowMenu];
     [windowMenuItem setSubmenu:windowMenu];
 
-	/*
-    NSMenuItem* windowMenuItem = [bar addItemWithTitle:@"" action:NULL keyEquivalent:@""];
-    [bar release];
-    NSMenu* windowMenu = [[NSMenu alloc] initWithTitle:@"Window"];
-    [NSApp setWindowsMenu:windowMenu];
-    [windowMenuItem setSubmenu:windowMenu];
-
-	NSMenu* ns_menu = [[NSMenu alloc] initWithTitle:ns_name];
-    [NSApp setWindowsMenu:ns_menu];
-    [windowMenuItem setSubmenu:windowMenu];
-    */
-	
-	MenuDesc* menu_desc = (MenuDesc*)m; 
+	MenuDesc* menu_desc = (MenuDesc*)m;
 
 	[windowMenu setAutoenablesItems:NO];
 
@@ -369,6 +387,7 @@ void mfb_add_menu(void* window, const char* name, void* m, int menu_len)
 
 	menu->name = n;
 	menu->menu = windowMenu;
+	menu->menu_item = windowMenuItem;
 }
 
 

@@ -21,7 +21,7 @@
 	NSSize childBoundsSize = [childContentView bounds].size;
 	sizeDelta.width -= childBoundsSize.width;
 	sizeDelta.height -= childBoundsSize.height;
-	
+
 	OSXWindowFrameView *frameView = [super contentView];
 	NSSize newFrameSize = [frameView bounds].size;
 	newFrameSize.width += sizeDelta.width;
@@ -38,7 +38,7 @@
 
 	// Left Shift
 	key_callback(rust_data, 0x38, flags == 0x20102 ? 1 : 0);
-	
+
 	// RightShift
 	key_callback(rust_data, 0x3c, flags == 0x20104 ? 1 : 0);
 
@@ -91,7 +91,7 @@
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-- (void)windowWillClose:(NSNotification *)notification 
+- (void)windowWillClose:(NSNotification *)notification
 {
 	should_close = true;
 }
@@ -110,7 +110,7 @@
 {
 	if ([childContentView isEqualTo:aView])
 		return;
-	
+
 	NSRect bounds = [self frame];
 	bounds.origin = NSZeroPoint;
 
@@ -118,13 +118,13 @@
 	if (!frameView)
 	{
 		frameView = [[[OSXWindowFrameView alloc] initWithFrame:bounds] autorelease];
-		frameView->width = width; 
-		frameView->height = height; 
-		frameView->draw_buffer = draw_buffer; 
+		frameView->width = width;
+		frameView->height = height;
+		frameView->draw_buffer = draw_buffer;
 		frameView->scale = scale;
 		[super setContentView:frameView];
 	}
-	
+
 	if (childContentView)
 		[childContentView removeFromSuperview];
 
@@ -167,21 +167,21 @@
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-- (void)updateSize 
+- (void)updateSize
 {
 	OSXWindowFrameView* frameView = [super contentView];
 	if (frameView)
 	{
-		frameView->width = width; 
-		frameView->height = height; 
-		frameView->draw_buffer = draw_buffer; 
+		frameView->width = width;
+		frameView->height = height;
+		frameView->draw_buffer = draw_buffer;
 		frameView->scale = scale;
 	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-- (void)onMenuPress:(id)sender 
+- (void)onMenuPress:(id)sender
 {
 	int id = (int)((NSButton*)sender).tag;
 	printf("menu id %d\n", id);
@@ -213,7 +213,7 @@ static CFStringRef create_string_for_key(CGKeyCode keyCode)
                    sizeof(chars) / sizeof(chars[0]),
                    &realLength,
                    chars);
-    CFRelease(currentKeyboard);    
+    CFRelease(currentKeyboard);
 
     return CFStringCreateWithCharacters(kCFAllocatorDefault, chars, 1);
 }
@@ -224,13 +224,12 @@ static NSString* convert_key_code_to_string(int key)
 {
 	if (key < 128)
 	{
-		// first try to translate it and if that doesn't work use it as is
 		NSString* charName = (NSString*)create_string_for_key(key);
 
 		if (charName)
 			return charName;
 
-		return [NSString stringWithFormat:@"%c", (char)key]; 
+		return [NSString stringWithFormat:@"%c", (char)key];
 	}
 
 	return [NSString stringWithFormat:@"%C", (uint16_t)key];
@@ -283,9 +282,9 @@ void build_submenu(NSMenu* menu, MenuDesc* desc)
 			if (desc->modifier_mac & MENU_KEY_SHIFT)
 				mask |= NSShiftKeyMask;
 			if (desc->modifier_mac & MENU_KEY_CTRL)
-				mask |= NSControlKeyMask; 
+				mask |= NSControlKeyMask;
 			if (desc->modifier_mac & MENU_KEY_ALT)
-				mask |= NSAlternateKeyMask; 
+				mask |= NSAlternateKeyMask;
 
 			if (desc->key != 0x7f) {
 				NSString* key = convert_key_code_to_string(desc->key);
@@ -302,7 +301,7 @@ void build_submenu(NSMenu* menu, MenuDesc* desc)
 				[newItem setEnabled:YES];
 			} else {
 				[newItem setEnabled:NO];
-			}	
+			}
 
 			[newItem setOnStateImage: newItem.offStateImage];
 			[menu addItem:newItem];
@@ -311,6 +310,6 @@ void build_submenu(NSMenu* menu, MenuDesc* desc)
 
 		desc++;
 	}
-}	
+}
 
 @end

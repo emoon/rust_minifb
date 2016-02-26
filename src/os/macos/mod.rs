@@ -14,7 +14,7 @@ use std::os::raw;
 
 // Table taken from GLFW and slightly modified
 
-static KEY_MAPPINGS: [Key; 128] = [ 
+static KEY_MAPPINGS: [Key; 128] = [
     /* 00 */ Key::A,
     /* 01 */ Key::S,
     /* 02 */ Key::D,
@@ -81,7 +81,7 @@ static KEY_MAPPINGS: [Key; 128] = [
     /* 3f */ Key::Unknown, // Function
     /* 40 */ Key::Unknown, // F17
     /* 41 */ Key::Unknown, // Decimal
-    /* 42 */ Key::Unknown, 
+    /* 42 */ Key::Unknown,
     /* 43 */ Key::Unknown, // Multiply
     /* 44 */ Key::Unknown,
     /* 45 */ Key::Unknown, // Add
@@ -90,7 +90,7 @@ static KEY_MAPPINGS: [Key; 128] = [
     /* 48 */ Key::Unknown, // VolumeUp
     /* 49 */ Key::Unknown, // VolumeDown
     /* 4a */ Key::Unknown, // Mute
-    /* 4b */ Key::Unknown, 
+    /* 4b */ Key::Unknown,
     /* 4c */ Key::Enter,
     /* 4d */ Key::Unknown,
     /* 4e */ Key::Unknown, // Subtrackt
@@ -173,6 +173,7 @@ extern {
     fn mfb_should_close(window: *mut c_void) -> i32;
     fn mfb_get_screen_size() -> u32;
     fn mfb_add_menu(window: *mut c_void, name: *const c_char, menu: *mut c_void, menu_len: u32);
+    fn mfb_remove_menu(window: *mut c_void, name: *const c_char);
 }
 
 #[derive(Default)]
@@ -189,7 +190,7 @@ pub struct SharedData {
 
 pub struct Window {
     window_handle: *mut c_void,
-    scale_factor: usize, 
+    scale_factor: usize,
     pub shared_data: SharedData,
     key_handler: KeyHandler,
     pub has_set_data: bool,
@@ -210,9 +211,9 @@ unsafe extern "C" fn key_callback(window: *mut c_void, key: i32, state: i32) {
 impl Window {
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window, &str> {
         let n = match CString::new(name) {
-            Err(_) => { 
+            Err(_) => {
                 println!("Unable to convert {} to c_string", name);
-                return Err("Unable to set correct name"); 
+                return Err("Unable to set correct name");
             }
             Ok(n) => n,
         };
@@ -225,10 +226,10 @@ impl Window {
                 return Err("Unable to open Window");
             }
 
-            Ok(Window { 
+            Ok(Window {
                 window_handle: handle,
                 scale_factor: scale_factor,
-                shared_data: SharedData { 
+                shared_data: SharedData {
                     width: width as u32 * scale_factor as u32,
                     height: height as u32 * scale_factor as u32,
                     .. SharedData::default()
@@ -241,7 +242,7 @@ impl Window {
 
     #[inline]
     pub fn get_window_handle(&self) -> *mut raw::c_void {
-        self.window_handle as *mut raw::c_void 
+        self.window_handle as *mut raw::c_void
     }
 
     #[inline]
@@ -332,12 +333,12 @@ impl Window {
     }
 
     pub fn add_menu(&mut self, name: &str, menu: &Vec<Menu>) {
-        let mut build_menu = Vec::<Vec<CMenu>>::new(); 
+        let mut build_menu = Vec::<Vec<CMenu>>::new();
 
         unsafe {
             Self::recursive_convert(&mut build_menu, &Some(menu));
             let menu_len = build_menu.len();
-            mfb_add_menu(self.window_handle, 
+            mfb_add_menu(self.window_handle,
                          CString::new(name).unwrap().as_ptr(),
                          build_menu[menu_len - 1].as_mut_ptr() as *mut c_void,
                          build_menu[menu_len - 1].len() as u32);
@@ -347,10 +348,11 @@ impl Window {
     pub fn update_menu(&mut self, _name: &str, _menu: &Vec<Menu>) {
     }
 
-    pub fn remove_menu(&mut self, _menu_name: &str) {
-        // not implemented yet
+    pub fn remove_menu(&mut self, name: &str) {
+        unsafe {
+            mfb_remove_menu(self.window_handle, CString::new(name).unwrap().as_ptr());
+        }
     }
-
 
     #[inline]
     pub fn is_open(&self) -> bool {
@@ -367,8 +369,8 @@ impl Window {
             Scale::X32 => 32,
             Scale::FitScreen => {
                 let wh: u32 = mfb_get_screen_size();
-                let screen_x = (wh >> 16) as i32; 
-                let screen_y = (wh & 0xffff) as i32; 
+                let screen_x = (wh >> 16) as i32;
+                let screen_y = (wh & 0xffff) as i32;
 
                 let mut scale = 1i32;
 
@@ -515,12 +517,12 @@ impl Window {
 
             let mut menu = CMenu {
                 name: mem::uninitialized(),
-                id: m.id as raw::c_int, 
-                key: key_map as raw::c_int, 
-                special_key: 0, 
-                modifier: m.modifier as raw::c_int, 
-                mac_mod: m.mac_mod as raw::c_int, 
-                enabled: m.enabled as raw::c_int, 
+                id: m.id as raw::c_int,
+                key: key_map as raw::c_int,
+                special_key: 0,
+                modifier: m.modifier as raw::c_int,
+                mac_mod: m.mac_mod as raw::c_int,
+                enabled: m.enabled as raw::c_int,
                 sub_menu : Self::recursive_convert(menu_build_vec, &m.sub_menu),
             };
 
@@ -541,11 +543,11 @@ impl Window {
 
         menu_build.push(CMenu {
             name: [0; STRING_SIZE],
-            id: -2, 
-            key: 0, 
+            id: -2,
+            key: 0,
             special_key: 0,
-            modifier: 0, 
-            mac_mod: 0, 
+            modifier: 0,
+            mac_mod: 0,
             enabled: 0,
             sub_menu : ptr::null_mut(),
         });
