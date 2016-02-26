@@ -1,5 +1,6 @@
 #import "OSXWindow.h"
 #import "OSXWindowFrameView.h"
+#include <Carbon/Carbon.h>
 
 @implementation OSXWindow
 
@@ -67,6 +68,8 @@
 	if (key_callback) {
 		key_callback(rust_data, [event keyCode], 1);
 	}
+
+	[super keyDown:event];
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -76,6 +79,8 @@
 	if (key_callback) {
 		key_callback(rust_data, [event keyCode], 0);
 	}
+
+	[super keyDown:event];
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -184,6 +189,63 @@
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+static CFStringRef create_string_for_key(CGKeyCode keyCode)
+{
+    TISInputSourceRef currentKeyboard = TISCopyCurrentKeyboardInputSource();
+    CFDataRef layoutData = TISGetInputSourceProperty(currentKeyboard, kTISPropertyUnicodeKeyLayoutData);
+
+	if (!layoutData)
+		return 0;
+
+    const UCKeyboardLayout *keyboardLayout = (const UCKeyboardLayout *)CFDataGetBytePtr(layoutData);
+
+    UInt32 keysDown = 0;
+    UniChar chars[4];
+    UniCharCount realLength;
+
+    UCKeyTranslate(keyboardLayout,
+                   keyCode,
+                   kUCKeyActionDisplay,
+                   0,
+                   LMGetKbdType(),
+                   kUCKeyTranslateNoDeadKeysBit,
+                   &keysDown,
+                   sizeof(chars) / sizeof(chars[0]),
+                   &realLength,
+                   chars);
+    CFRelease(currentKeyboard);    
+
+    return CFStringCreateWithCharacters(kCFAllocatorDefault, chars, 1);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static NSString* convert_key_code_to_string(int key)
+{
+	if (key < 128)
+	{
+		// first try to translate it and if that doesn't work use it as is
+		NSString* charName = (NSString*)create_string_for_key(key);
+
+		if (charName)
+			return charName;
+
+		return [NSString stringWithFormat:@"%c", (char)key]; 
+	}
+
+	return [NSString stringWithFormat:@"%C", (uint16_t)key];
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+const uint32_t MENU_KEY_COMMAND = 1;
+const uint32_t MENU_KEY_WIN = 2;
+const uint32_t MENU_KEY_SHIFT= 4;
+const uint32_t MENU_KEY_CTRL = 8;
+const uint32_t MENU_KEY_ALT = 16;
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void build_submenu(NSMenu* menu, MenuDesc* desc)
 {
 	[menu removeAllItems];
@@ -215,18 +277,17 @@ void build_submenu(NSMenu* menu, MenuDesc* desc)
 			NSMenuItem* newItem = [[NSMenuItem alloc] initWithTitle:name action:@selector(onMenuPress:) keyEquivalent:@""];
 			[newItem setTag:desc->menu_id];
 
-			/*
-			if (desc->macMod & EMGUI_KEY_COMMAND)
+			if (desc->modifier_mac & MENU_KEY_COMMAND)
 				mask |= NSCommandKeyMask;
-			if (desc->macMod & EMGUI_KEY_SHIFT)
+			if (desc->modifier_mac & MENU_KEY_SHIFT)
 				mask |= NSShiftKeyMask;
-			if (desc->macMod & EMGUI_KEY_CTRL)
+			if (desc->modifier_mac & MENU_KEY_CTRL)
 				mask |= NSControlKeyMask; 
-			if (desc->macMod & EMGUI_KEY_ALT)
+			if (desc->modifier_mac & MENU_KEY_ALT)
 				mask |= NSAlternateKeyMask; 
-			*/
 
-			NSString* key = 0; //convertKeyCodeToString(desc->key);
+			NSString* key = convert_key_code_to_string(desc->key);
+			//NSString* key = convert_key_code_to_string('s');
 
 			if (key)
 			{

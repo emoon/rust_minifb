@@ -145,6 +145,7 @@ static KEY_MAPPINGS: [Key; 128] = [
     /* 7f */ Key::Unknown,
 ];
 
+
 const STRING_SIZE: usize = 512;
 
 #[repr(C)]
@@ -152,12 +153,14 @@ struct CMenu {
     name: [i8; STRING_SIZE],
     id: raw::c_int,
     key: raw::c_int,
+    special_key: raw::c_int,
     modifier: raw::c_int,
     mac_mod: raw::c_int,
     sub_menu: raw::c_int,   // index into array
 }
 
 #[link(name = "Cocoa", kind = "framework")]
+#[link(name = "Carbon", kind = "framework")]
 extern {
     fn mfb_open(name: *const c_char, width: u32, height: u32, flags: u32, scale: i32) -> *mut c_void;
     fn mfb_close(window: *mut c_void);
@@ -378,6 +381,117 @@ impl Window {
         return factor;
     }
 
+    unsafe fn map_key_to_menu_key(key: Key) -> i32 {
+        match key {
+            Key::A => 0x00,
+            Key::S => 0x01,
+            Key::D => 0x02,
+            Key::F => 0x03,
+            Key::H => 0x04,
+            Key::G => 0x05,
+            Key::Z => 0x06,
+            Key::X => 0x07,
+            Key::C => 0x08,
+            Key::V => 0x09,
+            Key::B => 0x0b,
+            Key::Q => 0x0c,
+            Key::W => 0x0d,
+            Key::E => 0x0e,
+            Key::R => 0x0f,
+            Key::Y => 0x10,
+            Key::T => 0x11,
+            Key::Key1 => 0x12,
+            Key::Key2 => 0x13,
+            Key::Key3 => 0x14,
+            Key::Key4 => 0x15,
+            Key::Key6 => 0x16,
+            Key::Key5 => 0x17,
+            Key::Equal => 0x18,
+            Key::Key9 => 0x19,
+            Key::Key7 => 0x1a,
+            Key::Minus => 0x1b,
+            Key::Key8 => 0x1c,
+            Key::Key0 => 0x1d,
+            Key::RightBracket => 0x1e,
+            Key::O => 0x1f,
+            Key::U => 0x20,
+            Key::LeftBracket => 0x21,
+            Key::I => 0x22,
+            Key::P => 0x23,
+            Key::Enter => 0x24,
+            Key::L => 0x25,
+            Key::J => 0x26,
+            Key::Apostrophe => 0x27,
+            Key::K => 0x28,
+            Key::Semicolon => 0x29,
+            Key::Backslash => 0x2a,
+            Key::Comma => 0x2b,
+            Key::Slash => 0x2c,
+            Key::N => 0x2d,
+            Key::M => 0x2e,
+            Key::Period => 0x2f,
+            //Key::Tab => 0x30,
+            Key::Space => 0x31,
+            //Key::Backspace => 0x33,
+            //Key::Escape => 0x35,
+            Key::RightSuper => 0x36,
+            Key::LeftSuper => 0x37,
+            Key::LeftShift => 0x38,
+            Key::CapsLock => 0x39,
+            Key::LeftAlt => 0x3a,
+            Key::LeftCtrl => 0x3b,
+            Key::RightShift => 0x3c,
+            Key::RightAlt => 0x3d,
+            Key::RightCtrl => 0x3e,
+            //Key::Equal => 0x51,
+            Key::NumPad0 => 0x52,
+            Key::NumPad1 => 0x53,
+            Key::NumPad2 => 0x54,
+            Key::NumPad3 => 0x55,
+            Key::NumPad4 => 0x56,
+            Key::NumPad5 => 0x57,
+            Key::NumPad6 => 0x58,
+            Key::NumPad7 => 0x59,
+            Key::NumPad8 => 0x5b,
+            Key::NumPad9 => 0x5c,
+            Key::F5 => 0x60,
+            Key::F6 => 0x61,
+            Key::F7 => 0x62,
+            Key::F3 => 0x63,
+            Key::F8 => 0x64,
+            Key::F9 => 0x65,
+            Key::F11 => 0x67,
+            Key::F14 => 0x6b,
+            Key::F10 => 0x6d,
+            Key::F12 => 0x6f,
+            Key::F15 => 0x71,
+            Key::Insert => 0x72, /* Really Help... */
+            Key::Home => 0x73,
+            //Key::PageUp => 0x74,
+            Key::Delete => 0x75,
+            Key::F4 => 0x76,
+            Key::End => 0x77,
+            Key::F2 => 0x78,
+            //Key::PageDown => 0x79,
+            Key::F1 => 0x7a,
+            //Key::Left => 0x7b,
+            //Key::Right => 0x7c,
+            //Key::Down => 0x7d,
+            //Key::Up => 0x7e,
+            Key::Left => 0x2190,
+            Key::Up => 0x2191,
+            Key::Down => 0x2193,
+            Key::Right => 0x2192,
+            Key::Escape => 0x238b,
+            //Key::Enter => 0x000d,
+            Key::Backspace => 0x232b,
+            Key::Tab => 0x21e4,
+            Key::PageUp => 0x21de,
+            Key::PageDown => 0x21df,
+            _ => 0x7f,
+        }
+    }
+
     unsafe fn recursive_convert(menu_build: &mut Vec<CMenu>, in_menu: &Option<&Vec<Menu>>) -> raw::c_int {
         if in_menu.is_none() {
             return -1;
@@ -387,11 +501,14 @@ impl Window {
         let menu_vec = in_menu.as_ref().unwrap();
 
         for m in menu_vec.iter() {
-            println!("Menu name {}", m.name);
+            let key_map = Self::map_key_to_menu_key(m.key);
+            println!("Menu name {} - {}", m.name, key_map);
+
             let mut menu = CMenu {
                 name: mem::uninitialized(),
                 id: m.id as raw::c_int, 
-                key: m.key as raw::c_int, 
+                key: key_map as raw::c_int, 
+                special_key: 0, 
                 modifier: m.modifier as raw::c_int, 
                 mac_mod: m.mac_mod as raw::c_int, 
                 sub_menu : Self::recursive_convert(menu_build, &m.sub_menu),
@@ -414,6 +531,7 @@ impl Window {
             name: [0; STRING_SIZE],
             id: -2, 
             key: 0, 
+            special_key: 0,
             modifier: 0, 
             mac_mod: 0, 
             sub_menu : -1,

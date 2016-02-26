@@ -1,6 +1,7 @@
 extern crate minifb;
 
 use minifb::{Window, Key, Scale, WindowOptions, Menu};
+use minifb::{MENU_KEY_COMMAND, MENU_KEY_SHIFT};
 
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
@@ -24,19 +25,21 @@ fn main() {
 
     let menu = vec![Menu {
                         name: "Some Menu",
-                        key: Key::R,
+                        key: Key::W,
                         id: 2,
                         ..Menu::default()
                     },
-                    Menu::separotor(),
+                    Menu::separotor()];
+                    /*
                     Menu {
                         name: "Some other menu!",
-                        key: Key::V,
+                        key: Key::S,
                         id: 1,
                         ..Menu::default()
                     }];
+                    */
 
-    window.add_menu("test", &menu);
+    window.add_menu("Test", &menu);
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         for i in buffer.iter_mut() {

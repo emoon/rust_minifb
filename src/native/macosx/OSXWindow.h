@@ -25,6 +25,7 @@ typedef struct MenuDesc {
 	char name[512];
 	int menu_id;
 	int key;
+	int special_key;
 	int modifier;
 	int modifier_mac;
 	int sub_menu;
