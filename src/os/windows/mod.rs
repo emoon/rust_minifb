@@ -20,9 +20,10 @@ use mouse_handler;
 
 use self::winapi::windef::HWND;
 use self::winapi::windef::HDC;
-use self::winapi::winuser::WNDCLASSW;
+use self::winapi::windef::HMENU;
 use self::winapi::wingdi::BITMAPINFOHEADER;
 use self::winapi::wingdi::RGBQUAD;
+use self::winapi::winuser::WNDCLASSW;
 
 // Wrap this so we can have a proper numbef of bmiColors to write in
 #[repr(C)]
@@ -576,8 +577,68 @@ impl Window {
         return factor;
     }
 
-    pub fn add_menu(&mut self, _menu_name: &str, _menu: &Vec<Menu>) {
-        // not implemented yet
+    //
+    // When attaching a menu to the window we need to resize it so
+    // the current client size is preserved and still show all pixels
+    //
+    unsafe fn adjust_window_size_for_menu(handle: HWND) {
+        let mut rect: winapi::RECT = mem::uninitialized();
+
+        let menu_height = user32::GetSystemMetrics(winapi::winuser::SM_CYMENU);
+
+        user32::GetWindowRect(handle, &mut rect);
+        user32::MoveWindow(handle, 
+                           rect.left, 
+                           rect.top, 
+                           rect.right - rect.left, 
+                           (rect.bottom - rect.top) + menu_height, 
+                           1);
+    }
+
+    // #define MF_SEPARATOR        0x00000800L
+
+    unsafe fn recursive_add_menu(parent_menu: HMENU, name: &str, menu: &Vec<Menu>) {
+        let menu_name = to_wstring(name);
+
+        let popup_menu = user32::CreatePopupMenu();
+
+        user32::AppendMenuW(parent_menu, 0x10, popup_menu as u64, menu_name.as_ptr());
+
+        for m in menu.iter() {
+            let item_name = to_wstring(m.name);
+
+            if let Some(ref sub_menu) = m.sub_menu {
+                Self::recursive_add_menu(popup_menu, m.name, sub_menu);
+            } else {
+                // Separator
+                if m.id == 0xffffffff {
+                    user32::AppendMenuW(popup_menu, 0x800, 0, ptr::null());
+
+                } else {
+                    user32::AppendMenuW(popup_menu, 0x10, // popup | string
+                                        0, // should be id
+                                        item_name.as_ptr());
+                }
+            }
+        }
+
+    }
+
+    pub fn add_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) {
+        unsafe {
+            let window = self.window.unwrap();
+            let mut main_menu = user32::GetMenu(window);
+
+            if main_menu == ptr::null_mut() {
+                main_menu = user32::CreateMenu();
+                user32::SetMenu(window, main_menu);
+                Self::adjust_window_size_for_menu(window);
+            }
+
+            Self::recursive_add_menu(main_menu, menu_name, menu);
+
+            user32::DrawMenuBar(window);
+        }
     }
     pub fn update_menu(&mut self, _menu_name: &str, _menu: &Vec<Menu>) {
         // not implemented yet
