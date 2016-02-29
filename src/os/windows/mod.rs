@@ -24,6 +24,7 @@ use self::winapi::windef::HMENU;
 use self::winapi::wingdi::BITMAPINFOHEADER;
 use self::winapi::wingdi::RGBQUAD;
 use self::winapi::winuser::WNDCLASSW;
+use self::winapi::basetsd::UINT_PTR;
 
 // Wrap this so we can have a proper numbef of bmiColors to write in
 #[repr(C)]
@@ -602,7 +603,7 @@ impl Window {
 
         let popup_menu = user32::CreatePopupMenu();
 
-        user32::AppendMenuW(parent_menu, 0x10, popup_menu as u64, menu_name.as_ptr());
+        user32::AppendMenuW(parent_menu, 0x10, popup_menu as UINT_PTR, menu_name.as_ptr());
 
         for m in menu.iter() {
             let item_name = to_wstring(m.name);
