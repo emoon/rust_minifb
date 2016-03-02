@@ -24,6 +24,7 @@ use self::winapi::windef::HMENU;
 use self::winapi::wingdi::BITMAPINFOHEADER;
 use self::winapi::wingdi::RGBQUAD;
 use self::winapi::winuser::WNDCLASSW;
+use self::winapi::winuser::ACCEL;
 use self::winapi::basetsd::UINT_PTR;
 
 // Wrap this so we can have a proper numbef of bmiColors to write in
@@ -301,6 +302,7 @@ pub struct Window {
     width: i32,
     height: i32,
     key_handler: KeyHandler,
+    accel_table: Option<Vec<ACCEL>>,
 }
 
 impl Window {
@@ -412,6 +414,7 @@ impl Window {
                 scale_factor: scale_factor,
                 width: width as i32,
                 height: height as i32,
+                accel_table: None,
             };
 
             Ok(window)
@@ -578,6 +581,133 @@ impl Window {
         return factor;
     }
 
+    fn map_key_to_vk_accel(key: Key) -> (raw::c_int, &'static str) {
+        match key {
+            Key::Key0 => (0x30, "0"),
+            Key::Key1 => (0x31, "1"),
+            Key::Key2 => (0x32, "2"),
+            Key::Key3 => (0x33, "3"),
+            Key::Key4 => (0x34, "4"),
+            Key::Key5 => (0x35, "5"),
+            Key::Key6 => (0x36, "6"),
+            Key::Key7 => (0x37, "7"),
+            Key::Key8 => (0x38, "8"),
+            Key::Key9 => (0x39, "9"),
+
+            Key::A => (0x41, "a"),
+            Key::B => (0x42, "b"),
+            Key::C => (0x43, "c"),
+            Key::D => (0x44, "d"),
+            Key::E => (0x45, "e"),
+            Key::F => (0x46, "f"),
+            Key::G => (0x47, "g"),
+            Key::H => (0x48, "h"),
+            Key::I => (0x49, "i"),
+            Key::J => (0x4a, "j"),
+            Key::K => (0x4b, "k"),
+            Key::L => (0x4c, "l"),
+            Key::M => (0x4d, "m"),
+            Key::N => (0x4e, "n"),
+            Key::O => (0x4f, "o"),
+            Key::P => (0x50, "p"),
+            Key::Q => (0x51, "q"),
+            Key::R => (0x52, "r"),
+            Key::S => (0x53, "s"),
+            Key::T => (0x54, "t"),
+            Key::U => (0x55, "u"),
+            Key::V => (0x56, "v"),
+            Key::W => (0x57, "w"),
+            Key::X => (0x58, "x"),
+            Key::Y => (0x59, "y"),
+            Key::Z => (0x5a, "z"),
+
+            Key::F1 => (winapi::winuser::VK_F1, "F1"),
+            Key::F2 => (winapi::winuser::VK_F2, "F2"),
+            Key::F3 => (winapi::winuser::VK_F3, "F3"),
+            Key::F4 => (winapi::winuser::VK_F4, "F4"),
+            Key::F5 => (winapi::winuser::VK_F5, "F5"),
+            Key::F6 => (winapi::winuser::VK_F6, "F6"),
+            Key::F7 => (winapi::winuser::VK_F7, "F7"),
+            Key::F8 => (winapi::winuser::VK_F8, "F8"),
+            Key::F9 => (winapi::winuser::VK_F9, "F9"),
+            Key::F10 => (winapi::winuser::VK_F10, "F10"),
+            Key::F11 => (winapi::winuser::VK_F11, "F11"),
+            Key::F12 => (winapi::winuser::VK_F12, "F12"),
+            Key::F13 => (winapi::winuser::VK_F13, "F14"),
+            Key::F14 => (winapi::winuser::VK_F14, "F14"),
+            Key::F15 => (winapi::winuser::VK_F15, "F15"),
+
+            Key::Down => (winapi::winuser::VK_DOWN, "Down"),
+            Key::Left => (winapi::winuser::VK_LEFT, "Left"),
+            Key::Right => (winapi::winuser::VK_RIGHT, "Right"),
+            Key::Up => (winapi::winuser::VK_UP, "Up"),
+            //Key::Apostrophe,
+            //Key::Backquote,
+
+            Key::Backslash => (winapi::winuser::VK_OEM_102, "Backslash"),
+            Key::Comma => (winapi::winuser::VK_OEM_COMMA, ","),
+            //Key::Equal,
+            //Key::LeftBracket,
+            Key::Minus => (winapi::winuser::VK_OEM_MINUS, "-"),
+            Key::Period => (winapi::winuser::VK_OEM_PERIOD, "."),
+            //Key::RightBracket,
+            //Key::Semicolon,
+
+            //Key::Slash,
+            Key::Backspace => (winapi::winuser::VK_BACK, "Back"),
+            Key::Delete => (winapi::winuser::VK_DELETE, "Delete"),
+            Key::End => (winapi::winuser::VK_END, "End"),
+            Key::Enter => (winapi::winuser::VK_RETURN, "Enter"),
+
+            Key::Escape => (winapi::winuser::VK_ESCAPE, "Esc"),
+
+            Key::Home => (winapi::winuser::VK_HOME, "Home"),
+            Key::Insert => (winapi::winuser::VK_INSERT, "Insert"),
+            Key::Menu => (winapi::winuser::VK_MENU, "Menu"),
+
+            Key::PageDown => (winapi::winuser::VK_NEXT, "PageDown"),
+            Key::PageUp => (winapi::winuser::VK_PRIOR, "PageUp"),
+
+            Key::Pause => (winapi::winuser::VK_PAUSE, "Pause"),
+            Key::Space => (winapi::winuser::VK_SPACE, "Space"),
+            Key::Tab => (winapi::winuser::VK_TAB, "Tab"),
+            Key::NumLock => (winapi::winuser::VK_NUMLOCK, "NumLock"),
+            Key::CapsLock => (winapi::winuser::VK_CAPITAL, "CapsLock"),
+            Key::ScrollLock => (winapi::winuser::VK_SCROLL, "Scroll"),
+
+            Key::LeftShift => (winapi::winuser::VK_LSHIFT, "LeftShift"),
+            Key::RightShift => (winapi::winuser::VK_RSHIFT, "RightShift"),
+            Key::LeftCtrl => (winapi::winuser::VK_CONTROL, "Ctrl"),
+            Key::RightCtrl => (winapi::winuser::VK_CONTROL, "Ctrl"),
+
+            Key::NumPad0 => (winapi::winuser::VK_NUMPAD0, "NumPad0"),
+            Key::NumPad1 => (winapi::winuser::VK_NUMPAD1, "NumPad1"),
+            Key::NumPad2 => (winapi::winuser::VK_NUMPAD2, "NumPad2"),
+            Key::NumPad3 => (winapi::winuser::VK_NUMPAD3, "NumPad3"),
+            Key::NumPad4 => (winapi::winuser::VK_NUMPAD4, "NumPad4"),
+            Key::NumPad5 => (winapi::winuser::VK_NUMPAD5, "NumPad5"),
+            Key::NumPad6 => (winapi::winuser::VK_NUMPAD6, "NumPad6"),
+            Key::NumPad7 => (winapi::winuser::VK_NUMPAD7, "NumPad7"),
+            Key::NumPad8 => (winapi::winuser::VK_NUMPAD8, "NumPad8"),
+            Key::NumPad9 => (winapi::winuser::VK_NUMPAD9, "NumPad9"),
+            //Key::NumPadDot,
+            //Key::NumPadSlash,
+            //Key::NumPadAsterisk,
+            //Key::NumPadMinus,
+            //Key::NumPadPlus,
+            //Key::NumPadEnter,
+
+            Key::LeftAlt => (winapi::winuser::VK_MENU, "Alt"),
+            Key::RightAlt => (winapi::winuser::VK_MENU, "Alt"),
+
+            Key::LeftSuper => (winapi::winuser::VK_LWIN, "LeftWin"),
+            Key::RightSuper => (winapi::winuser::VK_RWIN, "RightWin"),
+
+            _ => (0, "Unsupported"),
+        }
+    }
+
+
     //
     // When attaching a menu to the window we need to resize it so
     // the current client size is preserved and still show all pixels
@@ -596,8 +726,6 @@ impl Window {
                            1);
     }
 
-    // #define MF_SEPARATOR        0x00000800L
-
     unsafe fn recursive_add_menu(parent_menu: HMENU, name: &str, menu: &Vec<Menu>) {
         let menu_name = to_wstring(name);
 
@@ -611,18 +739,15 @@ impl Window {
             if let Some(ref sub_menu) = m.sub_menu {
                 Self::recursive_add_menu(popup_menu, m.name, sub_menu);
             } else {
-                // Separator
                 if m.id == 0xffffffff {
-                    user32::AppendMenuW(popup_menu, 0x800, 0, ptr::null());
-
+                    user32::AppendMenuW(popup_menu, 0x800, 0, ptr::null()); // separator
                 } else {
-                    user32::AppendMenuW(popup_menu, 0x10, // popup | string
-                                        0, // should be id
+                    user32::AppendMenuW(popup_menu, 0x10,
+                                        m.id as UINT_PTR,
                                         item_name.as_ptr());
                 }
             }
         }
-
     }
 
     pub fn add_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) {
