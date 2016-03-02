@@ -641,19 +641,12 @@ impl Window {
             Key::Left => (winapi::winuser::VK_LEFT, "Left"),
             Key::Right => (winapi::winuser::VK_RIGHT, "Right"),
             Key::Up => (winapi::winuser::VK_UP, "Up"),
-            //Key::Apostrophe,
-            //Key::Backquote,
 
             Key::Backslash => (winapi::winuser::VK_OEM_102, "Backslash"),
             Key::Comma => (winapi::winuser::VK_OEM_COMMA, ","),
-            //Key::Equal,
-            //Key::LeftBracket,
             Key::Minus => (winapi::winuser::VK_OEM_MINUS, "-"),
             Key::Period => (winapi::winuser::VK_OEM_PERIOD, "."),
-            //Key::RightBracket,
-            //Key::Semicolon,
 
-            //Key::Slash,
             Key::Backspace => (winapi::winuser::VK_BACK, "Back"),
             Key::Delete => (winapi::winuser::VK_DELETE, "Delete"),
             Key::End => (winapi::winuser::VK_END, "End"),
@@ -690,12 +683,6 @@ impl Window {
             Key::NumPad7 => (winapi::winuser::VK_NUMPAD7, "NumPad7"),
             Key::NumPad8 => (winapi::winuser::VK_NUMPAD8, "NumPad8"),
             Key::NumPad9 => (winapi::winuser::VK_NUMPAD9, "NumPad9"),
-            //Key::NumPadDot,
-            //Key::NumPadSlash,
-            //Key::NumPadAsterisk,
-            //Key::NumPadMinus,
-            //Key::NumPadPlus,
-            //Key::NumPadEnter,
 
             Key::LeftAlt => (winapi::winuser::VK_MENU, "Alt"),
             Key::RightAlt => (winapi::winuser::VK_MENU, "Alt"),
@@ -725,6 +712,33 @@ impl Window {
                            (rect.bottom - rect.top) + menu_height, 
                            1);
     }
+
+    /*
+    fn format_name(menu: &Menu, name: &`static str) -> String {
+
+    }
+
+    fn add_accel(&mut self, key: raw::c_int) {
+
+    }
+
+    fn add_menu_item(parent_menu: HMENU, menu_item: &Menu) {
+        let item_name = to_wstring(m.name);
+        let vk_accel = map_key_to_vk_accel(menu_item.key);
+
+        match vk_accel.0 {
+            0 => {
+                user32::AppendMenuW(popup_menu, 0x10, menu_item.id as UINT_PTR, item_name.as_ptr());
+            }
+            
+            _ => {
+                fn add_accel(&mut self, key: raw::c_int) {
+            }
+        }
+
+    }
+
+    */
 
     unsafe fn recursive_add_menu(parent_menu: HMENU, name: &str, menu: &Vec<Menu>) {
         let menu_name = to_wstring(name);
