@@ -10,6 +10,7 @@ use {Scale, Key, KeyRepeat, MouseButton, MouseMode, WindowOptions};
 
 use key_handler::KeyHandler;
 use menu::Menu;
+use menu::{MENU_KEY_WIN, MENU_KEY_SHIFT, MENU_KEY_CTRL, MENU_KEY_ALT};
 
 use std::ptr;
 use std::os::windows::ffi::OsStrExt;
@@ -18,14 +19,16 @@ use std::mem;
 use std::os::raw;
 use mouse_handler;
 
-use self::winapi::windef::HWND;
-use self::winapi::windef::HDC;
-use self::winapi::windef::HMENU;
-use self::winapi::wingdi::BITMAPINFOHEADER;
-use self::winapi::wingdi::RGBQUAD;
-use self::winapi::winuser::WNDCLASSW;
-use self::winapi::winuser::ACCEL;
-use self::winapi::basetsd::UINT_PTR;
+//use self::winapi::windef::HWND;
+//use self::winapi::windef::HDC;
+//use self::winapi::windef::HMENU;
+//use self::winapi::wingdi::BITMAPINFOHEADER;
+//use self::winapi::wingdi::RGBQUAD;
+//use self::winapi::winuser::WNDCLASSW;
+//use self::winapi::winuser::ACCEL;
+//use self::winapi::basetsd::UINT_PTR;
+use self::winapi::*;
+//use self::winapi::winmindefs::BYTE;
 
 // Wrap this so we can have a proper numbef of bmiColors to write in
 #[repr(C)]
@@ -302,7 +305,7 @@ pub struct Window {
     width: i32,
     height: i32,
     key_handler: KeyHandler,
-    accel_table: Option<Vec<ACCEL>>,
+    accel_table: Vec<ACCEL>,
 }
 
 impl Window {
@@ -414,7 +417,7 @@ impl Window {
                 scale_factor: scale_factor,
                 width: width as i32,
                 height: height as i32,
-                accel_table: None,
+                accel_table: Vec::new(),
             };
 
             Ok(window)
@@ -713,32 +716,88 @@ impl Window {
                            1);
     }
 
-    /*
-    fn format_name(menu: &Menu, name: &`static str) -> String {
+    fn format_name(menu_item: &Menu, key_name: &'static str) -> String {
+        let mut name = menu_item.name.to_owned();
 
+        name.push_str("\t");
+
+        if (menu_item.modifier & MENU_KEY_WIN) == MENU_KEY_WIN {
+            name.push_str("Win-");
+        }
+
+        if (menu_item.modifier & MENU_KEY_SHIFT) == MENU_KEY_SHIFT {
+            name.push_str("Shift-");
+        }
+
+        if (menu_item.modifier & MENU_KEY_CTRL) == MENU_KEY_CTRL {
+            name.push_str("Ctrl-");
+        }
+
+        if (menu_item.modifier & MENU_KEY_ALT) == MENU_KEY_ALT {
+            name.push_str("Alt-");
+        }
+
+        name.push_str(key_name);
+
+        name
     }
 
-    fn add_accel(&mut self, key: raw::c_int) {
-
+    fn is_key_virtual_range(key: raw::c_int) -> u32 {
+        if (key >= 0x30 && key <= 0x30) ||
+           (key >= 0x41 && key <= 0x5a) {
+            1
+           } else {
+            0
+        }
     }
 
-    fn add_menu_item(parent_menu: HMENU, menu_item: &Menu) {
-        let item_name = to_wstring(m.name);
-        let vk_accel = map_key_to_vk_accel(menu_item.key);
+    fn get_virt_key(menu_item: &Menu, key: raw::c_int) -> u32 {
+        let mut virt = Self::is_key_virtual_range(key); 
+
+        if (menu_item.modifier & MENU_KEY_ALT) == MENU_KEY_ALT {
+            virt |= 0x10;
+        }
+
+        if (menu_item.modifier & MENU_KEY_CTRL) == MENU_KEY_CTRL {
+            virt |= 0x8;
+        }
+
+        if (menu_item.modifier & MENU_KEY_SHIFT) == MENU_KEY_SHIFT {
+            virt |= 0x4;
+        }
+
+        virt
+    }
+
+    fn add_accel(&mut self, menu_item: &Menu, key: raw::c_int) {
+        let virt = Self::get_virt_key(menu_item, key); 
+        let accel = winuser::ACCEL { 
+            fVirt: virt as BYTE, 
+            cmd: menu_item.id as WORD, 
+            key: key as WORD };
+
+        self.accel_table.push(accel);
+    }
+
+    unsafe fn add_menu_item(&mut self, parent_menu: HMENU, menu_item: &Menu) {
+        let item_name = to_wstring(menu_item.name);
+        let vk_accel = Self::map_key_to_vk_accel(menu_item.key);
 
         match vk_accel.0 {
             0 => {
-                user32::AppendMenuW(popup_menu, 0x10, menu_item.id as UINT_PTR, item_name.as_ptr());
+                user32::AppendMenuW(parent_menu, 0x10, menu_item.id as UINT_PTR, item_name.as_ptr());
             }
             
             _ => {
-                fn add_accel(&mut self, key: raw::c_int) {
+                let menu_name = Self::format_name(menu_item, vk_accel.1);
+                let w_name = to_wstring(&menu_name);
+                Self::add_accel(self, menu_item, vk_accel.0);
+                user32::AppendMenuW(parent_menu, 0x10, menu_item.id as UINT_PTR, w_name.as_ptr());
             }
         }
 
     }
 
-    */
 
     unsafe fn recursive_add_menu(parent_menu: HMENU, name: &str, menu: &Vec<Menu>) {
         let menu_name = to_wstring(name);
