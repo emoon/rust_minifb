@@ -786,8 +786,7 @@ impl Window {
         match vk_accel.0 {
             0 => {
                 user32::AppendMenuW(parent_menu, 0x10, menu_item.id as UINT_PTR, item_name.as_ptr());
-            }
-            
+            },
             _ => {
                 let menu_name = Self::format_name(menu_item, vk_accel.1);
                 let w_name = to_wstring(&menu_name);
@@ -799,7 +798,7 @@ impl Window {
     }
 
 
-    unsafe fn recursive_add_menu(parent_menu: HMENU, name: &str, menu: &Vec<Menu>) {
+    unsafe fn recursive_add_menu(&mut self, parent_menu: HMENU, name: &str, menu: &Vec<Menu>) {
         let menu_name = to_wstring(name);
 
         let popup_menu = user32::CreatePopupMenu();
@@ -807,17 +806,13 @@ impl Window {
         user32::AppendMenuW(parent_menu, 0x10, popup_menu as UINT_PTR, menu_name.as_ptr());
 
         for m in menu.iter() {
-            let item_name = to_wstring(m.name);
-
             if let Some(ref sub_menu) = m.sub_menu {
-                Self::recursive_add_menu(popup_menu, m.name, sub_menu);
+                Self::recursive_add_menu(self, popup_menu, m.name, sub_menu);
             } else {
                 if m.id == 0xffffffff {
                     user32::AppendMenuW(popup_menu, 0x800, 0, ptr::null()); // separator
                 } else {
-                    user32::AppendMenuW(popup_menu, 0x10,
-                                        m.id as UINT_PTR,
-                                        item_name.as_ptr());
+                    Self::add_menu_item(self, popup_menu, m);
                 }
             }
         }
@@ -834,7 +829,7 @@ impl Window {
                 Self::adjust_window_size_for_menu(window);
             }
 
-            Self::recursive_add_menu(main_menu, menu_name, menu);
+            Self::recursive_add_menu(self, main_menu, menu_name, menu);
 
             user32::DrawMenuBar(window);
         }
