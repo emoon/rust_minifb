@@ -6,6 +6,8 @@ extern crate winapi;
 extern crate gdi32;
 extern crate time;
 
+const INVALID_ACCEL: usize = 0xffffffff;
+
 use {Scale, Key, KeyRepeat, MouseButton, MouseMode, WindowOptions};
 
 use key_handler::KeyHandler;
@@ -233,6 +235,25 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
             return 0;
         }
 
+        winapi::winuser::WM_COMMAND => {
+            if lparam == 0 {
+                let accel_key = (wparam >> 16) as u16;
+                println!("accel key {}", accel_key);
+
+                // check if we have this in the accel table
+
+                for accel in wnd.accel_table.iter() {
+                    if accel_key == accel.cmd {
+                        wnd.accel_key = accel_key as usize;
+                        println!("Set menu id");
+                        return 0;
+                    }
+                }
+            }
+
+            wnd.accel_key = INVALID_ACCEL;
+        }
+
         winapi::winuser::WM_PAINT => {
 
             // if we have nothing to draw here we return the default function
@@ -306,6 +327,15 @@ pub struct Window {
     height: i32,
     key_handler: KeyHandler,
     accel_table: Vec<ACCEL>,
+    accel_key: usize,
+}
+
+// TranslateAccelerator is currently missing in win-rs
+//#[cfg(target_family = "windows")]
+//#[link(name = "user32")]
+#[allow(non_snake_case)]
+extern "C" {
+    fn TranslateAcceleratorW(hWnd: HWND, accel: *const ACCEL, pmsg: *const MSG) -> INT;  
 }
 
 impl Window {
@@ -418,6 +448,7 @@ impl Window {
                 width: width as i32,
                 height: height as i32,
                 accel_table: Vec::new(),
+                accel_key: INVALID_ACCEL,
             };
 
             Ok(window)
@@ -500,7 +531,6 @@ impl Window {
 
     fn generic_update(&mut self, window: HWND) {
         unsafe {
-
             let mut point: winapi::POINT = mem::uninitialized();
             user32::GetCursorPos(&mut point);
             user32::ScreenToClient(window, &mut point);
@@ -520,8 +550,10 @@ impl Window {
             let mut msg = mem::uninitialized();
 
             while user32::PeekMessageW(&mut msg, window, 0, 0, winapi::winuser::PM_REMOVE) != 0 {
-                user32::TranslateMessage(&mut msg);
-                user32::DispatchMessageW(&mut msg);
+                if TranslateAcceleratorW(msg.hwnd, self.accel_table.as_ptr(), &mut msg) == 0 {
+                    user32::TranslateMessage(&mut msg);
+                    user32::DispatchMessageW(&mut msg);
+                }
             }
         }
     }
@@ -839,6 +871,16 @@ impl Window {
     }
     pub fn remove_menu(&mut self, _menu_name: &str) {
         // not implemented yet
+    }
+
+    pub fn is_menu_pressed(&mut self) -> Option<usize> {
+        if self.accel_key == INVALID_ACCEL {
+            None
+        } else {
+            let t = self.accel_key;
+            self.accel_key = INVALID_ACCEL;
+            Some(t)
+        }
     }
 }
 

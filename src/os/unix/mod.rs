@@ -346,6 +346,10 @@ impl Window {
     pub fn remove_menu(&mut self, _menu_name: &str) {
         println!("Menus aren't supported on *Nix :(");
     }
+    pub fn is_menu_pressed(&mut self) -> Option<usize> {
+        println!("Menus aren't supported on *Nix :(");
+        None
+    }
 }
 
 impl Drop for Window {

@@ -334,6 +334,10 @@ impl Window {
         self.key_handler.is_key_pressed(key, repeat)
     }
 
+    pub fn is_menu_pressed(&mut self) -> Option<usize> {
+        None
+    }
+
     pub fn add_menu(&mut self, name: &str, menu: &Vec<Menu>) {
         let mut build_menu = Vec::<Vec<CMenu>>::new();
 

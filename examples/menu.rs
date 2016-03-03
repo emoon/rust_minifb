@@ -1,15 +1,17 @@
 extern crate minifb;
 
 use minifb::{Window, Key, Scale, WindowOptions, Menu};
-use minifb::{MENU_KEY_COMMAND, MENU_KEY_SHIFT};
+use minifb::{MENU_KEY_CTRL};
 
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
 
 fn main() {
+    /*
     let mut noise;
     let mut carry;
     let mut seed = 0xbeefu32;
+    */
 
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 
@@ -45,6 +47,7 @@ fn main() {
             name: "Some Menu",
             key: Key::W,
             id: 2,
+            modifier: MENU_KEY_CTRL,
             enabled: false,
             ..Menu::default()
         },
@@ -65,6 +68,7 @@ fn main() {
     window.add_menu("Test", &menu);
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
+        /*
         for i in buffer.iter_mut() {
             noise = seed;
             noise >>= 3;
@@ -76,6 +80,16 @@ fn main() {
             noise &= 0xFF;
             *i = (noise << 16) | (noise << 8) | noise;
         }
+        */
+
+        buffer[0] = 0x00ff0000;
+        for i in 0..10 {
+            buffer[(359*640) + i] = 0x0000ff00;
+        }
+
+        window.is_menu_pressed().map(|menu_id| {
+            println!("Menu id {} pressed", menu_id);
+        });
 
         window.get_keys().map(|keys| {
             for t in keys {

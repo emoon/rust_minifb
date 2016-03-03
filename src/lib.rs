@@ -448,6 +448,14 @@ impl Window {
     pub fn remove_menu(&mut self, menu_name: &str) {
         self.0.remove_menu(menu_name)
     }
+
+    ///
+    /// Check if a menu item has been pressed
+    ///
+    #[inline]
+    pub fn is_menu_pressed(&mut self) -> Option<usize> {
+        self.0.is_menu_pressed()
+    }
 }
 
 // Impl for WindowOptions
