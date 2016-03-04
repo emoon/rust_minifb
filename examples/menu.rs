@@ -71,7 +71,7 @@ fn main() {
         }
     ];
 
-    window.add_menu("Test", &menu);
+    window.add_menu("Test", &menu).expect("Unable to add menu");
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         /*
@@ -96,7 +96,7 @@ fn main() {
         window.is_menu_pressed().map(|menu_id| {
             if menu_id == 10 {
                 println!("remove menu");
-                window.remove_menu("Test");
+                window.remove_menu("Test").expect("Unable to remove menu");
             }
 
             println!("Menu id {} pressed", menu_id);

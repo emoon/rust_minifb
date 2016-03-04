@@ -847,8 +847,6 @@ impl Window {
 
         self.accel_table = user32::CreateAcceleratorTableW(temp_accel_table.as_mut_ptr(), 
                                                            temp_accel_table.len() as i32); 
-    
-        println!("Accel table {:?} - {}", self.accel_table, temp_accel_table.len());
     }
 
 
@@ -856,8 +854,6 @@ impl Window {
         let menu_name = to_wstring(name);
 
         let popup_menu = user32::CreatePopupMenu();
-
-        println!("menu created {:?}", popup_menu);
 
         user32::AppendMenuW(parent_menu, 0x10, popup_menu as UINT_PTR, menu_name.as_ptr());
 
@@ -886,11 +882,6 @@ impl Window {
         false
     }
 
-    //
-    // Clone the menu data, notice that this function will *NOT* keep the structure
-    // but instead having everything flat. This is because this is only used
-    // whne creating accelerators and then it's easier to have everything flat
-    //
     fn clone_menu(accel_dest: &mut Vec<ACCEL>, menu: &Vec<Menu>) {
         for m in menu.iter() {
             if let Some(ref sub_menu) = m.sub_menu {
@@ -903,14 +894,9 @@ impl Window {
         }
     }
 
-    //
-    //
-    //
     unsafe fn add_menu_store(&mut self, parent_menu: HMENU, menu_name: &str, menu: &Vec<Menu>) {
         let mut items = Vec::<ACCEL>::new();
         let menu_handle = Self::recursive_add_menu(self, parent_menu, menu_name, menu);
-
-        println!("menu handle {:?}", menu_handle);
 
         Self::clone_menu(&mut items, menu);
 
