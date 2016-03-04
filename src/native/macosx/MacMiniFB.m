@@ -62,6 +62,7 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 	window->scale = scale;
 	window->key_callback = 0;
 	window->shared_data = 0;
+	window->active_menu_id = -1;
 
 	window->menu_data = malloc(sizeof(MenuData));
 	memset(window->menu_data, 0, sizeof(MenuData));
@@ -366,6 +367,15 @@ void mfb_remove_menu(void* window, const char* name)
 
 		win->menu_data->menu_count--;
 	}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+int mfb_active_menu(void* window) {
+	OSXWindow* win = (OSXWindow*)window;
+	int active_menu_id = win->active_menu_id;
+	win->active_menu_id = -1;
+	return active_menu_id;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -178,6 +178,7 @@ extern {
     fn mfb_add_menu(window: *mut c_void, name: *const c_char, menu: *mut c_void);
     fn mfb_remove_menu(window: *mut c_void, name: *const c_char);
     fn mfb_update_menu(window: *mut c_void, name: *const c_char, menu: *mut c_void);
+    fn mfb_active_menu(window: *mut c_void) -> i32;
 }
 
 #[derive(Default)]
@@ -337,7 +338,13 @@ impl Window {
     }
 
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
-        None
+        let menu_id = unsafe { mfb_active_menu(self.window_handle) };
+
+        if menu_id < 0 {
+            None
+        } else {
+            Some(menu_id as usize)
+        }
     }
 
     pub fn add_menu(&mut self, name: &str, menu: &Vec<Menu>) -> Result<()> {

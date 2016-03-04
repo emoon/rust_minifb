@@ -202,8 +202,8 @@
 
 - (void)onMenuPress:(id)sender
 {
-	int id = (int)((NSButton*)sender).tag;
-	printf("menu id %d\n", id);
+	int menu_id = (int)((NSButton*)sender).tag;
+	self->active_menu_id = menu_id;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -272,8 +272,6 @@ void build_submenu(NSMenu* menu, MenuDesc* desc)
 	{
 		NSString* name = [NSString stringWithUTF8String: desc->name];
 
-		printf("building submenu %s %p\n", desc->name, desc->sub_menu);
-
 		if (desc->menu_id == -1)
 		{
 			[menu addItem:[NSMenuItem separatorItem]];
@@ -313,8 +311,6 @@ void build_submenu(NSMenu* menu, MenuDesc* desc)
 					[newItem setKeyEquivalent:key];
 				}
 			}
-
-			printf("enabled %d\n", desc->enabled);
 
 			if (desc->enabled) {
 				[newItem setEnabled:YES];
