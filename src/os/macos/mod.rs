@@ -547,7 +547,6 @@ impl Window {
 
         for m in menu_vec.iter() {
             let key_map = Self::map_key_to_menu_key(m.key);
-            println!("Menu name {} - {}", m.name, key_map);
 
             let mut menu = CMenu {
                 name: mem::uninitialized(),
@@ -562,8 +561,6 @@ impl Window {
 
             let name = CString::new(m.name).unwrap();
             let name_len = m.name.len();
-
-            //println!("Submenu index {}", menu.sub_menu);
 
             ptr::copy_nonoverlapping(name.as_ptr(),
                           menu.name.as_mut_ptr() as *mut i8,

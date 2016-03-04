@@ -1,18 +1,19 @@
 extern crate minifb;
 
 use minifb::{Window, Key, Scale, WindowOptions, Menu};
-use minifb::{MENU_KEY_CTRL};
+use minifb::{MENU_KEY_CTRL, MENU_KEY_COMMAND};
 
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
 
-fn main() {
-    /*
-    let mut noise;
-    let mut carry;
-    let mut seed = 0xbeefu32;
-    */
+const MENU_TEST_ID: usize = 1;
+const OTHER_MENU_ID: usize = 2;
+const COLOR_0_ID: usize = 3;
+const COLOR_1_ID: usize = 4;
+const COLOR_2_ID: usize = 5;
+const CLOSE_MENU_ID: usize = 6;
 
+fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 
     let mut window = Window::new("Noise Test - Press ESC to exit",
@@ -29,13 +30,18 @@ fn main() {
 
     let sub_menu = vec![
         Menu {
-            name: "Sub 0",
-            id: 3,
+            name: "Color 0",
+            id: COLOR_0_ID,
             ..Menu::default()
         },
         Menu {
-            name: "Sub 1",
-            id: 4,
+            name: "Color 1",
+            id: COLOR_1_ID,
+            ..Menu::default()
+        },
+        Menu {
+            name: "Color 2",
+            id: COLOR_2_ID,
             ..Menu::default()
         },
     ];
@@ -44,28 +50,30 @@ fn main() {
 
     let menu = vec![
         Menu {
-            name: "Some Menu",
+            name: "Menu Test",
             key: Key::W,
-            id: 2,
+            id: MENU_TEST_ID,
             modifier: MENU_KEY_CTRL,
-            enabled: false,
+            mac_mod: MENU_KEY_COMMAND,
             ..Menu::default()
         },
         Menu::separotor(),
         Menu {
-            name: "Some other menu!",
+            name: "Other menu!",
             key: Key::S,
-            id: 1,
+            modifier: MENU_KEY_CTRL,
+            mac_mod: MENU_KEY_CTRL,
+            id: OTHER_MENU_ID,
             ..Menu::default()
         },
         Menu {
             name: "Remove Menu",
             key: Key::R,
-            id: 10,
+            id: CLOSE_MENU_ID,
             ..Menu::default()
         },
         Menu {
-            name: "Les sub!",
+            name: "Select Color",
             sub_menu: Some(&sub_menu),
             ..Menu::default()
         }
@@ -73,30 +81,31 @@ fn main() {
 
     window.add_menu("Test", &menu).expect("Unable to add menu");
 
-    while window.is_open() && !window.is_key_down(Key::Escape) {
-        /*
-        for i in buffer.iter_mut() {
-            noise = seed;
-            noise >>= 3;
-            noise ^= seed;
-            carry = noise & 1;
-            noise >>= 1;
-            seed >>= 1;
-            seed |= carry << 30;
-            noise &= 0xFF;
-            *i = (noise << 16) | (noise << 8) | noise;
-        }
-        */
+    let mut color_mul = 1;
 
-        buffer[0] = 0x00ff0000;
-        for i in 0..10 {
-            buffer[(359*640) + i] = 0x0000ff00;
+    while window.is_open() && !window.is_key_down(Key::Escape) {
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                buffer[(y * WIDTH) + x] = (((x ^ y) & 0xff) * color_mul) as u32;
+            }
         }
 
         window.is_menu_pressed().map(|menu_id| {
-            if menu_id == 10 {
-                println!("remove menu");
-                window.remove_menu("Test").expect("Unable to remove menu");
+            match menu_id {
+                COLOR_0_ID => {
+                    color_mul = 0xfe0000;
+                }
+                COLOR_1_ID => {
+                    color_mul = 0xff00;
+                }
+                COLOR_2_ID => {
+                    color_mul = 1;
+                }
+                CLOSE_MENU_ID => {
+                    println!("remove menu");
+                    window.remove_menu("Test").expect("Unable to remove menu");
+                }
+                _ => (),
             }
 
             println!("Menu id {} pressed", menu_id);

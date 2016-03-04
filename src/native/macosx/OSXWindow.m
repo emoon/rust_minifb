@@ -59,6 +59,8 @@
 
 	// Right Super
 	key_callback(rust_data, 0x36, flags == 0x100110 ? 1 : 0);
+
+	[super flagsChanged:event];
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -294,14 +296,18 @@ void build_submenu(NSMenu* menu, MenuDesc* desc)
 			NSMenuItem* newItem = [[NSMenuItem alloc] initWithTitle:name action:@selector(onMenuPress:) keyEquivalent:@""];
 			[newItem setTag:desc->menu_id];
 
-			if (desc->modifier_mac & MENU_KEY_COMMAND)
+			if (desc->modifier_mac & MENU_KEY_COMMAND) {
 				mask |= NSCommandKeyMask;
-			if (desc->modifier_mac & MENU_KEY_SHIFT)
+			}
+			if (desc->modifier_mac & MENU_KEY_SHIFT) {
 				mask |= NSShiftKeyMask;
-			if (desc->modifier_mac & MENU_KEY_CTRL)
+			}
+			if (desc->modifier_mac & MENU_KEY_CTRL) {
 				mask |= NSControlKeyMask;
-			if (desc->modifier_mac & MENU_KEY_ALT)
+			}
+			if (desc->modifier_mac & MENU_KEY_ALT) {
 				mask |= NSAlternateKeyMask;
+			}
 
 			if (desc->key != 0x7f) {
 				NSString* key = convert_key_code_to_string(desc->key);
