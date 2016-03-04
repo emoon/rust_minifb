@@ -331,10 +331,10 @@ pub struct Window {
 }
 
 // TranslateAccelerator is currently missing in win-rs
-//#[cfg(target_family = "windows")]
-//#[link(name = "user32")]
+#[cfg(target_family = "windows")]
+#[link(name = "user32")]
 #[allow(non_snake_case)]
-extern "C" {
+extern "system" {
     fn TranslateAcceleratorW(hWnd: HWND, accel: *const ACCEL, pmsg: *const MSG) -> INT;  
 }
 
