@@ -2,6 +2,13 @@
 
 This project follows semantic versioning.
 
+### v0.5.0 (2016-03-04)
+
+- [changed] - Proper Errors which uses ```std::Error``` as base. ```Window::new``` uses this but the API itself hasn't changed.
+- [added] - Menu support on Mac and Windows. See the Menu API functions [here](http://prodbg.com/minifb/minifb/struct.Window.html#method.add_menu)
+- [known issue] - ```remove_menu``` doesn't work on Windows [issue](https://github.com/emoon/rust_minifb/issues/16)
+- [known issue] - On Mac when running an application from terminal on has to switch to another application and back to get menu focus. [issue](https://github.com/emoon/rust_minifb/issues/17)
+
 ### v0.4.0 (2016-01-31)
 
 This release breaks some of the API by changing names and parameters to some functions.

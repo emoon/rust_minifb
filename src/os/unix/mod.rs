@@ -8,7 +8,10 @@ extern crate x11_dl;
 
 use {MouseMode, MouseButton, Scale, Key, KeyRepeat, WindowOptions};
 use key_handler::KeyHandler;
+use menu::Menu;
 use self::x11_dl::keysym::*;
+use error::Error;
+use Result;
 
 use libc::{c_void, c_char, c_uchar};
 use std::ffi::{CString};
@@ -163,31 +166,31 @@ unsafe extern "C" fn key_callback(window: *mut c_void, key: i32, s: i32) {
 }
 
 impl Window {
-    pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window, &str> {
+    pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
         let n = match CString::new(name) {
-            Err(_) => { 
+            Err(_) => {
                 println!("Unable to convert {} to c_string", name);
-                return Err("Unable to set correct name"); 
+                return Err(Error::WindowCreate("Unable to set correct name".to_owned()));
             }
             Ok(n) => n,
         };
 
         unsafe {
         	let scale = Self::get_scale_factor(width, height, opts.scale);
-            let handle = mfb_open(n.as_ptr(), 
-            					  width as u32, 
-            					  height as u32, 
-            					  window_flags::get_flags(opts), 
+            let handle = mfb_open(n.as_ptr(),
+            					  width as u32,
+            					  height as u32,
+            					  window_flags::get_flags(opts),
             					  scale);
 
             if handle == ptr::null_mut() {
-                return Err("Unable to open Window");
+                return Err(Error::WindowCreate("Unable to open Window".to_owned()));
             }
 
-            Ok(Window { 
+            Ok(Window {
                 window_handle: handle,
-                shared_data: SharedData { 
-                	scale: scale as f32, 
+                shared_data: SharedData {
+                	scale: scale as f32,
                 	.. SharedData::default()
 				},
                 key_handler: KeyHandler::new(),
@@ -238,7 +241,7 @@ impl Window {
     }
 
     pub fn get_mouse_down(&self, button: MouseButton) -> bool {
-    	match button { 
+    	match button {
     		MouseButton::Left => self.shared_data.state[0] > 0,
     		MouseButton::Middle => self.shared_data.state[1] > 0,
     		MouseButton::Right => self.shared_data.state[2] > 0,
@@ -246,7 +249,7 @@ impl Window {
     }
 
     pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
-        if self.shared_data.scroll_x.abs() > 0.0 || 
+        if self.shared_data.scroll_x.abs() > 0.0 ||
            self.shared_data.scroll_y.abs() > 0.0 {
             Some((self.shared_data.scroll_x, self.shared_data.scroll_y))
         } else {
@@ -289,6 +292,12 @@ impl Window {
         unsafe { mfb_should_close(self.window_handle) == 1 }
     }
 
+    #[inline]
+    pub fn is_active(&mut self) -> bool {
+        // TODO: Proper implementation
+        true
+    }
+
     unsafe fn get_scale_factor(width: usize, height: usize, scale: Scale) -> i32 {
         let factor: i32 = match scale {
             Scale::X1 => 1,
@@ -296,8 +305,8 @@ impl Window {
             Scale::X4 => 4,
             Scale::FitScreen => {
                 let wh: u32 = mfb_get_screen_size();
-                let screen_x = (wh >> 16) as i32; 
-                let screen_y = (wh & 0xffff) as i32; 
+                let screen_x = (wh >> 16) as i32;
+                let screen_y = (wh & 0xffff) as i32;
 
                 println!("{} - {}", screen_x, screen_y);
 
@@ -328,6 +337,19 @@ impl Window {
         };
 
         return factor;
+    }
+
+    pub fn add_menu(&mut self, _menu_name: &str, _menu: &Vec<Menu>) -> Result<()> {
+        Err(Error::MenusNotSupported)
+    }
+    pub fn update_menu(&mut self, _menu_name: &str, _menu: &Vec<Menu>) -> Result<()> {
+        Err(Error::MenusNotSupported)
+    }
+    pub fn remove_menu(&mut self, _menu_name: &str) -> Result<()> {
+        Err(Error::MenusNotSupported)
+    }
+    pub fn is_menu_pressed(&mut self) -> Option<usize> {
+        None
     }
 }
 

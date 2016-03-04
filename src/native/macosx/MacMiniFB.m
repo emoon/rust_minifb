@@ -7,9 +7,11 @@
 static bool s_init = false;
 
 // window_handler.rs
-const uint32_t WINDOW_BORDERLESS = 1 << 1; 
-const uint32_t WINDOW_RESIZE = 1 << 2; 
-const uint32_t WINDOW_TITLE = 1 << 3; 
+const uint32_t WINDOW_BORDERLESS = 1 << 1;
+const uint32_t WINDOW_RESIZE = 1 << 2;
+const uint32_t WINDOW_TITLE = 1 << 3;
+
+static void create_standard_menu();
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -21,27 +23,30 @@ const uint32_t WINDOW_TITLE = 1 << 3;
 
 void* mfb_open(const char* name, int width, int height, uint32_t flags, int scale)
 {
-	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+	bool prev_init = s_init;
+
+	//NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 
 	if (!s_init) {
 		[NSApplication sharedApplication];
 		[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+		create_standard_menu();
 		s_init = true;
 	}
 
 	uint32_t styles = NSClosableWindowMask | NSMiniaturizableWindowMask;
 
 	if (flags & WINDOW_BORDERLESS)
-		styles |= NSBorderlessWindowMask; 
+		styles |= NSBorderlessWindowMask;
 
 	if (flags & WINDOW_RESIZE)
-		styles |= NSResizableWindowMask; 
+		styles |= NSResizableWindowMask;
 
 	if (flags & WINDOW_TITLE)
-		styles |= NSTitledWindowMask; 
-		
+		styles |= NSTitledWindowMask;
+
 	NSRect rectangle = NSMakeRect(0, 0, width * scale, (height * scale));
-		
+
 	OSXWindow* window = [[OSXWindow alloc] initWithContentRect:rectangle styleMask:styles backing:NSBackingStoreBuffered defer:NO];
 
 	if (!window)
@@ -57,6 +62,10 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 	window->scale = scale;
 	window->key_callback = 0;
 	window->shared_data = 0;
+	window->active_menu_id = -1;
+
+	window->menu_data = malloc(sizeof(MenuData));
+	memset(window->menu_data, 0, sizeof(MenuData));
 
 	[window updateSize];
 
@@ -69,10 +78,123 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 
 	[NSApp activateIgnoringOtherApps:YES];
 
-	[pool drain];
+	if (!prev_init)
+		[NSApp finishLaunching];
+
+	//[pool drain];
 
 	return window;
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static NSString* findAppName(void)
+{
+    size_t i;
+    NSDictionary* infoDictionary = [[NSBundle mainBundle] infoDictionary];
+
+    // Keys to search for as potential application names
+    NSString* GLFWNameKeys[] =
+    {
+        @"CFBundleDisplayName",
+        @"CFBundleName",
+        @"CFBundleExecutable",
+    };
+
+    for (i = 0;  i < sizeof(GLFWNameKeys) / sizeof(GLFWNameKeys[0]);  i++)
+    {
+        id name = [infoDictionary objectForKey:GLFWNameKeys[i]];
+        if (name &&
+            [name isKindOfClass:[NSString class]] &&
+            ![name isEqualToString:@""])
+        {
+            return name;
+        }
+    }
+
+    extern char** _NSGetProgname();
+    char* progname = *_NSGetProgname();
+
+    if (progname)
+        return [NSString stringWithUTF8String:progname];
+
+    // Really shouldn't get here
+    return @"Unknown";
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static void create_standard_menu(void)
+{
+    NSString* appName = findAppName();
+
+    NSMenu* bar = [[NSMenu alloc] init];
+    [NSApp setMainMenu:bar];
+
+    NSMenuItem* appMenuItem =
+        [bar addItemWithTitle:@"" action:NULL keyEquivalent:@""];
+    NSMenu* appMenu = [[NSMenu alloc] init];
+    [appMenuItem setSubmenu:appMenu];
+
+    [appMenu addItemWithTitle:[NSString stringWithFormat:@"About %@", appName]
+                      action:@selector(orderFrontStandardAboutPanel:)
+               keyEquivalent:@""];
+    [appMenu addItem:[NSMenuItem separatorItem]];
+    NSMenu* servicesMenu = [[NSMenu alloc] init];
+    [NSApp setServicesMenu:servicesMenu];
+    [[appMenu addItemWithTitle:@"Services"
+                       action:NULL
+                keyEquivalent:@""] setSubmenu:servicesMenu];
+    [servicesMenu release];
+    [appMenu addItem:[NSMenuItem separatorItem]];
+    [appMenu addItemWithTitle:[NSString stringWithFormat:@"Hide %@", appName]
+                       action:@selector(hide:)
+                keyEquivalent:@"h"];
+    [[appMenu addItemWithTitle:@"Hide Others"
+                       action:@selector(hideOtherApplications:)
+                keyEquivalent:@"h"]
+        setKeyEquivalentModifierMask:NSAlternateKeyMask | NSCommandKeyMask];
+    [appMenu addItemWithTitle:@"Show All"
+                       action:@selector(unhideAllApplications:)
+                keyEquivalent:@""];
+    [appMenu addItem:[NSMenuItem separatorItem]];
+    [appMenu addItemWithTitle:[NSString stringWithFormat:@"Quit %@", appName]
+                       action:@selector(terminate:)
+                keyEquivalent:@"q"];
+
+	/*
+    NSMenuItem* windowMenuItem =
+        [bar addItemWithTitle:@"" action:NULL keyEquivalent:@""];
+    [bar release];
+    NSMenu* windowMenu = [[NSMenu alloc] initWithTitle:@"Window"];
+    [NSApp setWindowsMenu:windowMenu];
+    [windowMenuItem setSubmenu:windowMenu];
+
+    [windowMenu addItemWithTitle:@"Minimize"
+                          action:@selector(performMiniaturize:)
+                   keyEquivalent:@"m"];
+    [windowMenu addItemWithTitle:@"Zoom"
+                          action:@selector(performZoom:)
+                   keyEquivalent:@""];
+    [windowMenu addItem:[NSMenuItem separatorItem]];
+    [windowMenu addItemWithTitle:@"Bring All to Front"
+                          action:@selector(arrangeInFront:)
+                   keyEquivalent:@""];
+    // TODO: Make this appear at the bottom of the menu (for consistency)
+    [windowMenu addItem:[NSMenuItem separatorItem]];
+    [[windowMenu addItemWithTitle:@"Enter Full Screen"
+                           action:@selector(toggleFullScreen:)
+                    keyEquivalent:@"f"]
+     setKeyEquivalentModifierMask:NSControlKeyMask | NSCommandKeyMask];
+    */
+
+    // Prior to Snow Leopard, we need to use this oddly-named semi-private API
+    // to get the application menu working properly.
+    //SEL setAppleMenuSelector = NSSelectorFromString(@"setAppleMenu:");
+    //[NSApp performSelector:setAppleMenuSelector withObject:appMenu];
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -83,7 +205,7 @@ void mfb_close(void* win)
 	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 
 	if (window)
-		[window close]; 
+		[window close];
 
 	[pool drain];
 }
@@ -92,13 +214,28 @@ void mfb_close(void* win)
 
 static int update_events()
 {
-	int state = 0;
+	NSEvent* event;
 	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-	NSEvent* event = [NSApp nextEventMatchingMask:NSAnyEventMask untilDate:[NSDate distantPast] inMode:NSDefaultRunLoopMode dequeue:YES];
-	[NSApp sendEvent:event];
+
+    do
+    {
+        event = [NSApp nextEventMatchingMask:NSAnyEventMask untilDate:[NSDate distantPast] inMode:NSDefaultRunLoopMode dequeue:YES];
+
+        if (event) {
+            [NSApp sendEvent:event];
+        }
+    }
+    while (event);
+
 	[pool release];
 
-	return state;
+	/*
+	int state = 0;
+	NSEvent* event = [NSApp nextEventMatchingMask:NSAnyEventMask untilDate:[NSDate distantPast] inMode:NSDefaultRunLoopMode dequeue:YES];
+	[NSApp sendEvent:event];
+	*/
+
+	return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -142,14 +279,14 @@ int mfb_update_with_buffer(void* window, void* buffer)
 
 static float transformY(float y)
 {
-	float b = CGDisplayBounds(CGMainDisplayID()).size.height; 
+	float b = CGDisplayBounds(CGMainDisplayID()).size.height;
 	float t = b - y;
 	return t;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void mfb_set_position(void* window, int x, int y) 
+void mfb_set_position(void* window, int x, int y)
 {
 	OSXWindow* win = (OSXWindow*)window;
 	const NSRect contentRect = [[win contentView] frame];
@@ -160,7 +297,7 @@ void mfb_set_position(void* window, int x, int y)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-int mfb_should_close(void* window) 
+int mfb_should_close(void* window)
 {
 	OSXWindow* win = (OSXWindow*)window;
 	return win->should_close;
@@ -168,7 +305,7 @@ int mfb_should_close(void* window)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-uint32_t mfb_get_screen_size() 
+uint32_t mfb_get_screen_size()
 {
 	NSRect e = [[NSScreen mainScreen] frame];
 	uint32_t w = (uint32_t)e.size.width;
@@ -193,4 +330,104 @@ void mfb_set_mouse_data(void* window, SharedData* shared_data)
 	win->shared_data = shared_data;
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+uint32_t mfb_is_active(void* window)
+{
+	OSXWindow* win = (OSXWindow*)window;
+	return win->is_active;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void mfb_remove_menu(void* window, const char* name)
+{
+	OSXWindow* win = (OSXWindow*)window;
+
+	NSString* ns_name = [NSString stringWithUTF8String: name];
+ 	NSMenu* main_menu = [NSApp mainMenu];
+
+ 	int len = win->menu_data->menu_count;
+
+ 	for (int i = 0; i < len; ++i)
+	{
+		Menu* menu = &win->menu_data->menus[i];
+
+		if (strcmp(menu->name, name))
+			continue;
+
+		Menu* menu_end = &win->menu_data->menus[len - 1];
+
+		[main_menu removeItem:menu->menu_item];
+
+		// swap remove
+		menu->name = menu_end->name;
+		menu->menu = menu_end->menu;
+		menu->menu_item = menu_end->menu_item;
+
+		win->menu_data->menu_count--;
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+int mfb_active_menu(void* window) {
+	OSXWindow* win = (OSXWindow*)window;
+	int active_menu_id = win->active_menu_id;
+	win->active_menu_id = -1;
+	return active_menu_id;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void mfb_add_menu(void* window, const char* name, void* m)
+{
+	OSXWindow* win = (OSXWindow*)window;
+
+	const char* n = strdup(name);
+
+	NSString* ns_name = [NSString stringWithUTF8String: n];
+
+ 	NSMenu* main_menu = [NSApp mainMenu];
+
+    NSMenuItem* windowMenuItem = [main_menu addItemWithTitle:@"" action:NULL keyEquivalent:@""];
+    NSMenu* windowMenu = [[NSMenu alloc] initWithTitle:ns_name];
+    [NSApp setWindowsMenu:windowMenu];
+    [windowMenuItem setSubmenu:windowMenu];
+
+	MenuDesc* menu_desc = (MenuDesc*)m;
+
+	[windowMenu setAutoenablesItems:NO];
+
+	build_submenu(windowMenu, menu_desc);
+
+	Menu* menu = &win->menu_data->menus[win->menu_data->menu_count++];
+
+	menu->name = n;
+	menu->menu = windowMenu;
+	menu->menu_item = windowMenuItem;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void mfb_update_menu(void* window, const char* name, void* m)
+{
+	OSXWindow* win = (OSXWindow*)window;
+
+	NSString* ns_name = [NSString stringWithUTF8String: name];
+ 	NSMenu* main_menu = [NSApp mainMenu];
+
+ 	int len = win->menu_data->menu_count;
+
+ 	for (int i = 0; i < len; ++i)
+	{
+		Menu* menu = &win->menu_data->menus[i];
+
+		if (!strcmp(menu->name, name)) {
+			[menu->menu removeAllItems];
+			build_submenu(menu->menu, (MenuDesc*)m);
+			return;
+		}
+	}
+}
 

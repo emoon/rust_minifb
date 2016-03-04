@@ -6,9 +6,15 @@ extern crate winapi;
 extern crate gdi32;
 extern crate time;
 
+const INVALID_ACCEL: usize = 0xffffffff;
+
 use {Scale, Key, KeyRepeat, MouseButton, MouseMode, WindowOptions};
 
 use key_handler::KeyHandler;
+use menu::Menu;
+use error::Error;
+use Result;
+use menu::{MENU_KEY_WIN, MENU_KEY_SHIFT, MENU_KEY_CTRL, MENU_KEY_ALT};
 
 use std::ptr;
 use std::os::windows::ffi::OsStrExt;
@@ -17,11 +23,16 @@ use std::mem;
 use std::os::raw;
 use mouse_handler;
 
-use self::winapi::windef::HWND;
-use self::winapi::windef::HDC;
-use self::winapi::winuser::WNDCLASSW;
-use self::winapi::wingdi::BITMAPINFOHEADER;
-use self::winapi::wingdi::RGBQUAD;
+//use self::winapi::windef::HWND;
+//use self::winapi::windef::HDC;
+//use self::winapi::windef::HMENU;
+//use self::winapi::wingdi::BITMAPINFOHEADER;
+//use self::winapi::wingdi::RGBQUAD;
+//use self::winapi::winuser::WNDCLASSW;
+//use self::winapi::winuser::ACCEL;
+//use self::winapi::basetsd::UINT_PTR;
+use self::winapi::*;
+//use self::winapi::winmindefs::BYTE;
 
 // Wrap this so we can have a proper numbef of bmiColors to write in
 #[repr(C)]
@@ -226,6 +237,12 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
             return 0;
         }
 
+        winapi::winuser::WM_COMMAND => {
+            if lparam == 0 {
+                wnd.accel_key = (wparam & 0xffff) as usize;
+            }
+        }
+
         winapi::winuser::WM_PAINT => {
 
             // if we have nothing to draw here we return the default function
@@ -288,6 +305,12 @@ struct MouseData {
     pub scroll: f32,
 }
 
+struct MenuStore {
+    name: String,
+    menu: HMENU,
+    accel_items: Vec<ACCEL>,
+}
+
 pub struct Window {
     mouse: MouseData,
     dc: Option<HDC>,
@@ -297,7 +320,18 @@ pub struct Window {
     scale_factor: i32,
     width: i32,
     height: i32,
+    menus: Vec<MenuStore>,
     key_handler: KeyHandler,
+    accel_table: HACCEL,
+    accel_key: usize,
+}
+
+// TranslateAccelerator is currently missing in win-rs
+#[cfg(target_family = "windows")]
+#[link(name = "user32")]
+#[allow(non_snake_case)]
+extern "system" {
+    fn TranslateAcceleratorW(hWnd: HWND, accel: *const ACCEL, pmsg: *const MSG) -> INT;  
 }
 
 impl Window {
@@ -347,7 +381,7 @@ impl Window {
             let mut flags = 0;
 
             if opts.title {
-                flags |= winapi::WS_OVERLAPPEDWINDOW as u32; 
+                flags |= winapi::WS_OVERLAPPEDWINDOW as u32;
             }
 
             if opts.resize {
@@ -363,7 +397,7 @@ impl Window {
             }
 
             let handle = user32::CreateWindowExW(0,
-                                                 class_name.as_ptr(), 
+                                                 class_name.as_ptr(),
                                                  window_name.as_ptr(),
                                                  flags,
                                                  winapi::CW_USEDEFAULT,
@@ -389,14 +423,14 @@ impl Window {
                width: usize,
                height: usize,
                opts: WindowOptions)
-               -> Result<Window, &str> {
+               -> Result<Window> {
         unsafe {
             let scale_factor = Self::get_scale_factor(width, height, opts.scale);
 
             let handle = Self::open_window(name, width, height, opts, scale_factor);
 
             if handle.is_none() {
-                return Err("Unable to create Window");
+                return Err(Error::WindowCreate("Unable to create Window".to_owned()));
             }
 
             let window = Window {
@@ -409,6 +443,9 @@ impl Window {
                 scale_factor: scale_factor,
                 width: width as i32,
                 height: height as i32,
+                menus: Vec::new(),
+                accel_table: ptr::null_mut(),
+                accel_key: INVALID_ACCEL,
             };
 
             Ok(window)
@@ -423,7 +460,7 @@ impl Window {
     #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
         unsafe {
-            user32::SetWindowPos(self.window.unwrap(), ptr::null_mut(), x as i32, y as i32, 
+            user32::SetWindowPos(self.window.unwrap(), ptr::null_mut(), x as i32, y as i32,
                                  0, 0, winapi::SWP_SHOWWINDOW | winapi::SWP_NOSIZE);
         }
     }
@@ -491,7 +528,6 @@ impl Window {
 
     fn generic_update(&mut self, window: HWND) {
         unsafe {
-
             let mut point: winapi::POINT = mem::uninitialized();
             user32::GetCursorPos(&mut point);
             user32::ScreenToClient(window, &mut point);
@@ -506,13 +542,21 @@ impl Window {
         }
     }
 
-    fn message_loop(&mut self, window: HWND) {
+    fn message_loop(&self, window: HWND) {
         unsafe {
             let mut msg = mem::uninitialized();
 
             while user32::PeekMessageW(&mut msg, window, 0, 0, winapi::winuser::PM_REMOVE) != 0 {
-                user32::TranslateMessage(&mut msg);
-                user32::DispatchMessageW(&mut msg);
+                // Make this code a bit nicer
+                if self.accel_table == ptr::null_mut() {
+                    user32::TranslateMessage(&mut msg);
+                    user32::DispatchMessageW(&mut msg);
+                } else {
+                    if TranslateAcceleratorW(msg.hwnd, mem::transmute(self.accel_table), &mut msg) == 0 {
+                        user32::TranslateMessage(&mut msg);
+                        user32::DispatchMessageW(&mut msg);
+                    }
+                }
             }
         }
     }
@@ -535,6 +579,12 @@ impl Window {
 
         Self::generic_update(self, window);
         Self::message_loop(self, window);
+    }
+
+    #[inline]
+    pub fn is_active(&mut self) -> bool {
+        // TODO: Proper implementation
+        true
     }
 
     unsafe fn get_scale_factor(width: usize, height: usize, scale: Scale) -> i32 {
@@ -567,6 +617,349 @@ impl Window {
         };
 
         return factor;
+    }
+
+    fn map_key_to_vk_accel(key: Key) -> (raw::c_int, &'static str) {
+        match key {
+            Key::Key0 => (0x30, "0"),
+            Key::Key1 => (0x31, "1"),
+            Key::Key2 => (0x32, "2"),
+            Key::Key3 => (0x33, "3"),
+            Key::Key4 => (0x34, "4"),
+            Key::Key5 => (0x35, "5"),
+            Key::Key6 => (0x36, "6"),
+            Key::Key7 => (0x37, "7"),
+            Key::Key8 => (0x38, "8"),
+            Key::Key9 => (0x39, "9"),
+
+            Key::A => (0x41, "a"),
+            Key::B => (0x42, "b"),
+            Key::C => (0x43, "c"),
+            Key::D => (0x44, "d"),
+            Key::E => (0x45, "e"),
+            Key::F => (0x46, "f"),
+            Key::G => (0x47, "g"),
+            Key::H => (0x48, "h"),
+            Key::I => (0x49, "i"),
+            Key::J => (0x4a, "j"),
+            Key::K => (0x4b, "k"),
+            Key::L => (0x4c, "l"),
+            Key::M => (0x4d, "m"),
+            Key::N => (0x4e, "n"),
+            Key::O => (0x4f, "o"),
+            Key::P => (0x50, "p"),
+            Key::Q => (0x51, "q"),
+            Key::R => (0x52, "r"),
+            Key::S => (0x53, "s"),
+            Key::T => (0x54, "t"),
+            Key::U => (0x55, "u"),
+            Key::V => (0x56, "v"),
+            Key::W => (0x57, "w"),
+            Key::X => (0x58, "x"),
+            Key::Y => (0x59, "y"),
+            Key::Z => (0x5a, "z"),
+
+            Key::F1 => (winapi::winuser::VK_F1, "F1"),
+            Key::F2 => (winapi::winuser::VK_F2, "F2"),
+            Key::F3 => (winapi::winuser::VK_F3, "F3"),
+            Key::F4 => (winapi::winuser::VK_F4, "F4"),
+            Key::F5 => (winapi::winuser::VK_F5, "F5"),
+            Key::F6 => (winapi::winuser::VK_F6, "F6"),
+            Key::F7 => (winapi::winuser::VK_F7, "F7"),
+            Key::F8 => (winapi::winuser::VK_F8, "F8"),
+            Key::F9 => (winapi::winuser::VK_F9, "F9"),
+            Key::F10 => (winapi::winuser::VK_F10, "F10"),
+            Key::F11 => (winapi::winuser::VK_F11, "F11"),
+            Key::F12 => (winapi::winuser::VK_F12, "F12"),
+            Key::F13 => (winapi::winuser::VK_F13, "F14"),
+            Key::F14 => (winapi::winuser::VK_F14, "F14"),
+            Key::F15 => (winapi::winuser::VK_F15, "F15"),
+
+            Key::Down => (winapi::winuser::VK_DOWN, "Down"),
+            Key::Left => (winapi::winuser::VK_LEFT, "Left"),
+            Key::Right => (winapi::winuser::VK_RIGHT, "Right"),
+            Key::Up => (winapi::winuser::VK_UP, "Up"),
+
+            Key::Backslash => (winapi::winuser::VK_OEM_102, "Backslash"),
+            Key::Comma => (winapi::winuser::VK_OEM_COMMA, ","),
+            Key::Minus => (winapi::winuser::VK_OEM_MINUS, "-"),
+            Key::Period => (winapi::winuser::VK_OEM_PERIOD, "."),
+
+            Key::Backspace => (winapi::winuser::VK_BACK, "Back"),
+            Key::Delete => (winapi::winuser::VK_DELETE, "Delete"),
+            Key::End => (winapi::winuser::VK_END, "End"),
+            Key::Enter => (winapi::winuser::VK_RETURN, "Enter"),
+
+            Key::Escape => (winapi::winuser::VK_ESCAPE, "Esc"),
+
+            Key::Home => (winapi::winuser::VK_HOME, "Home"),
+            Key::Insert => (winapi::winuser::VK_INSERT, "Insert"),
+            Key::Menu => (winapi::winuser::VK_MENU, "Menu"),
+
+            Key::PageDown => (winapi::winuser::VK_NEXT, "PageDown"),
+            Key::PageUp => (winapi::winuser::VK_PRIOR, "PageUp"),
+
+            Key::Pause => (winapi::winuser::VK_PAUSE, "Pause"),
+            Key::Space => (winapi::winuser::VK_SPACE, "Space"),
+            Key::Tab => (winapi::winuser::VK_TAB, "Tab"),
+            Key::NumLock => (winapi::winuser::VK_NUMLOCK, "NumLock"),
+            Key::CapsLock => (winapi::winuser::VK_CAPITAL, "CapsLock"),
+            Key::ScrollLock => (winapi::winuser::VK_SCROLL, "Scroll"),
+
+            Key::LeftShift => (winapi::winuser::VK_LSHIFT, "LeftShift"),
+            Key::RightShift => (winapi::winuser::VK_RSHIFT, "RightShift"),
+            Key::LeftCtrl => (winapi::winuser::VK_CONTROL, "Ctrl"),
+            Key::RightCtrl => (winapi::winuser::VK_CONTROL, "Ctrl"),
+
+            Key::NumPad0 => (winapi::winuser::VK_NUMPAD0, "NumPad0"),
+            Key::NumPad1 => (winapi::winuser::VK_NUMPAD1, "NumPad1"),
+            Key::NumPad2 => (winapi::winuser::VK_NUMPAD2, "NumPad2"),
+            Key::NumPad3 => (winapi::winuser::VK_NUMPAD3, "NumPad3"),
+            Key::NumPad4 => (winapi::winuser::VK_NUMPAD4, "NumPad4"),
+            Key::NumPad5 => (winapi::winuser::VK_NUMPAD5, "NumPad5"),
+            Key::NumPad6 => (winapi::winuser::VK_NUMPAD6, "NumPad6"),
+            Key::NumPad7 => (winapi::winuser::VK_NUMPAD7, "NumPad7"),
+            Key::NumPad8 => (winapi::winuser::VK_NUMPAD8, "NumPad8"),
+            Key::NumPad9 => (winapi::winuser::VK_NUMPAD9, "NumPad9"),
+
+            Key::LeftAlt => (winapi::winuser::VK_MENU, "Alt"),
+            Key::RightAlt => (winapi::winuser::VK_MENU, "Alt"),
+
+            Key::LeftSuper => (winapi::winuser::VK_LWIN, "LeftWin"),
+            Key::RightSuper => (winapi::winuser::VK_RWIN, "RightWin"),
+
+            _ => (0, "Unsupported"),
+        }
+    }
+
+
+    //
+    // When attaching a menu to the window we need to resize it so
+    // the current client size is preserved and still show all pixels
+    //
+    unsafe fn adjust_window_size_for_menu(handle: HWND) {
+        let mut rect: winapi::RECT = mem::uninitialized();
+
+        let menu_height = user32::GetSystemMetrics(winapi::winuser::SM_CYMENU);
+
+        user32::GetWindowRect(handle, &mut rect);
+        user32::MoveWindow(handle, 
+                           rect.left, 
+                           rect.top, 
+                           rect.right - rect.left, 
+                           (rect.bottom - rect.top) + menu_height, 
+                           1);
+    }
+
+    fn format_name(menu_item: &Menu, key_name: &'static str) -> String {
+        let mut name = menu_item.name.to_owned();
+
+        name.push_str("\t");
+
+        if (menu_item.modifier & MENU_KEY_WIN) == MENU_KEY_WIN {
+            name.push_str("Win-");
+        }
+
+        if (menu_item.modifier & MENU_KEY_SHIFT) == MENU_KEY_SHIFT {
+            name.push_str("Shift-");
+        }
+
+        if (menu_item.modifier & MENU_KEY_CTRL) == MENU_KEY_CTRL {
+            name.push_str("Ctrl-");
+        }
+
+        if (menu_item.modifier & MENU_KEY_ALT) == MENU_KEY_ALT {
+            name.push_str("Alt-");
+        }
+
+        name.push_str(key_name);
+
+        name
+    }
+
+    fn is_key_virtual_range(key: raw::c_int) -> u32 {
+        if (key >= 0x30 && key <= 0x30) ||
+           (key >= 0x41 && key <= 0x5a) {
+            1
+           } else {
+            0
+        }
+    }
+
+    fn get_virt_key(menu_item: &Menu, key: raw::c_int) -> u32 {
+        let mut virt = Self::is_key_virtual_range(key); 
+
+        if (menu_item.modifier & MENU_KEY_ALT) == MENU_KEY_ALT {
+            virt |= 0x10;
+        }
+
+        if (menu_item.modifier & MENU_KEY_CTRL) == MENU_KEY_CTRL {
+            virt |= 0x8;
+        }
+
+        if (menu_item.modifier & MENU_KEY_SHIFT) == MENU_KEY_SHIFT {
+            virt |= 0x4;
+        }
+
+        virt
+    }
+
+    fn add_accel(accel_table: &mut Vec<ACCEL>, menu_item: &Menu) {
+        let vk_accel = Self::map_key_to_vk_accel(menu_item.key);
+        let virt = Self::get_virt_key(menu_item, vk_accel.0); 
+        let accel = winuser::ACCEL { 
+            fVirt: virt as BYTE, 
+            cmd: menu_item.id as WORD, 
+            key: vk_accel.0 as WORD };
+
+        accel_table.push(accel);
+    }
+
+    unsafe fn add_menu_item(&mut self, parent_menu: HMENU, menu_item: &Menu) {
+        let item_name = to_wstring(menu_item.name);
+        let vk_accel = Self::map_key_to_vk_accel(menu_item.key);
+
+        match vk_accel.0 {
+            0 => {
+                user32::AppendMenuW(parent_menu, 0x10, menu_item.id as UINT_PTR, item_name.as_ptr());
+            },
+            _ => {
+                let menu_name = Self::format_name(menu_item, vk_accel.1);
+                let w_name = to_wstring(&menu_name);
+                user32::AppendMenuW(parent_menu, 0x10, menu_item.id as UINT_PTR, w_name.as_ptr());
+            }
+        }
+    }
+
+    unsafe fn set_accel_table(&mut self) {
+        let mut temp_accel_table = Vec::<ACCEL>::new();
+
+        for menu in self.menus.iter() {
+            for item in menu.accel_items.iter() {
+                println!("virt {} - cmd {} - key {}", item.fVirt, item.cmd, item.key);
+                temp_accel_table.push(item.clone());
+            }
+        }
+
+        if self.accel_table != ptr::null_mut() {
+            user32::DestroyAcceleratorTable(self.accel_table);
+        }
+
+        self.accel_table = user32::CreateAcceleratorTableW(temp_accel_table.as_mut_ptr(), 
+                                                           temp_accel_table.len() as i32); 
+    }
+
+
+    unsafe fn recursive_add_menu(&mut self, parent_menu: HMENU, name: &str, menu: &Vec<Menu>) -> HMENU {
+        let menu_name = to_wstring(name);
+
+        let popup_menu = user32::CreatePopupMenu();
+
+        user32::AppendMenuW(parent_menu, 0x10, popup_menu as UINT_PTR, menu_name.as_ptr());
+
+        for m in menu.iter() {
+            if let Some(ref sub_menu) = m.sub_menu {
+                Self::recursive_add_menu(self, popup_menu, m.name, sub_menu);
+            } else {
+                if m.id == 0xffffffff {
+                    user32::AppendMenuW(popup_menu, 0x800, 0, ptr::null()); // separator
+                } else {
+                    Self::add_menu_item(self, popup_menu, m);
+                }
+            }
+        }
+
+        popup_menu
+    }
+
+    pub fn menu_exists(&mut self, menu_name: &str) -> bool {
+        for menu in self.menus.iter() {
+            if menu.name == menu_name {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    fn clone_menu(accel_dest: &mut Vec<ACCEL>, menu: &Vec<Menu>) {
+        for m in menu.iter() {
+            if let Some(ref sub_menu) = m.sub_menu {
+                Self::clone_menu(accel_dest, sub_menu);
+            } 
+
+            if m.key != Key::Unknown {
+                Self::add_accel(accel_dest, m);
+            }
+        }
+    }
+
+    unsafe fn add_menu_store(&mut self, parent_menu: HMENU, menu_name: &str, menu: &Vec<Menu>) {
+        let mut items = Vec::<ACCEL>::new();
+        let menu_handle = Self::recursive_add_menu(self, parent_menu, menu_name, menu);
+
+        Self::clone_menu(&mut items, menu);
+
+        self.menus.push(MenuStore {
+            name: menu_name.to_owned(),
+            menu: menu_handle,
+            accel_items: items
+        });
+    }
+
+    pub fn add_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) -> Result<()> {
+        if Self::menu_exists(self, menu_name) {
+            return Err(Error::MenuExists(menu_name.to_owned()));
+        }
+
+        unsafe {
+            let window = self.window.unwrap();
+            let mut main_menu = user32::GetMenu(window);
+
+            if main_menu == ptr::null_mut() {
+                main_menu = user32::CreateMenu();
+                user32::SetMenu(window, main_menu);
+                Self::adjust_window_size_for_menu(window);
+            }
+
+            Self::add_menu_store(self, main_menu, menu_name, menu);
+            Self::set_accel_table(self);
+
+            user32::DrawMenuBar(window);
+        }
+
+        Ok(())
+    }
+
+    pub fn update_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) -> Result<()> {
+        try!(Self::remove_menu(self, menu_name));
+        Self::add_menu(self, menu_name, menu)
+    }
+
+    pub fn remove_menu(&mut self, menu_name: &str) -> Result<()> {
+        for i in 0..self.menus.len() {
+            if self.menus[i].name == menu_name {
+                unsafe {
+                    user32::DestroyMenu(self.menus[i].menu);
+                    user32::DrawMenuBar(self.window.unwrap());
+                    self.menus.swap_remove(i);
+                    break;
+                }
+            }
+        }
+    
+        // TODO: Proper return here
+        Ok(())
+    }
+
+    pub fn is_menu_pressed(&mut self) -> Option<usize> {
+        if self.accel_key == INVALID_ACCEL {
+            None
+        } else {
+            let t = self.accel_key;
+            self.accel_key = INVALID_ACCEL;
+            Some(t)
+        }
     }
 }
 

@@ -14,7 +14,7 @@ Usage
 ```toml
 # Cargo.toml
 [dependencies]
-minifb = "0.4.0"
+minifb = "0.5.0"
 ```
 
 Example
@@ -31,7 +31,7 @@ const HEIGHT: usize = 360;
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 
-    let mut window = match minifb::Window::new("Test - ESC to exit", WIDTH, HEIGHT, 
+    let mut window = match minifb::Window::new("Test - ESC to exit", WIDTH, HEIGHT,
     										   WindowOptions::default()) {
         Ok(win) => win,
         Err(err) => {
@@ -52,7 +52,7 @@ fn main() {
 
 Status
 ------
-Currently Mac, Linux and Windows (64-bit and 32-bit) are the current supported platforms. X11 (Linux/FreeBSD/etc) support has been tested on Ubuntu (x64). Bug report(s) for other OSes/CPUs are welcome! 
+Currently Mac, Linux and Windows (64-bit and 32-bit) are the current supported platforms. X11 (Linux/FreeBSD/etc) support has been tested on Ubuntu (x64). Bug report(s) for other OSes/CPUs are welcome!
 
 
 Build instructions
@@ -60,7 +60,7 @@ Build instructions
 
 ```
 cargo build
-cargo run --example noise 
+cargo run --example noise
 ```
 
 This will run the [noise example](https://github.com/emoon/rust_minifb/blob/master/examples/noise.rs) which should look something like this (Mac screenshot)

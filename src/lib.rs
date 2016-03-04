@@ -42,133 +42,6 @@ pub enum MouseButton
     Right,
 }
 
-/// Key is used by the get key functions to check if some keys on the keyboard has been pressed
-#[derive(PartialEq, Clone, Copy)]
-pub enum Key {
-    Key0 = 0,
-    Key1 = 1,
-    Key2 = 2,
-    Key3 = 3,
-    Key4 = 4,
-    Key5 = 5,
-    Key6 = 6,
-    Key7 = 7,
-    Key8 = 8,
-    Key9 = 9,
-
-    A = 10,
-    B = 11,
-    C = 12,
-    D = 13,
-    E = 14,
-    F = 15,
-    G = 16,
-    H = 17,
-    I = 18,
-    J = 19,
-    K = 20,
-    L = 21,
-    M = 22,
-    N = 23,
-    O = 24,
-    P = 25,
-    Q = 26,
-    R = 27,
-    S = 28,
-    T = 29,
-    U = 30,
-    V = 31,
-    W = 32,
-    X = 33,
-    Y = 34,
-    Z = 35,
-
-    F1,
-    F2,
-    F3,
-    F4,
-    F5,
-    F6,
-    F7,
-    F8,
-    F9,
-    F10,
-    F11,
-    F12,
-    F13,
-    F14,
-    F15,
-
-    Down,
-    Left,
-    Right,
-    Up,
-    Apostrophe,
-    Backquote,
-
-    Backslash,
-    Comma,
-    Equal,
-    LeftBracket,
-    Minus,
-    Period,
-    RightBracket,
-    Semicolon,
-
-    Slash,
-    Backspace,
-    Delete,
-    End,
-    Enter,
-
-    Escape,
-
-    Home,
-    Insert,
-    Menu,
-
-    PageDown,
-    PageUp,
-
-    Pause,
-    Space,
-    Tab,
-    NumLock,
-    CapsLock,
-    ScrollLock,
-    LeftShift,
-    RightShift,
-    LeftCtrl,
-    RightCtrl,
-
-    NumPad0,
-    NumPad1,
-    NumPad2,
-    NumPad3,
-    NumPad4,
-    NumPad5,
-    NumPad6,
-    NumPad7,
-    NumPad8,
-    NumPad9,
-    NumPadDot,
-    NumPadSlash,
-    NumPadAsterisk,
-    NumPadMinus,
-    NumPadPlus,
-    NumPadEnter,
-
-    LeftAlt,
-    RightAlt,
-
-    LeftSuper,
-    RightSuper,
-
-    /// Used when an Unknown key has been pressed
-    Unknown,
-
-    Count = 107,
-}
 
 /// Key is used by the get key functions to check if some keys on the keyboard has been pressed
 #[derive(PartialEq, Clone, Copy)]
@@ -186,10 +59,24 @@ extern crate libc;
 use std::os::raw;
 
 #[doc(hidden)]
+mod error;
+pub use self::error::Error;
+pub type Result<T> = std::result::Result<T, Error>;
+
+pub mod key;
+pub use key::Key as Key;
 pub mod os;
 mod mouse_handler;
 mod key_handler;
 mod window_flags;
+mod menu;
+pub use menu::Menu as Menu;
+pub use menu::MENU_KEY_COMMAND;
+pub use menu::MENU_KEY_WIN;
+pub use menu::MENU_KEY_SHIFT;
+pub use menu::MENU_KEY_CTRL;
+pub use menu::MENU_KEY_ALT;
+
 
 #[cfg(target_os = "macos")]
 use self::os::macos as imp;
@@ -206,14 +93,14 @@ pub struct Window(imp::Window);
 
 ///
 /// WindowOptions is creation settings for the window. By default the settings are defined for
-/// displayng a 32-bit buffer (no scaling of window is possible) 
+/// displayng a 32-bit buffer (no scaling of window is possible)
 ///
 pub struct WindowOptions {
     /// If the window should be borderless (default: false)
     pub borderless: bool,
     /// If the window should have a title (default: true)
     pub title: bool,
-    /// If it should be possible to resize the window (default: false) 
+    /// If it should be possible to resize the window (default: false)
     pub resize: bool,
     /// Scale of the window that used in conjunction with update_with_buffer (default: X1)
     pub scale: Scale
@@ -265,10 +152,10 @@ impl Window {
     /// Open up a window that is resizeable
     ///
     /// ```ignore
-    /// let mut window = match Window::new("Test", 640, 400, 
+    /// let mut window = match Window::new("Test", 640, 400,
     ///                                     WindowOptions {
     ///                                         resize: true,
-    ///                                         ..WindowOptions::default() 
+    ///                                         ..WindowOptions::default()
     ///                                     }) {
     ///    Ok(win) => win,
     ///    Err(err) => {
@@ -277,7 +164,7 @@ impl Window {
     ///    }
     ///};
     /// ```
-    pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window, &str> {
+    pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
         imp::Window::new(name, width, height, opts).map(Window)
     }
 
@@ -297,7 +184,7 @@ impl Window {
     }
 
     ///
-    /// Updates the window with a 32-bit pixel buffer. Notice that the buffer needs to be at least 
+    /// Updates the window with a 32-bit pixel buffer. Notice that the buffer needs to be at least
     /// the size of the created window
     ///
     /// # Examples
@@ -315,7 +202,7 @@ impl Window {
     }
 
     ///
-    /// Updates the window (this is required to call in order to get keyboard/mouse input, etc) 
+    /// Updates the window (this is required to call in order to get keyboard/mouse input, etc)
     ///
     /// # Examples
     ///
@@ -334,7 +221,7 @@ impl Window {
     ///
     /// Checks if the window is still open. A window can be closed by the user (by for example
     /// pressing the close button on the window) It's up to the user to make sure that this is
-    /// being checked and take action depending on the state. 
+    /// being checked and take action depending on the state.
     ///
     /// # Examples
     ///
@@ -375,31 +262,31 @@ impl Window {
     ///     println!("x {} y {}", mouse.0, mouse.1);
     /// });
     /// ```
-    /// 
+    ///
     #[inline]
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         self.0.get_mouse_pos(mode)
     }
 
     ///
-    /// Check if a mouse button is down or not 
+    /// Check if a mouse button is down or not
     ///
     /// # Examples
     ///
     /// ```ignore
     /// let left_down = window.get_mouse_down(MouseButton::Left);
-    /// println!("is left down? {}", left_down) 
+    /// println!("is left down? {}", left_down)
     /// ```
-    /// 
+    ///
     #[inline]
-    pub fn get_mouse_down(&self, button: MouseButton) -> bool { 
+    pub fn get_mouse_down(&self, button: MouseButton) -> bool {
         self.0.get_mouse_down(button)
     }
 
     ///
     /// Get the current movement of the scroll wheel.
     /// Scroll wheel can mean different thing depending on the device attach.
-    /// For example on Mac with trackpad "scroll wheel" means two finger 
+    /// For example on Mac with trackpad "scroll wheel" means two finger
     /// swiping up/down (y axis) and to the sides (x-axis)
     /// When using a mouse this assumes the scroll wheel which often is only y direction.
     ///
@@ -418,7 +305,7 @@ impl Window {
     }
 
     ///
-    /// Get the current keys that are down. 
+    /// Get the current keys that are down.
     ///
     /// # Examples
     ///
@@ -460,7 +347,7 @@ impl Window {
         self.0.get_keys_pressed(repeat)
     }
 
-    /// 
+    ///
     /// Check if a single key is down.
     ///
     /// # Examples
@@ -476,7 +363,7 @@ impl Window {
         self.0.is_key_down(key)
     }
 
-    /// 
+    ///
     /// Check if a single key is pressed. KeyRepeat will control if the key should be repeated or
     /// not while being pressed.
     ///
@@ -515,12 +402,64 @@ impl Window {
     /// # Examples
     ///
     /// ```ignore
-    /// window.set_key_repeat_rate(0.01) // 0.01 sec between keys 
+    /// window.set_key_repeat_rate(0.01) // 0.01 sec between keys
     /// ```
     ///
     #[inline]
     pub fn set_key_repeat_rate(&mut self, rate: f32) {
         self.0.set_key_repeat_rate(rate)
+    }
+
+    ///
+    /// Returns if this windows is the current active one
+    ///
+    #[inline]
+    pub fn is_active(&mut self) -> bool {
+        self.0.is_active()
+    }
+
+    ///
+    /// This allows adding menus to your windows. As menus behaves a bit diffrently depending on
+    /// Operating system here is how it works. See [Menu] for description on each field.
+    ///
+    /// ```ignore
+    /// Windows:
+    ///   Each window has their own menu and shortcuts are active depending on active window.
+    /// Mac:
+    ///   As Mac uses one menu for the whole program the menu will change depending
+    ///   on which window you have active.
+    /// Linux/BSD/etc:
+    ///   Menus aren't supported as they depend on each WindowManager and is outside of the
+    ///   scope for this library to support.
+    /// ```
+    ///
+    #[inline]
+    pub fn add_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) -> Result<()> {
+        self.0.add_menu(menu_name, menu)
+    }
+
+    ///
+    /// Updates an existing menu created with [add_menu]
+    ///
+    #[inline]
+    pub fn update_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) -> Result<()> {
+        self.0.update_menu(menu_name, menu)
+    }
+
+    ///
+    /// Remove a menu that has been added with [add_menu]
+    ///
+    #[inline]
+    pub fn remove_menu(&mut self, menu_name: &str) -> Result<()> {
+        self.0.remove_menu(menu_name)
+    }
+
+    ///
+    /// Check if a menu item has been pressed
+    ///
+    #[inline]
+    pub fn is_menu_pressed(&mut self) -> Option<usize> {
+        self.0.is_menu_pressed()
     }
 }
 

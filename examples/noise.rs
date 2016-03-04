@@ -12,8 +12,8 @@ fn main() {
 
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 
-    let mut window = match Window::new("Noise Test - Press ESC to exit", WIDTH, HEIGHT, 
-                                       WindowOptions { 
+    let mut window = match Window::new("Noise Test - Press ESC to exit", WIDTH, HEIGHT,
+                                       WindowOptions {
                                            resize: true,
                                            scale: Scale::X2,
                                            ..WindowOptions::default()

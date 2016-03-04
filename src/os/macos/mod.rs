@@ -2,8 +2,11 @@
 
 use {MouseButton, MouseMode, Scale, Key, KeyRepeat, WindowOptions};
 use key_handler::KeyHandler;
+use error::Error;
+use Result;
 use mouse_handler;
 use window_flags;
+use menu::Menu;
 
 use libc::{c_void, c_char, c_uchar};
 use std::ffi::{CString};
@@ -13,7 +16,7 @@ use std::os::raw;
 
 // Table taken from GLFW and slightly modified
 
-static KEY_MAPPINGS: [Key; 128] = [ 
+static KEY_MAPPINGS: [Key; 128] = [
     /* 00 */ Key::A,
     /* 01 */ Key::S,
     /* 02 */ Key::D,
@@ -80,7 +83,7 @@ static KEY_MAPPINGS: [Key; 128] = [
     /* 3f */ Key::Unknown, // Function
     /* 40 */ Key::Unknown, // F17
     /* 41 */ Key::Unknown, // Decimal
-    /* 42 */ Key::Unknown, 
+    /* 42 */ Key::Unknown,
     /* 43 */ Key::Unknown, // Multiply
     /* 44 */ Key::Unknown,
     /* 45 */ Key::Unknown, // Add
@@ -89,7 +92,7 @@ static KEY_MAPPINGS: [Key; 128] = [
     /* 48 */ Key::Unknown, // VolumeUp
     /* 49 */ Key::Unknown, // VolumeDown
     /* 4a */ Key::Unknown, // Mute
-    /* 4b */ Key::Unknown, 
+    /* 4b */ Key::Unknown,
     /* 4c */ Key::Enter,
     /* 4d */ Key::Unknown,
     /* 4e */ Key::Unknown, // Subtrackt
@@ -144,7 +147,23 @@ static KEY_MAPPINGS: [Key; 128] = [
     /* 7f */ Key::Unknown,
 ];
 
+
+const STRING_SIZE: usize = 512;
+
+#[repr(C)]
+struct CMenu {
+    name: [i8; STRING_SIZE],
+    sub_menu: *mut raw::c_void,
+    id: raw::c_int,
+    key: raw::c_int,
+    special_key: raw::c_int,
+    modifier: raw::c_int,
+    mac_mod: raw::c_int,
+    enabled: raw::c_int,
+}
+
 #[link(name = "Cocoa", kind = "framework")]
+#[link(name = "Carbon", kind = "framework")]
 extern {
     fn mfb_open(name: *const c_char, width: u32, height: u32, flags: u32, scale: i32) -> *mut c_void;
     fn mfb_close(window: *mut c_void);
@@ -155,6 +174,11 @@ extern {
     fn mfb_set_mouse_data(window_handle: *mut c_void, shared_data: *mut SharedData);
     fn mfb_should_close(window: *mut c_void) -> i32;
     fn mfb_get_screen_size() -> u32;
+    fn mfb_is_active(window: *mut c_void) -> u32;
+    fn mfb_add_menu(window: *mut c_void, name: *const c_char, menu: *mut c_void);
+    fn mfb_remove_menu(window: *mut c_void, name: *const c_char);
+    fn mfb_update_menu(window: *mut c_void, name: *const c_char, menu: *mut c_void);
+    fn mfb_active_menu(window: *mut c_void) -> i32;
 }
 
 #[derive(Default)]
@@ -171,7 +195,7 @@ pub struct SharedData {
 
 pub struct Window {
     window_handle: *mut c_void,
-    scale_factor: usize, 
+    scale_factor: usize,
     pub shared_data: SharedData,
     key_handler: KeyHandler,
     pub has_set_data: bool,
@@ -190,11 +214,11 @@ unsafe extern "C" fn key_callback(window: *mut c_void, key: i32, state: i32) {
 }
 
 impl Window {
-    pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window, &str> {
+    pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
         let n = match CString::new(name) {
-            Err(_) => { 
+            Err(_) => {
                 println!("Unable to convert {} to c_string", name);
-                return Err("Unable to set correct name"); 
+                return Err(Error::WindowCreate("Unable to set correct name".to_owned()));
             }
             Ok(n) => n,
         };
@@ -204,13 +228,13 @@ impl Window {
             let handle = mfb_open(n.as_ptr(), width as u32, height as u32, window_flags::get_flags(opts), scale_factor as i32);
 
             if handle == ptr::null_mut() {
-                return Err("Unable to open Window");
+                return Err(Error::WindowCreate("Unable to open Window".to_owned()));
             }
 
-            Ok(Window { 
+            Ok(Window {
                 window_handle: handle,
                 scale_factor: scale_factor,
-                shared_data: SharedData { 
+                shared_data: SharedData {
                     width: width as u32 * scale_factor as u32,
                     height: height as u32 * scale_factor as u32,
                     .. SharedData::default()
@@ -223,7 +247,7 @@ impl Window {
 
     #[inline]
     pub fn get_window_handle(&self) -> *mut raw::c_void {
-        self.window_handle as *mut raw::c_void 
+        self.window_handle as *mut raw::c_void
     }
 
     #[inline]
@@ -313,9 +337,60 @@ impl Window {
         self.key_handler.is_key_pressed(key, repeat)
     }
 
+    pub fn is_menu_pressed(&mut self) -> Option<usize> {
+        let menu_id = unsafe { mfb_active_menu(self.window_handle) };
+
+        if menu_id < 0 {
+            None
+        } else {
+            Some(menu_id as usize)
+        }
+    }
+
+    pub fn add_menu(&mut self, name: &str, menu: &Vec<Menu>) -> Result<()> {
+        let mut build_menu = Vec::<Vec<CMenu>>::new();
+
+        unsafe {
+            Self::recursive_convert(&mut build_menu, &Some(menu));
+            let menu_len = build_menu.len();
+            mfb_add_menu(self.window_handle,
+                         CString::new(name).unwrap().as_ptr(),
+                         build_menu[menu_len - 1].as_mut_ptr() as *mut c_void);
+        }
+
+        Ok(())
+    }
+
+    pub fn update_menu(&mut self, name: &str, menu: &Vec<Menu>) -> Result<()> {
+        let mut build_menu = Vec::<Vec<CMenu>>::new();
+
+        unsafe {
+            Self::recursive_convert(&mut build_menu, &Some(menu));
+            let menu_len = build_menu.len();
+            mfb_update_menu(self.window_handle,
+                         CString::new(name).unwrap().as_ptr(),
+                         build_menu[menu_len - 1].as_mut_ptr() as *mut c_void);
+        }
+
+        Ok(())
+    }
+
+    pub fn remove_menu(&mut self, name: &str) -> Result<()> {
+        unsafe {
+            mfb_remove_menu(self.window_handle, CString::new(name).unwrap().as_ptr());
+        }
+
+        Ok(())
+    }
+
     #[inline]
     pub fn is_open(&self) -> bool {
         unsafe { mfb_should_close(self.window_handle) == 0 }
+    }
+
+    #[inline]
+    pub fn is_active(&mut self) -> bool {
+        unsafe { mfb_is_active(self.window_handle) == 0 }
     }
 
     unsafe fn get_scale_factor(width: usize, height: usize, scale: Scale) -> i32 {
@@ -328,8 +403,8 @@ impl Window {
             Scale::X32 => 32,
             Scale::FitScreen => {
                 let wh: u32 = mfb_get_screen_size();
-                let screen_x = (wh >> 16) as i32; 
-                let screen_y = (wh & 0xffff) as i32; 
+                let screen_x = (wh >> 16) as i32;
+                let screen_y = (wh & 0xffff) as i32;
 
                 let mut scale = 1i32;
 
@@ -349,6 +424,168 @@ impl Window {
         };
 
         return factor;
+    }
+
+    unsafe fn map_key_to_menu_key(key: Key) -> i32 {
+        match key {
+            Key::A => 0x00,
+            Key::S => 0x01,
+            Key::D => 0x02,
+            Key::F => 0x03,
+            Key::H => 0x04,
+            Key::G => 0x05,
+            Key::Z => 0x06,
+            Key::X => 0x07,
+            Key::C => 0x08,
+            Key::V => 0x09,
+            Key::B => 0x0b,
+            Key::Q => 0x0c,
+            Key::W => 0x0d,
+            Key::E => 0x0e,
+            Key::R => 0x0f,
+            Key::Y => 0x10,
+            Key::T => 0x11,
+            Key::Key1 => 0x12,
+            Key::Key2 => 0x13,
+            Key::Key3 => 0x14,
+            Key::Key4 => 0x15,
+            Key::Key6 => 0x16,
+            Key::Key5 => 0x17,
+            Key::Equal => 0x18,
+            Key::Key9 => 0x19,
+            Key::Key7 => 0x1a,
+            Key::Minus => 0x1b,
+            Key::Key8 => 0x1c,
+            Key::Key0 => 0x1d,
+            Key::RightBracket => 0x1e,
+            Key::O => 0x1f,
+            Key::U => 0x20,
+            Key::LeftBracket => 0x21,
+            Key::I => 0x22,
+            Key::P => 0x23,
+            Key::Enter => 0x24,
+            Key::L => 0x25,
+            Key::J => 0x26,
+            Key::Apostrophe => 0x27,
+            Key::K => 0x28,
+            Key::Semicolon => 0x29,
+            Key::Backslash => 0x2a,
+            Key::Comma => 0x2b,
+            Key::Slash => 0x2c,
+            Key::N => 0x2d,
+            Key::M => 0x2e,
+            Key::Period => 0x2f,
+            //Key::Tab => 0x30,
+            Key::Space => 0x31,
+            //Key::Backspace => 0x33,
+            //Key::Escape => 0x35,
+            Key::RightSuper => 0x36,
+            Key::LeftSuper => 0x37,
+            Key::LeftShift => 0x38,
+            Key::CapsLock => 0x39,
+            Key::LeftAlt => 0x3a,
+            Key::LeftCtrl => 0x3b,
+            Key::RightShift => 0x3c,
+            Key::RightAlt => 0x3d,
+            Key::RightCtrl => 0x3e,
+            //Key::Equal => 0x51,
+            Key::NumPad0 => 0x52,
+            Key::NumPad1 => 0x53,
+            Key::NumPad2 => 0x54,
+            Key::NumPad3 => 0x55,
+            Key::NumPad4 => 0x56,
+            Key::NumPad5 => 0x57,
+            Key::NumPad6 => 0x58,
+            Key::NumPad7 => 0x59,
+            Key::NumPad8 => 0x5b,
+            Key::NumPad9 => 0x5c,
+            Key::F5 => 0x60,
+            Key::F6 => 0x61,
+            Key::F7 => 0x62,
+            Key::F3 => 0x63,
+            Key::F8 => 0x64,
+            Key::F9 => 0x65,
+            Key::F11 => 0x67,
+            Key::F14 => 0x6b,
+            Key::F10 => 0x6d,
+            Key::F12 => 0x6f,
+            Key::F15 => 0x71,
+            Key::Insert => 0x72, /* Really Help... */
+            Key::Home => 0x73,
+            //Key::PageUp => 0x74,
+            Key::Delete => 0x75,
+            Key::F4 => 0x76,
+            Key::End => 0x77,
+            Key::F2 => 0x78,
+            //Key::PageDown => 0x79,
+            Key::F1 => 0x7a,
+            //Key::Left => 0x7b,
+            //Key::Right => 0x7c,
+            //Key::Down => 0x7d,
+            //Key::Up => 0x7e,
+            Key::Left => 0x2190,
+            Key::Up => 0x2191,
+            Key::Down => 0x2193,
+            Key::Right => 0x2192,
+            Key::Escape => 0x238b,
+            //Key::Enter => 0x000d,
+            Key::Backspace => 0x232b,
+            Key::Tab => 0x21e4,
+            Key::PageUp => 0x21de,
+            Key::PageDown => 0x21df,
+            _ => 0x7f,
+        }
+    }
+
+    unsafe fn recursive_convert(menu_build_vec: &mut Vec<Vec<CMenu>>, in_menu: &Option<&Vec<Menu>>) -> *mut raw::c_void {
+        if in_menu.is_none() {
+            return ptr::null_mut();
+        }
+
+        let mut menu_build = Vec::<CMenu>::new();
+        let menu_vec = in_menu.as_ref().unwrap();
+
+        for m in menu_vec.iter() {
+            let key_map = Self::map_key_to_menu_key(m.key);
+
+            let mut menu = CMenu {
+                name: mem::uninitialized(),
+                id: m.id as raw::c_int,
+                key: key_map as raw::c_int,
+                special_key: 0,
+                modifier: m.modifier as raw::c_int,
+                mac_mod: m.mac_mod as raw::c_int,
+                enabled: m.enabled as raw::c_int,
+                sub_menu : Self::recursive_convert(menu_build_vec, &m.sub_menu),
+            };
+
+            let name = CString::new(m.name).unwrap();
+            let name_len = m.name.len();
+
+            ptr::copy_nonoverlapping(name.as_ptr(),
+                          menu.name.as_mut_ptr() as *mut i8,
+                          name_len);
+            menu.name[name_len] = 0;
+
+            menu_build.push(menu);
+        }
+
+        // end marker
+
+        menu_build.push(CMenu {
+            name: [0; STRING_SIZE],
+            id: -2,
+            key: 0,
+            special_key: 0,
+            modifier: 0,
+            mac_mod: 0,
+            enabled: 0,
+            sub_menu : ptr::null_mut(),
+        });
+
+        let ptr = menu_build.as_mut_ptr() as *mut raw::c_void ;
+        menu_build_vec.push(menu_build);
+        ptr
     }
 }
 
