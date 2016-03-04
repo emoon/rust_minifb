@@ -59,6 +59,12 @@ fn main() {
             ..Menu::default()
         },
         Menu {
+            name: "Remove Menu",
+            key: Key::R,
+            id: 10,
+            ..Menu::default()
+        },
+        Menu {
             name: "Les sub!",
             sub_menu: Some(&sub_menu),
             ..Menu::default()
@@ -88,6 +94,11 @@ fn main() {
         }
 
         window.is_menu_pressed().map(|menu_id| {
+            if menu_id == 10 {
+                println!("remove menu");
+                window.remove_menu("Test");
+            }
+
             println!("Menu id {} pressed", menu_id);
         });
 

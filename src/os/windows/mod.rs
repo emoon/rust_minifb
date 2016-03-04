@@ -239,21 +239,8 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
 
         winapi::winuser::WM_COMMAND => {
             if lparam == 0 {
-                let accel_key = (wparam >> 16) as u16;
-                println!("accel key {}", accel_key);
-
-                // check if we have this in the accel table
-
-                for accel in wnd.accel_table.iter() {
-                    if accel_key == accel.cmd {
-                        wnd.accel_key = accel_key as usize;
-                        println!("Set menu id");
-                        return 0;
-                    }
-                }
+                wnd.accel_key = (wparam & 0xffff) as usize;
             }
-
-            wnd.accel_key = INVALID_ACCEL;
         }
 
         winapi::winuser::WM_PAINT => {
@@ -318,6 +305,12 @@ struct MouseData {
     pub scroll: f32,
 }
 
+struct MenuStore {
+    name: String,
+    menu: HMENU,
+    accel_items: Vec<ACCEL>,
+}
+
 pub struct Window {
     mouse: MouseData,
     dc: Option<HDC>,
@@ -327,8 +320,9 @@ pub struct Window {
     scale_factor: i32,
     width: i32,
     height: i32,
+    menus: Vec<MenuStore>,
     key_handler: KeyHandler,
-    accel_table: Vec<ACCEL>,
+    accel_table: HACCEL,
     accel_key: usize,
 }
 
@@ -449,7 +443,8 @@ impl Window {
                 scale_factor: scale_factor,
                 width: width as i32,
                 height: height as i32,
-                accel_table: Vec::new(),
+                menus: Vec::new(),
+                accel_table: ptr::null_mut(),
                 accel_key: INVALID_ACCEL,
             };
 
@@ -547,12 +542,12 @@ impl Window {
         }
     }
 
-    fn message_loop(&mut self, window: HWND) {
+    fn message_loop(&self, window: HWND) {
         unsafe {
             let mut msg = mem::uninitialized();
 
             while user32::PeekMessageW(&mut msg, window, 0, 0, winapi::winuser::PM_REMOVE) != 0 {
-                if TranslateAcceleratorW(msg.hwnd, self.accel_table.as_ptr(), &mut msg) == 0 {
+                if TranslateAcceleratorW(msg.hwnd, mem::transmute(self.accel_table), &mut msg) == 0 {
                     user32::TranslateMessage(&mut msg);
                     user32::DispatchMessageW(&mut msg);
                 }
@@ -803,14 +798,15 @@ impl Window {
         virt
     }
 
-    fn add_accel(&mut self, menu_item: &Menu, key: raw::c_int) {
-        let virt = Self::get_virt_key(menu_item, key); 
+    fn add_accel(accel_table: &mut Vec<ACCEL>, menu_item: &Menu) {
+        let vk_accel = Self::map_key_to_vk_accel(menu_item.key);
+        let virt = Self::get_virt_key(menu_item, vk_accel.0); 
         let accel = winuser::ACCEL { 
             fVirt: virt as BYTE, 
             cmd: menu_item.id as WORD, 
-            key: key as WORD };
+            key: vk_accel.0 as WORD };
 
-        self.accel_table.push(accel);
+        accel_table.push(accel);
     }
 
     unsafe fn add_menu_item(&mut self, parent_menu: HMENU, menu_item: &Menu) {
@@ -824,18 +820,38 @@ impl Window {
             _ => {
                 let menu_name = Self::format_name(menu_item, vk_accel.1);
                 let w_name = to_wstring(&menu_name);
-                Self::add_accel(self, menu_item, vk_accel.0);
                 user32::AppendMenuW(parent_menu, 0x10, menu_item.id as UINT_PTR, w_name.as_ptr());
             }
         }
+    }
 
+    unsafe fn set_accel_table(&mut self) {
+        let mut temp_accel_table = Vec::<ACCEL>::new();
+
+        for menu in self.menus.iter() {
+            for item in menu.accel_items.iter() {
+                println!("virt {} - cmd {} - key {}", item.fVirt, item.cmd, item.key);
+                temp_accel_table.push(item.clone());
+            }
+        }
+
+        if self.accel_table != ptr::null_mut() {
+            user32::DestroyAcceleratorTable(self.accel_table);
+        }
+
+        self.accel_table = user32::CreateAcceleratorTableW(temp_accel_table.as_mut_ptr(), 
+                                                           temp_accel_table.len() as i32); 
+    
+        println!("Accel table {:?} - {}", self.accel_table, temp_accel_table.len());
     }
 
 
-    unsafe fn recursive_add_menu(&mut self, parent_menu: HMENU, name: &str, menu: &Vec<Menu>) {
+    unsafe fn recursive_add_menu(&mut self, parent_menu: HMENU, name: &str, menu: &Vec<Menu>) -> HMENU {
         let menu_name = to_wstring(name);
 
         let popup_menu = user32::CreatePopupMenu();
+
+        println!("menu created {:?}", popup_menu);
 
         user32::AppendMenuW(parent_menu, 0x10, popup_menu as UINT_PTR, menu_name.as_ptr());
 
@@ -850,9 +866,60 @@ impl Window {
                 }
             }
         }
+
+        popup_menu
+    }
+
+    pub fn menu_exists(&mut self, menu_name: &str) -> bool {
+        for menu in self.menus.iter() {
+            if menu.name == menu_name {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    //
+    // Clone the menu data, notice that this function will *NOT* keep the structure
+    // but instead having everything flat. This is because this is only used
+    // whne creating accelerators and then it's easier to have everything flat
+    //
+    fn clone_menu(accel_dest: &mut Vec<ACCEL>, menu: &Vec<Menu>) {
+        for m in menu.iter() {
+            if let Some(ref sub_menu) = m.sub_menu {
+                Self::clone_menu(accel_dest, sub_menu);
+            } 
+
+            if m.key != Key::Unknown {
+                Self::add_accel(accel_dest, m);
+            }
+        }
+    }
+
+    //
+    //
+    //
+    unsafe fn add_menu_store(&mut self, parent_menu: HMENU, menu_name: &str, menu: &Vec<Menu>) {
+        let mut items = Vec::<ACCEL>::new();
+        let menu_handle = Self::recursive_add_menu(self, parent_menu, menu_name, menu);
+
+        println!("menu handle {:?}", menu_handle);
+
+        Self::clone_menu(&mut items, menu);
+
+        self.menus.push(MenuStore {
+            name: menu_name.to_owned(),
+            menu: menu_handle,
+            accel_items: items
+        });
     }
 
     pub fn add_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) -> Result<()> {
+        if Self::menu_exists(self, menu_name) {
+            return Err(Error::MenuExists(menu_name.to_owned()));
+        }
+
         unsafe {
             let window = self.window.unwrap();
             let mut main_menu = user32::GetMenu(window);
@@ -863,7 +930,8 @@ impl Window {
                 Self::adjust_window_size_for_menu(window);
             }
 
-            Self::recursive_add_menu(self, main_menu, menu_name, menu);
+            Self::add_menu_store(self, main_menu, menu_name, menu);
+            Self::set_accel_table(self);
 
             user32::DrawMenuBar(window);
         }
@@ -874,9 +942,19 @@ impl Window {
         // not implemented yet
         Ok(())
     }
-    pub fn remove_menu(&mut self, _menu_name: &str) -> Result<()> {
-        // not implemented yet
+    pub fn remove_menu(&mut self, menu_name: &str) -> Result<()> {
+        for i in 0..self.menus.len() {
+            if self.menus[i].name == menu_name {
+                unsafe {
+                    user32::DestroyMenu(self.menus[i].menu);
+                    user32::DrawMenuBar(self.window.unwrap());
+                    self.menus.swap_remove(i);
+                    break;
+                }
+            }
+        }
     
+        // TODO: Proper return here
         Ok(())
     }
 
