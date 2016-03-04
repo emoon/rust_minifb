@@ -10,6 +10,8 @@ use {MouseMode, MouseButton, Scale, Key, KeyRepeat, WindowOptions};
 use key_handler::KeyHandler;
 use menu::Menu;
 use self::x11_dl::keysym::*;
+use error::Error;
+use Result;
 
 use libc::{c_void, c_char, c_uchar};
 use std::ffi::{CString};
