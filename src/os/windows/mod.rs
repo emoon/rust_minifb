@@ -547,9 +547,15 @@ impl Window {
             let mut msg = mem::uninitialized();
 
             while user32::PeekMessageW(&mut msg, window, 0, 0, winapi::winuser::PM_REMOVE) != 0 {
-                if TranslateAcceleratorW(msg.hwnd, mem::transmute(self.accel_table), &mut msg) == 0 {
+                // Make this code a bit nicer
+                if self.accel_table == ptr::null_mut() {
                     user32::TranslateMessage(&mut msg);
                     user32::DispatchMessageW(&mut msg);
+                } else {
+                    if TranslateAcceleratorW(msg.hwnd, mem::transmute(self.accel_table), &mut msg) == 0 {
+                        user32::TranslateMessage(&mut msg);
+                        user32::DispatchMessageW(&mut msg);
+                    }
                 }
             }
         }
@@ -938,10 +944,12 @@ impl Window {
 
         Ok(())
     }
-    pub fn update_menu(&mut self, _menu_name: &str, _menu: &Vec<Menu>) -> Result<()> {
-        // not implemented yet
-        Ok(())
+
+    pub fn update_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) -> Result<()> {
+        try!(Self::remove_menu(self, menu_name));
+        Self::add_menu(self, menu_name, menu)
     }
+
     pub fn remove_menu(&mut self, menu_name: &str) -> Result<()> {
         for i in 0..self.menus.len() {
             if self.menus[i].name == menu_name {
