@@ -59,19 +59,24 @@ extern crate libc;
 use std::os::raw;
 
 #[doc(hidden)]
+mod error;
+pub use self::error::Error;
+pub type Result<T> = std::result::Result<T, Error>;
+
 pub mod key;
 pub use key::Key as Key;
 pub mod os;
 mod mouse_handler;
 mod key_handler;
 mod window_flags;
-pub mod menu;
+mod menu;
 pub use menu::Menu as Menu;
 pub use menu::MENU_KEY_COMMAND;
 pub use menu::MENU_KEY_WIN;
 pub use menu::MENU_KEY_SHIFT;
 pub use menu::MENU_KEY_CTRL;
 pub use menu::MENU_KEY_ALT;
+
 
 #[cfg(target_os = "macos")]
 use self::os::macos as imp;
@@ -159,7 +164,7 @@ impl Window {
     ///    }
     ///};
     /// ```
-    pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window, &str> {
+    pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
         imp::Window::new(name, width, height, opts).map(Window)
     }
 
@@ -429,7 +434,7 @@ impl Window {
     /// ```
     ///
     #[inline]
-    pub fn add_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) {
+    pub fn add_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) -> Result<()> {
         self.0.add_menu(menu_name, menu)
     }
 
@@ -437,7 +442,7 @@ impl Window {
     /// Updates an existing menu created with [add_menu]
     ///
     #[inline]
-    pub fn update_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) {
+    pub fn update_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) -> Result<()> {
         self.0.update_menu(menu_name, menu)
     }
 
@@ -445,7 +450,7 @@ impl Window {
     /// Remove a menu that has been added with [add_menu]
     ///
     #[inline]
-    pub fn remove_menu(&mut self, menu_name: &str) {
+    pub fn remove_menu(&mut self, menu_name: &str) -> Result<()> {
         self.0.remove_menu(menu_name)
     }
 

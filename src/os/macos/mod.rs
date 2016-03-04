@@ -2,6 +2,8 @@
 
 use {MouseButton, MouseMode, Scale, Key, KeyRepeat, WindowOptions};
 use key_handler::KeyHandler;
+use error::Error;
+use Result;
 use mouse_handler;
 use window_flags;
 use menu::Menu;
@@ -211,11 +213,11 @@ unsafe extern "C" fn key_callback(window: *mut c_void, key: i32, state: i32) {
 }
 
 impl Window {
-    pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window, &str> {
+    pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
         let n = match CString::new(name) {
             Err(_) => {
                 println!("Unable to convert {} to c_string", name);
-                return Err("Unable to set correct name");
+                return Err(Error::WindowCreate("Unable to set correct name".to_owned()));
             }
             Ok(n) => n,
         };
@@ -225,7 +227,7 @@ impl Window {
             let handle = mfb_open(n.as_ptr(), width as u32, height as u32, window_flags::get_flags(opts), scale_factor as i32);
 
             if handle == ptr::null_mut() {
-                return Err("Unable to open Window");
+                return Err(Error::WindowCreate("Unable to open Window".to_owned()));
             }
 
             Ok(Window {
@@ -338,7 +340,7 @@ impl Window {
         None
     }
 
-    pub fn add_menu(&mut self, name: &str, menu: &Vec<Menu>) {
+    pub fn add_menu(&mut self, name: &str, menu: &Vec<Menu>) -> Result<()> {
         let mut build_menu = Vec::<Vec<CMenu>>::new();
 
         unsafe {
@@ -348,9 +350,11 @@ impl Window {
                          CString::new(name).unwrap().as_ptr(),
                          build_menu[menu_len - 1].as_mut_ptr() as *mut c_void);
         }
+
+        Ok(())
     }
 
-    pub fn update_menu(&mut self, name: &str, menu: &Vec<Menu>) {
+    pub fn update_menu(&mut self, name: &str, menu: &Vec<Menu>) -> Result<()> {
         let mut build_menu = Vec::<Vec<CMenu>>::new();
 
         unsafe {
@@ -360,12 +364,16 @@ impl Window {
                          CString::new(name).unwrap().as_ptr(),
                          build_menu[menu_len - 1].as_mut_ptr() as *mut c_void);
         }
+
+        Ok(())
     }
 
-    pub fn remove_menu(&mut self, name: &str) {
+    pub fn remove_menu(&mut self, name: &str) -> Result<()> {
         unsafe {
             mfb_remove_menu(self.window_handle, CString::new(name).unwrap().as_ptr());
         }
+
+        Ok(())
     }
 
     #[inline]

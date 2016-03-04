@@ -12,6 +12,8 @@ use {Scale, Key, KeyRepeat, MouseButton, MouseMode, WindowOptions};
 
 use key_handler::KeyHandler;
 use menu::Menu;
+use error::Error;
+use Result;
 use menu::{MENU_KEY_WIN, MENU_KEY_SHIFT, MENU_KEY_CTRL, MENU_KEY_ALT};
 
 use std::ptr;
@@ -427,14 +429,14 @@ impl Window {
                width: usize,
                height: usize,
                opts: WindowOptions)
-               -> Result<Window, &str> {
+               -> Result<Window> {
         unsafe {
             let scale_factor = Self::get_scale_factor(width, height, opts.scale);
 
             let handle = Self::open_window(name, width, height, opts, scale_factor);
 
             if handle.is_none() {
-                return Err("Unable to create Window");
+                return Err(Error::WindowCreate("Unable to create Window".to_owned()));
             }
 
             let window = Window {
@@ -850,7 +852,7 @@ impl Window {
         }
     }
 
-    pub fn add_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) {
+    pub fn add_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) -> Result<()> {
         unsafe {
             let window = self.window.unwrap();
             let mut main_menu = user32::GetMenu(window);
@@ -865,12 +867,17 @@ impl Window {
 
             user32::DrawMenuBar(window);
         }
+
+        Ok(())
     }
-    pub fn update_menu(&mut self, _menu_name: &str, _menu: &Vec<Menu>) {
+    pub fn update_menu(&mut self, _menu_name: &str, _menu: &Vec<Menu>) -> Result<()> {
         // not implemented yet
+        Ok(())
     }
-    pub fn remove_menu(&mut self, _menu_name: &str) {
+    pub fn remove_menu(&mut self, _menu_name: &str) -> Result<()> {
         // not implemented yet
+    
+        Ok(())
     }
 
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
