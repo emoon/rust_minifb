@@ -166,11 +166,11 @@ unsafe extern "C" fn key_callback(window: *mut c_void, key: i32, s: i32) {
 }
 
 impl Window {
-    pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window, &str> {
+    pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
         let n = match CString::new(name) {
             Err(_) => {
                 println!("Unable to convert {} to c_string", name);
-                return Err("Unable to set correct name");
+                return Err(Error::WindowCreate("Unable to set correct name".to_owned()));
             }
             Ok(n) => n,
         };
@@ -184,7 +184,7 @@ impl Window {
             					  scale);
 
             if handle == ptr::null_mut() {
-                return Err("Unable to open Window");
+                return Err(Error::WindowCreate("Unable to open Window".to_owned()));
             }
 
             Ok(Window {
