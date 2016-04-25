@@ -190,6 +190,8 @@ void* mfb_open(const char* title, int width, int height, unsigned int flags, int
 	window_info->draw_buffer = malloc(width * height * 4);
 	window_info->update = 1;
 
+	printf("Window handle 0x%x\n", window);
+
 	XSetWMProtocols(s_display, window, &s_wm_delete_window, 1);
 
 	XSaveContext(s_display, window, s_context, (XPointer) window_info);
@@ -494,4 +496,13 @@ unsigned int mfb_get_screen_size() {
 	setup_display();
 	return (s_screen_width << 16) | s_screen_height;
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void* mfb_get_window_handle(void* window_info)
+{
+	WindowInfo* info = (WindowInfo*)window_info;
+	return (void*)(uintptr_t)info->window;
+}
+
 
