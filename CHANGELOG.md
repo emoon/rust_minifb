@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.5.1 (2016-04-25)
+
+- [fixed] ```get_window_handle``` would return an invalid value on Unix. Now fixed.
+
 ### v0.5.0 (2016-03-04)
 
 - [changed] - Proper Errors which uses ```std::Error``` as base. ```Window::new``` uses this but the API itself hasn't changed.
