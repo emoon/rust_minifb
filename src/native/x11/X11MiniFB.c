@@ -495,3 +495,10 @@ unsigned int mfb_get_screen_size() {
 	return (s_screen_width << 16) | s_screen_height;
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void* mfb_get_window_handle(void* window) {
+	WindowInfo* win = (WindowInfo*)window;
+	return (void*)(uintptr_t)win->window;
+}
+

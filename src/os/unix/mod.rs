@@ -32,6 +32,7 @@ extern {
     fn mfb_set_shared_data(window: *mut c_void, target: *mut SharedData);
     fn mfb_should_close(window: *mut c_void) -> i32;
     fn mfb_get_screen_size() -> u32;
+    fn mfb_get_window_handle(window: *mut c_void) -> *mut c_void;
 }
 
 #[derive(Default)]
@@ -224,7 +225,7 @@ impl Window {
 
     #[inline]
     pub fn get_window_handle(&self) -> *mut raw::c_void {
-    	self.window_handle as *mut raw::c_void
+    	unsafe { mfb_get_window_handle(self.window_handle) as *mut raw::c_void }
     }
 
     #[inline]
