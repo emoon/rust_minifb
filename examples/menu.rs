@@ -31,16 +31,19 @@ fn main() {
     let sub_menu = vec![
         Menu {
             name: "Color 0",
+            key: Key::F1,
             id: COLOR_0_ID,
             ..Menu::default()
         },
         Menu {
             name: "Color 1",
+            key: Key::F2,
             id: COLOR_1_ID,
             ..Menu::default()
         },
         Menu {
             name: "Color 2",
+            key: Key::F12,
             id: COLOR_2_ID,
             ..Menu::default()
         },

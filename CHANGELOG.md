@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.5.2 (2016-04-29)
+
+- [fixed] On Mac shortcuts using F1-F12 wasn't working correctly.
+
 ### v0.5.1 (2016-04-25)
 
 - [fixed] ```get_window_handle``` would return an invalid value on Unix. Now fixed.

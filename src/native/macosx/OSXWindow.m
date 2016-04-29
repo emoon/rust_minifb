@@ -266,6 +266,14 @@ const uint32_t MENU_KEY_ALT = 16;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+static NSString* get_string_for_key(uint32_t t) {
+	unichar c = (unichar)t;
+	NSString* key = [NSString stringWithCharacters:&c length:1];
+	return key;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void build_submenu(NSMenu* menu, MenuDesc* desc)
 {
 	[menu removeAllItems];
@@ -293,6 +301,8 @@ void build_submenu(NSMenu* menu, MenuDesc* desc)
 		else
 		{
 			int mask = 0;
+			NSString* key = 0;
+
 			NSMenuItem* newItem = [[NSMenuItem alloc] initWithTitle:name action:@selector(onMenuPress:) keyEquivalent:@""];
 			[newItem setTag:desc->menu_id];
 
@@ -309,13 +319,28 @@ void build_submenu(NSMenu* menu, MenuDesc* desc)
 				mask |= NSAlternateKeyMask;
 			}
 
-			if (desc->key != 0x7f) {
-				NSString* key = convert_key_code_to_string(desc->key);
-
-				if (key) {
-					[newItem setKeyEquivalentModifierMask: mask];
-					[newItem setKeyEquivalent:key];
+			switch (desc->key) {
+				case 0x7a: { key = get_string_for_key(NSF1FunctionKey); break; } // F1
+				case 0x78: { key = get_string_for_key(NSF2FunctionKey); break; } // F2
+				case 0x63: { key = get_string_for_key(NSF3FunctionKey); break; } // F3
+				case 0x76: { key = get_string_for_key(NSF4FunctionKey); break; } // F4
+				case 0x60: { key = get_string_for_key(NSF5FunctionKey); break; } // F5
+				case 0x61: { key = get_string_for_key(NSF6FunctionKey); break; } // F6
+				case 0x62: { key = get_string_for_key(NSF7FunctionKey); break; } // F7
+				case 0x64: { key = get_string_for_key(NSF8FunctionKey); break; } // F8
+				case 0x65: { key = get_string_for_key(NSF9FunctionKey); break; } // F9
+				case 0x6d: { key = get_string_for_key(NSF10FunctionKey); break; } // F10
+				case 0x67: { key = get_string_for_key(NSF11FunctionKey); break; } // F11
+				case 0x6f: { key = get_string_for_key(NSF12FunctionKey); break; } // F12
+				case 0x7f: break;
+				default: {
+					key = convert_key_code_to_string(desc->key);
 				}
+			}
+
+			if (key) {
+				[newItem setKeyEquivalentModifierMask: mask];
+				[newItem setKeyEquivalent:key];
 			}
 
 			if (desc->enabled) {
