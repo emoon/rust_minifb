@@ -235,7 +235,7 @@ impl Window {
 
     #[inline]
     pub fn get_size(&self) -> (usize, usize) {
-        (0, 0)
+        (self.shared_data.width as usize, self.shared_data.height as usize)
     }
 
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {

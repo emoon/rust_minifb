@@ -154,7 +154,9 @@ void* mfb_open(const char* title, int width, int height, unsigned int flags, int
 	//XSelectInput(s_display, s_window, KeyPressMask | KeyReleaseMask);
 	XStoreName(s_display, window, title);
 
-	XSelectInput(s_display, window, ButtonPressMask | KeyPressMask | KeyReleaseMask | ButtonReleaseMask);
+	XSelectInput(s_display, window, 
+		StructureNotifyMask |
+		ButtonPressMask | KeyPressMask | KeyReleaseMask | ButtonReleaseMask);
 
 	if (!(flags & WINDOW_RESIZE)) {
 		sizeHints.flags = PPosition | PMinSize | PMaxSize;
@@ -291,6 +293,13 @@ static int process_event(XEvent* event) {
 
             break;
 		}
+
+        case ConfigureNotify:
+        {
+			info->width = event->xconfigure.width;
+			info->height = event->xconfigure.height;
+        	break;
+        }
 	}
 
 	return 1;
