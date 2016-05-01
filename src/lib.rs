@@ -54,6 +54,12 @@ pub enum MouseMode {
     Discard,
 }
 
+/// This trait can be implemented and set with ```set_input_callback``` to reieve a callback
+/// whene there is inputs incoming. Currently only support unicode chars.
+pub trait InputCallback {
+    fn add_char(&mut self, uni_char: u32);
+}
+
 extern crate libc;
 
 use std::os::raw;
@@ -431,6 +437,14 @@ impl Window {
     #[inline]
     pub fn is_active(&mut self) -> bool {
         self.0.is_active()
+    }
+
+    ///
+    /// Set input callback to recive callback on char input
+    ///
+    #[inline]
+    pub fn set_input_callback(&mut self, callback: Box<InputCallback>)  {
+        self.0.set_input_callback(callback)
     }
 
     ///

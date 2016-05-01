@@ -71,6 +71,14 @@
 		key_callback(rust_data, [event keyCode], 1);
 	}
 
+	if (char_callback) {
+		NSString* characters = [event characters];
+		NSUInteger i, length = [characters length];
+
+		for (i = 0; i < length; i++)
+			char_callback(rust_data, [characters characterAtIndex:i]);
+	}
+
 	[super keyDown:event];
 }
 

@@ -294,6 +294,11 @@ impl Window {
     }
 
     #[inline]
+    pub fn set_input_callback(&mut self, callback: Box<InputCallback>)  {
+        self.key_handler.set_input_callback(callback)
+    }
+
+    #[inline]
     pub fn is_open(&self) -> bool {
         unsafe { mfb_should_close(self.window_handle) == 1 }
     }

@@ -518,6 +518,11 @@ impl Window {
     }
 
     #[inline]
+    pub fn set_input_callback(&mut self, callback: Box<InputCallback>)  {
+        self.key_handler.set_input_callback(callback)
+    }
+
+    #[inline]
     pub fn set_key_repeat_delay(&mut self, delay: f32) {
         self.key_handler.set_key_repeat_delay(delay)
     }

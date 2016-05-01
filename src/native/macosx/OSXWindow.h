@@ -41,6 +41,7 @@ void build_submenu(NSMenu* menu, MenuDesc* desc);
 {
 	NSView* childContentView;
 	@public void (*key_callback)(void* user_data, int key, int state);
+	@public void (*char_callback)(void* user_data, unsigned int key);
 	@public int width;
 	@public int height;
 	@public int scale;

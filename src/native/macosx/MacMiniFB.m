@@ -315,10 +315,13 @@ uint32_t mfb_get_screen_size()
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void mfb_set_key_callback(void* window, void* rust_data, void (*key_callback)(void* user_data, int key, int state))
+void mfb_set_key_callback(void* window, void* rust_data,
+						  void (*key_callback)(void* user_data, int key, int state),
+						  void (*char_callback)(void* user_data, uint32_t key))
 {
 	OSXWindow* win = (OSXWindow*)window;
 	win->key_callback = key_callback;
+	win->char_callback = char_callback;
 	win->rust_data = rust_data;
 }
 

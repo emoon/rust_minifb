@@ -1,9 +1,10 @@
 extern crate time;
 
 use std::mem;
-use {Key, KeyRepeat};
+use {Key, KeyRepeat, InputCallback};
 
 pub struct KeyHandler {
+    pub key_callback: Option<Box<InputCallback>>,
     prev_time: f64,
     delta_time: f32,
     keys: [bool; 512],
@@ -15,6 +16,7 @@ pub struct KeyHandler {
 impl KeyHandler {
     pub fn new() -> KeyHandler {
         KeyHandler {
+            key_callback: None,
             keys: [false; 512],
             keys_down_duration: [-1.0; 512],
             prev_time: time::precise_time_s(),
@@ -63,6 +65,10 @@ impl KeyHandler {
                 self.keys_down_duration[i] = -1.0;
             }
         }
+    }
+
+    pub fn set_input_callback(&mut self, callback: Box<InputCallback>) {
+        self.key_callback = Some(callback);
     }
 
     pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
