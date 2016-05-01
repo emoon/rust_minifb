@@ -331,7 +331,7 @@ pub struct Window {
 #[link(name = "user32")]
 #[allow(non_snake_case)]
 extern "system" {
-    fn TranslateAcceleratorW(hWnd: HWND, accel: *const ACCEL, pmsg: *const MSG) -> INT;  
+    fn TranslateAcceleratorW(hWnd: HWND, accel: *const ACCEL, pmsg: *const MSG) -> INT;
 }
 
 impl Window {
@@ -463,6 +463,11 @@ impl Window {
             user32::SetWindowPos(self.window.unwrap(), ptr::null_mut(), x as i32, y as i32,
                                  0, 0, winapi::SWP_SHOWWINDOW | winapi::SWP_NOSIZE);
         }
+    }
+
+    #[inline]
+    pub fn get_size(&self) -> (usize, usize) {
+        (0, 0)
     }
 
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
@@ -743,11 +748,11 @@ impl Window {
         let menu_height = user32::GetSystemMetrics(winapi::winuser::SM_CYMENU);
 
         user32::GetWindowRect(handle, &mut rect);
-        user32::MoveWindow(handle, 
-                           rect.left, 
-                           rect.top, 
-                           rect.right - rect.left, 
-                           (rect.bottom - rect.top) + menu_height, 
+        user32::MoveWindow(handle,
+                           rect.left,
+                           rect.top,
+                           rect.right - rect.left,
+                           (rect.bottom - rect.top) + menu_height,
                            1);
     }
 
@@ -787,7 +792,7 @@ impl Window {
     }
 
     fn get_virt_key(menu_item: &Menu, key: raw::c_int) -> u32 {
-        let mut virt = Self::is_key_virtual_range(key); 
+        let mut virt = Self::is_key_virtual_range(key);
 
         if (menu_item.modifier & MENU_KEY_ALT) == MENU_KEY_ALT {
             virt |= 0x10;
@@ -806,10 +811,10 @@ impl Window {
 
     fn add_accel(accel_table: &mut Vec<ACCEL>, menu_item: &Menu) {
         let vk_accel = Self::map_key_to_vk_accel(menu_item.key);
-        let virt = Self::get_virt_key(menu_item, vk_accel.0); 
-        let accel = winuser::ACCEL { 
-            fVirt: virt as BYTE, 
-            cmd: menu_item.id as WORD, 
+        let virt = Self::get_virt_key(menu_item, vk_accel.0);
+        let accel = winuser::ACCEL {
+            fVirt: virt as BYTE,
+            cmd: menu_item.id as WORD,
             key: vk_accel.0 as WORD };
 
         accel_table.push(accel);
@@ -845,8 +850,8 @@ impl Window {
             user32::DestroyAcceleratorTable(self.accel_table);
         }
 
-        self.accel_table = user32::CreateAcceleratorTableW(temp_accel_table.as_mut_ptr(), 
-                                                           temp_accel_table.len() as i32); 
+        self.accel_table = user32::CreateAcceleratorTableW(temp_accel_table.as_mut_ptr(),
+                                                           temp_accel_table.len() as i32);
     }
 
 
@@ -886,7 +891,7 @@ impl Window {
         for m in menu.iter() {
             if let Some(ref sub_menu) = m.sub_menu {
                 Self::clone_menu(accel_dest, sub_menu);
-            } 
+            }
 
             if m.key != Key::Unknown {
                 Self::add_accel(accel_dest, m);
@@ -947,7 +952,7 @@ impl Window {
                 }
             }
         }
-    
+
         // TODO: Proper return here
         Ok(())
     }

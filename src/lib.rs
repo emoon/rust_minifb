@@ -252,6 +252,21 @@ impl Window {
     }
 
     ///
+    /// Returns the current size of the window
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let size = window.get_size();
+    /// println!("width {} height {}", size.0, size.1);
+    /// ```
+    ///
+    #[inline]
+    pub fn get_size(&self) -> (usize, usize) {
+        self.0.get_size()
+    }
+
+    ///
     /// Get the current position of the mouse relative to the current window
     /// The coordinate system is as 0, 0 as the upper left corner
     ///

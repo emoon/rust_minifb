@@ -27,9 +27,9 @@
 	CGContextRef context = [[NSGraphicsContext currentContext] graphicsPort];
 
 	CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
-	CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, draw_buffer, width * height * 4, NULL); 
+	CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, draw_buffer, width * height * 4, NULL);
 
-	CGImageRef img = CGImageCreate(width, height, 8, 32, width * 4, space, kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Little, 
+	CGImageRef img = CGImageCreate(width, height, 8, 32, width * 4, space, kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Little,
 								   provider, NULL, false, kCGRenderingIntentDefault);
 
 	CGColorSpaceRelease(space);
@@ -93,6 +93,33 @@
 - (BOOL)acceptsFirstResponder
 {
     return YES;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+- (void)viewDidMoveToWindow
+{
+	[[NSNotificationCenter defaultCenter] addObserver:self
+	selector:@selector(windowResized:) name:NSWindowDidResizeNotification
+	object:[self window]];
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+- (void)dealloc
+{
+	[[NSNotificationCenter defaultCenter] removeObserver:self];
+	[super dealloc];
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+- (void)windowResized:(NSNotification *)notification;
+{
+	NSSize size = [[self window] frame].size;
+    OSXWindow* window = (OSXWindow*)[self window];
+    window->shared_data->width = (int)size.width;
+    window->shared_data->height = (int)size.height;
 }
 
 @end

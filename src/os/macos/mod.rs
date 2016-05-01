@@ -280,6 +280,10 @@ impl Window {
         unsafe { mfb_set_position(self.window_handle, x as i32, y as i32) }
     }
 
+    pub fn get_size(&self) -> (usize, usize) {
+        (self.shared_data.width as usize, self.shared_data.height as usize)
+    }
+
     pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
         let sx = self.shared_data.scroll_x;
         let sy = self.shared_data.scroll_y;

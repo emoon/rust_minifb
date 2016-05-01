@@ -233,6 +233,11 @@ impl Window {
         unsafe { mfb_set_position(self.window_handle, x as i32, y as i32) }
     }
 
+    #[inline]
+    pub fn get_size(&self) -> (usize, usize) {
+        (0, 0)
+    }
+
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         let s = self.shared_data.scale as f32;
         let w = self.shared_data.width as f32;
