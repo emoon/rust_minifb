@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.6.0 (2016-05-01)
+
+- [added] added ```get_size()``` to retrive the size of the window.
+
 ### v0.5.2 (2016-04-29)
 
 - [fixed] On Mac shortcuts using F1-F12 wasn't working correctly.
