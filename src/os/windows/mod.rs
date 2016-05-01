@@ -8,8 +8,7 @@ extern crate time;
 
 const INVALID_ACCEL: usize = 0xffffffff;
 
-use {Scale, Key, KeyRepeat, MouseButton, MouseMode, WindowOptions};
-
+use {Scale, Key, KeyRepeat, MouseButton, MouseMode, WindowOptions, InputCallback};
 use key_handler::KeyHandler;
 use menu::Menu;
 use error::Error;

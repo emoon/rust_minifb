@@ -6,7 +6,7 @@
 
 extern crate x11_dl;
 
-use {MouseMode, MouseButton, Scale, Key, KeyRepeat, WindowOptions};
+use {MouseMode, MouseButton, Scale, Key, KeyRepeat, WindowOptions, InputCallback};
 use key_handler::KeyHandler;
 use menu::Menu;
 use self::x11_dl::keysym::*;
