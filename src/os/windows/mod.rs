@@ -243,6 +243,13 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
             }
         }
 
+        winapi::winuser::WM_SIZE => {
+            let width = (lparam as u32) & 0xffff;
+            let height = ((lparam as u32) >> 16) & 0xffff;
+            wnd.width = width as i32;
+            wnd.height = height as i32;
+        }
+
         winapi::winuser::WM_PAINT => {
 
             // if we have nothing to draw here we return the default function
@@ -467,7 +474,7 @@ impl Window {
 
     #[inline]
     pub fn get_size(&self) -> (usize, usize) {
-        (0, 0)
+        (self.width as usize, self.height as usize)
     }
 
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
