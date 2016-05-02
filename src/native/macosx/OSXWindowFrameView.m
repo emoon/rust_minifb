@@ -88,6 +88,16 @@
     return YES;
 }
 
+- (NSView *)nextValidKeyView
+{
+    return self;
+}
+
+- (NSView *)previousValidKeyView
+{
+    return self;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 - (BOOL)acceptsFirstResponder
