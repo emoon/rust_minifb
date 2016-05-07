@@ -265,7 +265,7 @@ const uint32_t MENU_KEY_CTRL = 8;
 const uint32_t MENU_KEY_ALT = 16;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+/*
 void build_submenu(NSMenu* menu, MenuDesc* desc)
 {
 	[menu removeAllItems];
@@ -332,10 +332,11 @@ void build_submenu(NSMenu* menu, MenuDesc* desc)
 		desc++;
 	}
 }
+*/
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void mfb_add_menu_item(
+uint64_t mfb_add_menu_item(
 	void* in_menu,
 	int32_t menu_id,
 	const char* item_name, 
@@ -345,7 +346,9 @@ void mfb_add_menu_item(
 {
 	NSMenu* menu = (NSMenu*)in_menu; 
 
-	NSString* name = [NSString stringWithUTF8String: item_name];
+	const char* t = strdup(item_name);
+
+	NSString* name = [NSString stringWithUTF8String: t];
 
 	if (menu_id == -1)
 	{
@@ -386,7 +389,11 @@ void mfb_add_menu_item(
 		[newItem setOnStateImage: newItem.offStateImage];
 		[menu addItem:newItem];
 		[newItem release];
+
+		return (uint64_t)newItem;
 	}
+
+	return 0;
 }
 
 @end

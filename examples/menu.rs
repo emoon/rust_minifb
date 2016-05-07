@@ -89,9 +89,11 @@ fn main() {
     //window.add_menu("Test", &menu).expect("Unable to add menu");
 
     let mut menu = Menu::new("TestMenu").unwrap();
-    let mut item = MenuItem::new("Item", 1).enabled(true);
 
-    menu.add_item(&mut item);
+    menu.add_item(&MenuItem::new("Item 1", 1));
+    menu.add_item(&MenuItem::new("Item 2", 2));
+    menu.add_item(&MenuItem::new("Item 3", 3));
+
     let _ = window.add_menu(&menu);
 
     let color_mul = 1;

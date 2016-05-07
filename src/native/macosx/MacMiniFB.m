@@ -462,6 +462,8 @@ void* mfb_create_menu(const char* name) {
 	//NSMenuItem* menu_item = [[NSMenuItem alloc] initWithTitle:name action:NULL keyEquivalent:@""];
     NSMenu* menu = [[NSMenu alloc] initWithTitle:ns_name];
     //[menu_item setSubmenu:menu];
+	
+	//printf("created menu %p\n");
 
 	return (void*)menu;
 }
@@ -474,6 +476,17 @@ void mfb_destroy_menu(void* menu_item, const char* name)
  	NSMenu* main_menu = [NSApp mainMenu];
 	[main_menu removeItem:item];
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void mfb_remove_menu_item(void* parent, uint64_t menu_item) {
+	NSMenu* menu = (NSMenu*)parent;
+	NSMenuItem* item = (NSMenuItem*)(uintptr_t)menu_item; 
+
+	printf("remove item menu %p item %p\n", menu, item);
+	[menu removeItem:item];
+}
+
 
 
 

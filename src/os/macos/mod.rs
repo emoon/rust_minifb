@@ -8,7 +8,7 @@ use Result;
 use InputCallback;
 use mouse_handler;
 use window_flags;
-use MenuItem;
+use {MenuItem, MenuItemHandle};
 //use menu::Menu;
 
 use libc::{c_void, c_char, c_uchar};
@@ -186,13 +186,14 @@ extern {
     //fn mfb_active_menu(window: *mut c_void) -> i32;
 
     fn mfb_create_menu(name: *const c_char) -> *mut c_void;
-    fn mfb_destroy_menu(menu_item: *mut c_void);
+    //fn mfb_destroy_menu(menu_item: *mut c_void);
 
     fn mfb_add_menu_item(menu_item: *mut c_void,
                         menu_id: i32,
                         name: *const c_char,
                         key: u32,
-                        modifier: u32) -> *mut c_void;
+                        modifier: u32) -> u64;
+    fn mfb_remove_menu_item(menu: *mut c_void, item_handle: u64);
 }
 
 #[derive(Default)]
@@ -391,45 +392,6 @@ impl Window {
         Ok(())
     }
 
-    /*
-
-    pub fn add_menu(&mut self, name: &str, menu: &Vec<Menu>) -> Result<()> {
-        let mut build_menu = Vec::<Vec<CMenu>>::new();
-
-        unsafe {
-            Self::recursive_convert(&mut build_menu, &Some(menu));
-            let menu_len = build_menu.len();
-            mfb_add_menu(self.window_handle,
-                         CString::new(name).unwrap().as_ptr(),
-                         build_menu[menu_len - 1].as_mut_ptr() as *mut c_void);
-        }
-
-        Ok(())
-    }
-
-    pub fn update_menu(&mut self, name: &str, menu: &Vec<Menu>) -> Result<()> {
-        let mut build_menu = Vec::<Vec<CMenu>>::new();
-
-        unsafe {
-            Self::recursive_convert(&mut build_menu, &Some(menu));
-            let menu_len = build_menu.len();
-            mfb_update_menu(self.window_handle,
-                         CString::new(name).unwrap().as_ptr(),
-                         build_menu[menu_len - 1].as_mut_ptr() as *mut c_void);
-        }
-
-        Ok(())
-    }
-
-    pub fn remove_menu(&mut self, name: &str) -> Result<()> {
-        unsafe {
-            mfb_remove_menu(self.window_handle, CString::new(name).unwrap().as_ptr());
-        }
-
-        Ok(())
-    }
-    */
-
     #[inline]
     pub fn is_open(&self) -> bool {
         unsafe { mfb_should_close(self.window_handle) == 0 }
@@ -474,7 +436,75 @@ impl Window {
     }
 
     /*
-    unsafe fn map_key_to_menu_key(key: Key) -> i32 {
+    */
+
+    /*
+    unsafe fn recursive_convert(menu_build_vec: &mut Vec<Vec<CMenu>>, in_menu: &Option<&Vec<Menu>>) -> *mut raw::c_void {
+        if in_menu.is_none() {
+            return ptr::null_mut();
+        }
+
+        let mut menu_build = Vec::<CMenu>::new();
+        let menu_vec = in_menu.as_ref().unwrap();
+
+        for m in menu_vec.iter() {
+            let key_map = Self::map_key_to_menu_key(m.key);
+
+            let mut menu = CMenu {
+                name: mem::uninitialized(),
+                id: m.id as raw::c_int,
+                key: key_map as raw::c_int,
+                special_key: 0,
+                modifier: m.modifier as raw::c_int,
+                mac_mod: m.mac_mod as raw::c_int,
+                enabled: m.enabled as raw::c_int,
+                sub_menu : Self::recursive_convert(menu_build_vec, &m.sub_menu),
+            };
+
+            let name = CString::new(m.name).unwrap();
+            let name_len = m.name.len();
+
+            ptr::copy_nonoverlapping(name.as_ptr(),
+                          menu.name.as_mut_ptr() as *mut i8,
+                          name_len);
+            menu.name[name_len] = 0;
+
+            menu_build.push(menu);
+        }
+
+        // end marker
+
+        menu_build.push(CMenu {
+            name: [0; STRING_SIZE],
+            id: -2,
+            key: 0,
+            special_key: 0,
+            modifier: 0,
+            mac_mod: 0,
+            enabled: 0,
+            sub_menu : ptr::null_mut(),
+        });
+
+        let ptr = menu_build.as_mut_ptr() as *mut raw::c_void ;
+        menu_build_vec.push(menu_build);
+        ptr
+    }
+    */
+}
+
+pub struct Menu {
+    menu_handle: *mut c_void,
+}
+
+impl Menu {
+    pub fn new(name: &str) -> Result<Menu> {
+        unsafe {
+            let menu_name = CString::new(name).unwrap();
+            Ok(Menu { menu_handle: mfb_create_menu(menu_name.as_ptr()) })
+        }
+    }
+
+    unsafe fn map_key_to_menu_key(key: Key) -> u32 {
         match key {
             Key::A => 0x00,
             Key::S => 0x01,
@@ -584,140 +614,25 @@ impl Window {
             _ => 0x7f,
         }
     }
-    */
 
-    /*
-    unsafe fn recursive_convert(menu_build_vec: &mut Vec<Vec<CMenu>>, in_menu: &Option<&Vec<Menu>>) -> *mut raw::c_void {
-        if in_menu.is_none() {
-            return ptr::null_mut();
-        }
-
-        let mut menu_build = Vec::<CMenu>::new();
-        let menu_vec = in_menu.as_ref().unwrap();
-
-        for m in menu_vec.iter() {
-            let key_map = Self::map_key_to_menu_key(m.key);
-
-            let mut menu = CMenu {
-                name: mem::uninitialized(),
-                id: m.id as raw::c_int,
-                key: key_map as raw::c_int,
-                special_key: 0,
-                modifier: m.modifier as raw::c_int,
-                mac_mod: m.mac_mod as raw::c_int,
-                enabled: m.enabled as raw::c_int,
-                sub_menu : Self::recursive_convert(menu_build_vec, &m.sub_menu),
-            };
-
-            let name = CString::new(m.name).unwrap();
-            let name_len = m.name.len();
-
-            ptr::copy_nonoverlapping(name.as_ptr(),
-                          menu.name.as_mut_ptr() as *mut i8,
-                          name_len);
-            menu.name[name_len] = 0;
-
-            menu_build.push(menu);
-        }
-
-        // end marker
-
-        menu_build.push(CMenu {
-            name: [0; STRING_SIZE],
-            id: -2,
-            key: 0,
-            special_key: 0,
-            modifier: 0,
-            mac_mod: 0,
-            enabled: 0,
-            sub_menu : ptr::null_mut(),
-        });
-
-        let ptr = menu_build.as_mut_ptr() as *mut raw::c_void ;
-        menu_build_vec.push(menu_build);
-        ptr
-    }
-    */
-}
-
-pub struct Menu {
-    menu_handle: *mut c_void,
-}
-
-impl Menu {
-    pub fn new(name: &str) -> Result<Menu> {
+    pub fn add_item(&mut self, item: &MenuItem) -> MenuItemHandle {
         unsafe {
-            let menu_name = CString::new(name).unwrap().as_ptr();
-            Ok(Menu { menu_handle: mfb_create_menu(menu_name) })
+            let item_name = CString::new(item.label.as_str()).unwrap();
+            let conv_key = Self::map_key_to_menu_key(item.key);
+
+            println!("key {:?} conv {}", item.key, conv_key); 
+
+            MenuItemHandle(mfb_add_menu_item(self.menu_handle, item.id as i32, item_name.as_ptr(), 
+                           Self::map_key_to_menu_key(item.key), item.modifier))
         }
     }
 
-    pub fn add_item(&mut self, item: &mut MenuItem) {
+    pub fn remove_item(&mut self, handle: &MenuItemHandle) {
         unsafe {
-            let item_name = CString::new(item.label.as_str()).unwrap().as_ptr();
-
-            mfb_add_menu_item(self.menu_handle, item.id as i32, item_name, 
-                              item.key as u32, item.modifier);
-        }
-    }
-
-    /*
-    #[inline]
-    pub fn remove_item(&mut self, item: &mut MenuItem) {
-        self.0.remove_item(item)
-    }
-    */
-}
-
-/*
-pub struct MenuItem {
-    id: usize,
-    label: String,
-    separator: bool,
-    key: Key,
-    modifier: u32,
-    impl_handle: u64,
-}
-
-impl MenuItem {
-    pub fn new(name: &str, id: usize) -> MenuItem {
-        MenuItem {
-            id: id,
-            label: "".to_owned(),
-            enabled: true,
-            separator: false,
-            key: Key::Unknown,
-            modifier: 0,
-            impl_handle: 0,
-        }
-    }
-    #[inline]
-    pub fn shortcut(self, key: Key, modifier: u32) -> Self {
-        MenuItem {
-            shortcut: key,
-            modifier: modifier,
-            .. self
-        }
-    }
-    #[inline]
-    pub fn separator(self, enabled: bool) -> Self {
-        MenuItem {
-            id: 0xffffffff,
-            .. self
-        }
-    }
-    #[inline]
-    pub fn enabled(self, enabled: bool) -> Self {
-        MenuItem {
-            enabled: enabled,
-            .. self
+            mfb_remove_menu_item(self.menu_handle, handle.0);
         }
     }
 }
-*/
-
-
-
 
 impl Drop for Window {
     fn drop(&mut self) {
@@ -727,6 +642,7 @@ impl Drop for Window {
     }
 }
 
+/*
 impl Drop for Menu {
     fn drop(&mut self) {
         unsafe {
@@ -734,6 +650,7 @@ impl Drop for Menu {
         }
     }
 }
+*/
 
 
 

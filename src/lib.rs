@@ -495,6 +495,7 @@ impl Window {
     }
 }
 
+
 /// Command key on Mac OS
 pub const MENU_KEY_COMMAND: usize = 1;
 /// Windows key on Windows
@@ -509,6 +510,9 @@ pub const MENU_KEY_ALT: usize = 16;
 const MENU_ID_SEPARATOR:usize = 0xffffffff;
 
 pub struct Menu(imp::Menu);
+
+#[derive(Debug)]
+pub struct MenuItemHandle(pub u64);
 
 impl Menu {
     pub fn new(name: &str) -> Result<Menu> {
@@ -526,13 +530,13 @@ impl Menu {
     }
 
     #[inline]
-    pub fn add_item(&mut self, item: &mut MenuItem) {
+    pub fn add_item(&mut self, item: &MenuItem) -> MenuItemHandle {
         self.0.add_item(item)
     }
 
     #[inline]
-    pub fn remove_item(&mut self, _item: &mut MenuItem) {
-        //self.0.remove_item(item)
+    pub fn remove_item(&mut self, item: &MenuItemHandle) {
+        self.0.remove_item(item)
     }
 }
 
