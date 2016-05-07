@@ -4,10 +4,12 @@ use {MouseButton, MouseMode, Scale, Key, KeyRepeat, WindowOptions};
 use key_handler::KeyHandler;
 use error::Error;
 use Result;
+//use MenuItem;
 use InputCallback;
 use mouse_handler;
 use window_flags;
-use menu::Menu;
+use MenuItem;
+//use menu::Menu;
 
 use libc::{c_void, c_char, c_uchar};
 use std::ffi::{CString};
@@ -149,8 +151,7 @@ static KEY_MAPPINGS: [Key; 128] = [
 ];
 
 
-const STRING_SIZE: usize = 512;
-
+/*
 #[repr(C)]
 struct CMenu {
     name: [i8; STRING_SIZE],
@@ -162,6 +163,7 @@ struct CMenu {
     mac_mod: raw::c_int,
     enabled: raw::c_int,
 }
+*/
 
 #[link(name = "Cocoa", kind = "framework")]
 #[link(name = "Carbon", kind = "framework")]
@@ -178,10 +180,19 @@ extern {
     fn mfb_should_close(window: *mut c_void) -> i32;
     fn mfb_get_screen_size() -> u32;
     fn mfb_is_active(window: *mut c_void) -> u32;
-    fn mfb_add_menu(window: *mut c_void, name: *const c_char, menu: *mut c_void);
-    fn mfb_remove_menu(window: *mut c_void, name: *const c_char);
-    fn mfb_update_menu(window: *mut c_void, name: *const c_char, menu: *mut c_void);
-    fn mfb_active_menu(window: *mut c_void) -> i32;
+    fn mfb_add_menu(window: *mut c_void, menu: *mut c_void);
+    //fn mfb_remove_menu(window: *mut c_void, name: *const c_char);
+    //fn mfb_update_menu(window: *mut c_void, name: *const c_char, menu: *mut c_void);
+    //fn mfb_active_menu(window: *mut c_void) -> i32;
+
+    fn mfb_create_menu(name: *const c_char) -> *mut c_void;
+    fn mfb_destroy_menu(menu_item: *mut c_void);
+
+    fn mfb_add_menu_item(menu_item: *mut c_void,
+                        menu_id: i32,
+                        name: *const c_char,
+                        key: u32,
+                        modifier: u32) -> *mut c_void;
 }
 
 #[derive(Default)]
@@ -363,7 +374,7 @@ impl Window {
     }
 
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
-        let menu_id = unsafe { mfb_active_menu(self.window_handle) };
+        let menu_id = 0; //unsafe { mfb_active_menu(self.window_handle) };
 
         if menu_id < 0 {
             None
@@ -371,6 +382,16 @@ impl Window {
             Some(menu_id as usize)
         }
     }
+
+    pub fn add_menu(&mut self, menu: &Menu) -> Result<()> {
+        unsafe {
+            mfb_add_menu(self.window_handle, menu.menu_handle);
+        }
+
+        Ok(())
+    }
+
+    /*
 
     pub fn add_menu(&mut self, name: &str, menu: &Vec<Menu>) -> Result<()> {
         let mut build_menu = Vec::<Vec<CMenu>>::new();
@@ -407,6 +428,7 @@ impl Window {
 
         Ok(())
     }
+    */
 
     #[inline]
     pub fn is_open(&self) -> bool {
@@ -451,6 +473,7 @@ impl Window {
         return factor;
     }
 
+    /*
     unsafe fn map_key_to_menu_key(key: Key) -> i32 {
         match key {
             Key::A => 0x00,
@@ -561,7 +584,9 @@ impl Window {
             _ => 0x7f,
         }
     }
+    */
 
+    /*
     unsafe fn recursive_convert(menu_build_vec: &mut Vec<Vec<CMenu>>, in_menu: &Option<&Vec<Menu>>) -> *mut raw::c_void {
         if in_menu.is_none() {
             return ptr::null_mut();
@@ -612,7 +637,87 @@ impl Window {
         menu_build_vec.push(menu_build);
         ptr
     }
+    */
 }
+
+pub struct Menu {
+    menu_handle: *mut c_void,
+}
+
+impl Menu {
+    pub fn new(name: &str) -> Result<Menu> {
+        unsafe {
+            let menu_name = CString::new(name).unwrap().as_ptr();
+            Ok(Menu { menu_handle: mfb_create_menu(menu_name) })
+        }
+    }
+
+    pub fn add_item(&mut self, item: &mut MenuItem) {
+        unsafe {
+            let item_name = CString::new(item.label.as_str()).unwrap().as_ptr();
+
+            mfb_add_menu_item(self.menu_handle, item.id as i32, item_name, 
+                              item.key as u32, item.modifier);
+        }
+    }
+
+    /*
+    #[inline]
+    pub fn remove_item(&mut self, item: &mut MenuItem) {
+        self.0.remove_item(item)
+    }
+    */
+}
+
+/*
+pub struct MenuItem {
+    id: usize,
+    label: String,
+    separator: bool,
+    key: Key,
+    modifier: u32,
+    impl_handle: u64,
+}
+
+impl MenuItem {
+    pub fn new(name: &str, id: usize) -> MenuItem {
+        MenuItem {
+            id: id,
+            label: "".to_owned(),
+            enabled: true,
+            separator: false,
+            key: Key::Unknown,
+            modifier: 0,
+            impl_handle: 0,
+        }
+    }
+    #[inline]
+    pub fn shortcut(self, key: Key, modifier: u32) -> Self {
+        MenuItem {
+            shortcut: key,
+            modifier: modifier,
+            .. self
+        }
+    }
+    #[inline]
+    pub fn separator(self, enabled: bool) -> Self {
+        MenuItem {
+            id: 0xffffffff,
+            .. self
+        }
+    }
+    #[inline]
+    pub fn enabled(self, enabled: bool) -> Self {
+        MenuItem {
+            enabled: enabled,
+            .. self
+        }
+    }
+}
+*/
+
+
+
 
 impl Drop for Window {
     fn drop(&mut self) {
@@ -621,4 +726,14 @@ impl Drop for Window {
         }
     }
 }
+
+impl Drop for Menu {
+    fn drop(&mut self) {
+        unsafe {
+            mfb_destroy_menu(self.menu_handle);
+        }
+    }
+}
+
+
 

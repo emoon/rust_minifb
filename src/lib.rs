@@ -75,13 +75,13 @@ pub mod os;
 mod mouse_handler;
 mod key_handler;
 mod window_flags;
-mod menu;
-pub use menu::Menu as Menu;
-pub use menu::MENU_KEY_COMMAND;
-pub use menu::MENU_KEY_WIN;
-pub use menu::MENU_KEY_SHIFT;
-pub use menu::MENU_KEY_CTRL;
-pub use menu::MENU_KEY_ALT;
+//mod menu;
+//pub use menu::Menu as Menu;
+//pub use menu::MENU_KEY_COMMAND;
+//pub use menu::MENU_KEY_WIN;
+//pub use menu::MENU_KEY_SHIFT;
+//pub use menu::MENU_KEY_CTRL;
+//pub use menu::MENU_KEY_ALT;
 
 
 #[cfg(target_os = "macos")]
@@ -462,10 +462,12 @@ impl Window {
     ///   scope for this library to support.
     /// ```
     ///
+    
     #[inline]
-    pub fn add_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) -> Result<()> {
-        self.0.add_menu(menu_name, menu)
+    pub fn add_menu(&mut self, menu: &Menu) -> Result<()> {
+        self.0.add_menu(&menu.0)
     }
+    /*
 
     ///
     /// Updates an existing menu created with [add_menu]
@@ -482,6 +484,7 @@ impl Window {
     pub fn remove_menu(&mut self, menu_name: &str) -> Result<()> {
         self.0.remove_menu(menu_name)
     }
+    */
 
     ///
     /// Check if a menu item has been pressed
@@ -489,6 +492,89 @@ impl Window {
     #[inline]
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
         self.0.is_menu_pressed()
+    }
+}
+
+/// Command key on Mac OS
+pub const MENU_KEY_COMMAND: usize = 1;
+/// Windows key on Windows
+pub const MENU_KEY_WIN: usize = 2;
+/// Shift key
+pub const MENU_KEY_SHIFT: usize = 4;
+/// Control key
+pub const MENU_KEY_CTRL: usize = 8;
+/// Alt key
+pub const MENU_KEY_ALT: usize = 16;
+
+const MENU_ID_SEPARATOR:usize = 0xffffffff;
+
+pub struct Menu(imp::Menu);
+
+impl Menu {
+    pub fn new(name: &str) -> Result<Menu> {
+        imp::Menu::new(name).map(Menu)
+    }
+
+    #[inline]
+    pub fn destroy_menu(&mut self) {
+        //self.0.destroy_menu()
+    }
+
+    #[inline]
+    pub fn add_sub_menu(&mut self, _menu: &Menu) {
+        //self.0.add_sub_menu(menu)
+    }
+
+    #[inline]
+    pub fn add_item(&mut self, item: &mut MenuItem) {
+        self.0.add_item(item)
+    }
+
+    #[inline]
+    pub fn remove_item(&mut self, _item: &mut MenuItem) {
+        //self.0.remove_item(item)
+    }
+}
+
+pub struct MenuItem {
+    pub id: usize,
+    pub label: String,
+    pub enabled: bool,
+    pub key: Key,
+    pub modifier: u32,
+}
+
+impl MenuItem {
+    pub fn new(name: &str, id: usize) -> MenuItem {
+        MenuItem {
+            id: id,
+            label: name.to_owned(),
+            enabled: true,
+            key: Key::Unknown,
+            modifier: 0,
+        }
+    }
+    #[inline]
+    pub fn shortcut(self, key: Key, modifier: u32) -> Self {
+        MenuItem {
+            key: key,
+            modifier: modifier,
+            .. self
+        }
+    }
+    #[inline]
+    pub fn separator(self) -> Self {
+        MenuItem {
+            id: MENU_ID_SEPARATOR,
+            .. self
+        }
+    }
+    #[inline]
+    pub fn enabled(self, enabled: bool) -> Self {
+        MenuItem {
+            enabled: enabled,
+            .. self
+        }
     }
 }
 

@@ -383,6 +383,7 @@ int mfb_active_menu(void* window) {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/*
 void mfb_add_menu(void* window, const char* name, void* m)
 {
 	OSXWindow* win = (OSXWindow*)window;
@@ -410,9 +411,25 @@ void mfb_add_menu(void* window, const char* name, void* m)
 	menu->menu = windowMenu;
 	menu->menu_item = windowMenuItem;
 }
+*/
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+void mfb_add_menu(void* window, void* m)
+{
+	OSXWindow* win = (OSXWindow*)window;
+	NSMenu* menu = (NSMenu*)m; 
+
+ 	NSMenu* main_menu = [NSApp mainMenu];
+
+    NSMenuItem* windowMenuItem = [main_menu addItemWithTitle:@"" action:NULL keyEquivalent:@""];
+    [NSApp setWindowsMenu:menu];
+    [windowMenuItem setSubmenu:menu];
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
 void mfb_update_menu(void* window, const char* name, void* m)
 {
 	OSXWindow* win = (OSXWindow*)window;
@@ -433,4 +450,30 @@ void mfb_update_menu(void* window, const char* name, void* m)
 		}
 	}
 }
+*/
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void* mfb_create_menu(const char* name) {
+	const char* n = strdup(name); // WHY?
+
+	NSString* ns_name = [NSString stringWithUTF8String: n];
+
+	//NSMenuItem* menu_item = [[NSMenuItem alloc] initWithTitle:name action:NULL keyEquivalent:@""];
+    NSMenu* menu = [[NSMenu alloc] initWithTitle:ns_name];
+    //[menu_item setSubmenu:menu];
+
+	return (void*)menu;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void mfb_destroy_menu(void* menu_item, const char* name)
+{
+	NSMenuItem* item = (NSMenuItem*)menu_item;
+ 	NSMenu* main_menu = [NSApp mainMenu];
+	[main_menu removeItem:item];
+}
+
+
 

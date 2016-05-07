@@ -1,3 +1,4 @@
+/*
 use Key;
 
 /// Command key on Mac OS
@@ -13,47 +14,42 @@ pub const MENU_KEY_ALT: usize = 16;
 
 const MENU_ID_SEPARATOR:usize = 0xffffffff;
 
-///
-/// Used to hold the data for creating menus for the Application
-///
-pub struct Menu<'a> {
-    /// Name of the menu item
-    pub name: &'a str,
-    /// User-defined Id thot will be sent back to the application in [get_menu_event]
-    pub id: usize,
-    /// Shortcut key for the menu item
-    pub key: Key,
-    /// Modifier on Windows for the menu
-    pub modifier: usize,
-    /// Modifier on Mac OS
-    pub mac_mod: usize,
-    /// Menu item should be enabled on grayed out
-    pub enabled: bool,
-    /// Sub-menu. Vector of a sub-menu, otherwise None if no sub-menu
-    pub sub_menu: Option<&'a Vec<Menu<'a>>>,
-}
+#[cfg(target_os = "macos")]
+use self::os::macos as imp;
+#[cfg(target_os = "windows")]
+use self::os::windows as imp;
+#[cfg(any(target_os="linux",
+    target_os="freebsd",
+    target_os="dragonfly",
+    target_os="netbsd",
+    target_os="openbsd"))]
+use self::os::unix as imp;
 
-impl<'a> Menu<'a> {
-    pub fn separotor() -> Menu<'a> {
-        Menu {
-            id: MENU_ID_SEPARATOR,
-            .. Self::default()
-        }
+pub struct Menu(imp::Menu);
+
+impl Menu {
+    pub fn new(name: &name) -> Result<Menu> {
+        imp::Menu::new(name).map(Menu)
+    }
+
+    #[inline]
+    pub fn destroy_menu(&mut self) {
+        self.0.destroy_menu()
+    }
+
+    #[inline]
+    pub fn add_sub_menu(&mut self, menu: &Menu) {
+        self.0.add_sub_menu(menu)
+    }
+
+    #[inline]
+    pub fn add_item(&mut self, item: &mut MenuItem) {
+        self.0.add_item(item)
+    }
+
+    #[inline]
+    pub fn remove_item(&mut self, item: &mut MenuItem) {
+        self.0.remove_item(item)
     }
 }
-
-impl<'a> Default for Menu<'a> {
-    fn default() -> Menu<'a> {
-        Menu {
-            name: "",
-            id: 0,
-            key: Key::Unknown,
-            modifier: 0,
-            mac_mod: 0,
-            enabled: true,
-            sub_menu: None,
-        }
-    }
-}
-
-
+*/
