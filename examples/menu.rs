@@ -6,14 +6,12 @@ use minifb::{MENU_KEY_COMMAND, MENU_KEY_CTRL};
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
 
-/*
 const MENU_TEST_ID: usize = 1;
 const OTHER_MENU_ID: usize = 2;
 const COLOR_0_ID: usize = 3;
 const COLOR_1_ID: usize = 4;
 const COLOR_2_ID: usize = 5;
 const CLOSE_MENU_ID: usize = 6;
-*/
 
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
@@ -28,84 +26,23 @@ fn main() {
                                  })
                          .expect("Unable to Open Window");
 
-    // Setup a sub menu
+    let mut menu = Menu::new("Test").unwrap();
+    let mut sub = Menu::new("Select Color").unwrap();
 
-    /*
-    let sub_menu = vec![
-        Menu {
-            name: "Color 0",
-            key: Key::F1,
-            id: COLOR_0_ID,
-            ..Menu::default()
-        },
-        Menu {
-            name: "Color 1",
-            key: Key::F2,
-            id: COLOR_1_ID,
-            ..Menu::default()
-        },
-        Menu {
-            name: "Color 2",
-            key: Key::F12,
-            id: COLOR_2_ID,
-            ..Menu::default()
-        },
-    ];
+    sub.add_item("Color 0", COLOR_0_ID).shortcut(Key::F1, 0).build();
+    sub.add_item("Color 1", COLOR_1_ID).shortcut(Key::F2, 0).build();
+    sub.add_item("Color 2", COLOR_2_ID).shortcut(Key::F7, 0).build();
 
-    // Main menu
-
-    let menu = vec![
-        Menu {
-            name: "Menu Test",
-            key: Key::W,
-            id: MENU_TEST_ID,
-            modifier: MENU_KEY_CTRL,
-            mac_mod: MENU_KEY_COMMAND,
-            ..Menu::default()
-        },
-        Menu::separotor(),
-        Menu {
-            name: "Other menu!",
-            key: Key::S,
-            modifier: MENU_KEY_CTRL,
-            mac_mod: MENU_KEY_CTRL,
-            id: OTHER_MENU_ID,
-            ..Menu::default()
-        },
-        Menu {
-            name: "Remove Menu",
-            key: Key::R,
-            id: CLOSE_MENU_ID,
-            ..Menu::default()
-        },
-        Menu {
-            name: "Select Color",
-            sub_menu: Some(&sub_menu),
-            ..Menu::default()
-        }
-    ];
-    */
-
-    //window.add_menu("Test", &menu).expect("Unable to add menu");
-
-    let mut menu = Menu::new("TestMenu").unwrap();
-    let mut sub = Menu::new("SubMenu").unwrap();
-
-    menu.add_menu_item(&MenuItem::new("Item 1", 1).shortcut(Key::S, 0));
-    menu.add_menu_item(&MenuItem::new("Item 2", 2));
-    menu.add_menu_item(&MenuItem::new("Item 3", 3));
-
-    sub.add_item("Test", 0).build();
-    sub.add_item("Test 2", 0).build();
-
-    menu.add_item("", 0).separator().build();
-    menu.add_item("Some item", 2).shortcut(Key::Y, MENU_KEY_CTRL).build();
+    menu.add_item("Menu Test", MENU_TEST_ID).shortcut(Key::W, MENU_KEY_CTRL).build();
+    menu.add_separator();
+    menu.add_item("Other Menu", OTHER_MENU_ID).shortcut(Key::W, MENU_KEY_CTRL).build();
+    menu.add_item("Remove Menu", CLOSE_MENU_ID).shortcut(Key::R, 0).build();
 
     menu.add_sub_menu("Sub Test", &sub);
 
     let _ = window.add_menu(&menu);
 
-    let color_mul = 1;
+    let mut color_mul = 1;
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         for y in 0..HEIGHT {
@@ -114,7 +51,6 @@ fn main() {
             }
         }
 
-        /*
         window.is_menu_pressed().map(|menu_id| {
             match menu_id {
                 COLOR_0_ID => {
@@ -128,14 +64,13 @@ fn main() {
                 }
                 CLOSE_MENU_ID => {
                     println!("remove menu");
-                    //window.remove_menu("Test").expect("Unable to remove menu");
+                    //window.remove_menu(
                 }
                 _ => (),
             }
 
             println!("Menu id {} pressed", menu_id);
         });
-        */
 
         window.get_keys().map(|keys| {
             for t in keys {
