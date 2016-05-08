@@ -594,10 +594,10 @@ impl<'a> MenuItem<'a> {
         }
     }
     #[inline]
-    pub fn shortcut(self, key: Key, modifier: u32) -> Self {
+    pub fn shortcut(self, key: Key, modifier: usize) -> Self {
         MenuItem {
             key: key,
-            modifier: modifier,
+            modifier: modifier as u32,
             .. self
         }
     }

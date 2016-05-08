@@ -2,6 +2,7 @@
 #include "OSXWindow.h"
 #include "OSXWindowFrameView.h"
 #include <Cocoa/Cocoa.h>
+#include <Carbon/Carbon.h>
 #include <unistd.h>
 
 static bool s_init = false;
@@ -451,6 +452,195 @@ void mfb_update_menu(void* window, const char* name, void* m)
 	}
 }
 */
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static CFStringRef create_string_for_key(CGKeyCode keyCode)
+{
+    TISInputSourceRef currentKeyboard = TISCopyCurrentKeyboardInputSource();
+    CFDataRef layoutData = TISGetInputSourceProperty(currentKeyboard, kTISPropertyUnicodeKeyLayoutData);
+
+	if (!layoutData)
+		return 0;
+
+    const UCKeyboardLayout *keyboardLayout = (const UCKeyboardLayout *)CFDataGetBytePtr(layoutData);
+
+    UInt32 keysDown = 0;
+    UniChar chars[4];
+    UniCharCount realLength;
+
+    UCKeyTranslate(keyboardLayout,
+                   keyCode,
+                   kUCKeyActionDisplay,
+                   0,
+                   LMGetKbdType(),
+                   kUCKeyTranslateNoDeadKeysBit,
+                   &keysDown,
+                   sizeof(chars) / sizeof(chars[0]),
+                   &realLength,
+                   chars);
+    CFRelease(currentKeyboard);
+
+    return CFStringCreateWithCharacters(kCFAllocatorDefault, chars, 1);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static NSString* convert_key_code_to_string(int key)
+{
+	if (key < 128)
+	{
+		NSString* charName = (NSString*)create_string_for_key(key);
+
+		if (charName)
+			return charName;
+
+		return [NSString stringWithFormat:@"%c", (char)key];
+	}
+
+	return [NSString stringWithFormat:@"%C", (uint16_t)key];
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+const uint32_t MENU_KEY_COMMAND = 1;
+const uint32_t MENU_KEY_WIN = 2;
+const uint32_t MENU_KEY_SHIFT= 4;
+const uint32_t MENU_KEY_CTRL = 8;
+const uint32_t MENU_KEY_ALT = 16;
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*
+void build_submenu(NSMenu* menu, MenuDesc* desc)
+{
+	[menu removeAllItems];
+
+	while (desc->menu_id != -2)
+	{
+		NSString* name = [NSString stringWithUTF8String: desc->name];
+
+		if (desc->menu_id == -1)
+		{
+			[menu addItem:[NSMenuItem separatorItem]];
+		}
+		else if (desc->sub_menu)
+		{
+			NSMenuItem* newItem = [[NSMenuItem alloc] initWithTitle:name action:NULL keyEquivalent:@""];
+			NSMenu* newMenu = [[NSMenu alloc] initWithTitle:name];
+			[newItem setSubmenu:newMenu];
+
+			build_submenu(newMenu, desc->sub_menu);
+
+			[newMenu release];
+			[menu addItem:newItem];
+			[newItem release];
+		}
+		else
+		{
+			int mask = 0;
+			NSMenuItem* newItem = [[NSMenuItem alloc] initWithTitle:name action:@selector(onMenuPress:) keyEquivalent:@""];
+			[newItem setTag:desc->menu_id];
+
+			if (desc->modifier_mac & MENU_KEY_COMMAND) {
+				mask |= NSCommandKeyMask;
+			}
+			if (desc->modifier_mac & MENU_KEY_SHIFT) {
+				mask |= NSShiftKeyMask;
+			}
+			if (desc->modifier_mac & MENU_KEY_CTRL) {
+				mask |= NSControlKeyMask;
+			}
+			if (desc->modifier_mac & MENU_KEY_ALT) {
+				mask |= NSAlternateKeyMask;
+			}
+
+			if (desc->key != 0x7f) {
+				NSString* key = convert_key_code_to_string(desc->key);
+
+				if (key) {
+					[newItem setKeyEquivalentModifierMask: mask];
+					[newItem setKeyEquivalent:key];
+				}
+			}
+
+			if (desc->enabled) {
+				[newItem setEnabled:YES];
+			} else {
+				[newItem setEnabled:NO];
+			}
+
+			[newItem setOnStateImage: newItem.offStateImage];
+			[menu addItem:newItem];
+			[newItem release];
+		}
+
+		desc++;
+	}
+}
+*/
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+uint64_t mfb_add_menu_item(
+	void* in_menu,
+	int32_t menu_id,
+	const char* item_name, 
+	bool enabled, 
+	uint32_t key,
+	uint32_t modfier)
+{
+	NSMenu* menu = (NSMenu*)in_menu; 
+
+	const char* t = strdup(item_name);
+
+	NSString* name = [NSString stringWithUTF8String: t];
+
+	if (menu_id == -1)
+	{
+		[menu addItem:[NSMenuItem separatorItem]];
+	}
+	else
+	{
+		int mask = 0;
+		NSMenuItem* newItem = [[NSMenuItem alloc] initWithTitle:name action:@selector(onMenuPress:) keyEquivalent:@""];
+		[newItem setTag:menu_id];
+
+		if ((modfier & MENU_KEY_COMMAND) ||
+		    (modfier & MENU_KEY_COMMAND)) {
+			mask |= NSCommandKeyMask;
+		}
+		if (modfier & MENU_KEY_SHIFT) {
+			mask |= NSShiftKeyMask;
+		}
+		if (modfier & MENU_KEY_ALT) {
+			mask |= NSAlternateKeyMask;
+		}
+
+		if (key != 0x7f) {
+			NSString* key_string = convert_key_code_to_string(key);
+
+			if (key_string) {
+				[newItem setKeyEquivalentModifierMask: mask];
+				[newItem setKeyEquivalent:key_string];
+			}
+		}
+
+		if (enabled) {
+			[newItem setEnabled:YES];
+		} else {
+			[newItem setEnabled:NO];
+		}
+
+		[newItem setOnStateImage: newItem.offStateImage];
+		[menu addItem:newItem];
+		[newItem release];
+
+		return (uint64_t)newItem;
+	}
+
+	return 0;
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

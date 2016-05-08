@@ -1,7 +1,7 @@
 extern crate minifb;
 
 use minifb::{Window, Key, Scale, WindowOptions, Menu, MenuItem};
-//use minifb::{MENU_KEY_CTRL, MENU_KEY_COMMAND};
+use minifb::{MENU_KEY_COMMAND, MENU_KEY_CTRL};
 
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
@@ -94,7 +94,7 @@ fn main() {
     menu.add_menu_item(&MenuItem::new("Item 2", 2));
     menu.add_menu_item(&MenuItem::new("Item 3", 3));
 
-    menu.add_item("Some item", 2).shortcut(Key::Y, 0).build();
+    menu.add_item("Some item", 2).shortcut(Key::Y, MENU_KEY_CTRL).build();
 
     let _ = window.add_menu(&menu);
 
