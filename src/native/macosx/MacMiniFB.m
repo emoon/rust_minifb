@@ -610,9 +610,7 @@ uint64_t mfb_add_menu_item(
 {
 	NSMenu* menu = (NSMenu*)in_menu; 
 
-	const char* t = strdup(item_name);
-
-	NSString* name = [NSString stringWithUTF8String: t];
+	NSString* name = [NSString stringWithUTF8String: item_name];
 
 	if (menu_id == -1)
 	{

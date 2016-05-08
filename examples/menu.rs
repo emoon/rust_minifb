@@ -34,7 +34,9 @@ fn main() {
     sub.add_item("Color 2", COLOR_2_ID).shortcut(Key::F7, 0).build();
 
     menu.add_item("Menu Test", MENU_TEST_ID).shortcut(Key::W, MENU_KEY_CTRL).build();
+
     menu.add_separator();
+
     menu.add_item("Other Menu", OTHER_MENU_ID).shortcut(Key::W, MENU_KEY_CTRL).build();
     menu.add_item("Remove Menu", CLOSE_MENU_ID).shortcut(Key::R, 0).build();
 
