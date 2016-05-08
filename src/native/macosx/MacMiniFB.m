@@ -645,7 +645,7 @@ uint64_t mfb_add_menu_item(
 
 		[newItem setOnStateImage: newItem.offStateImage];
 		[menu addItem:newItem];
-		[newItem release];
+		//[newItem release];
 
 		return (uint64_t)newItem;
 	}
@@ -669,15 +669,8 @@ void mfb_add_sub_menu(void* parent_menu, const char* menu_name, void* attach_men
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void* mfb_create_menu(const char* name) {
-	const char* n = strdup(name); // WHY?
-
-	NSString* ns_name = [NSString stringWithUTF8String: n];
-
-	//NSMenuItem* menu_item = [[NSMenuItem alloc] initWithTitle:name action:NULL keyEquivalent:@""];
+	NSString* ns_name = [NSString stringWithUTF8String: name];
     NSMenu* menu = [[NSMenu alloc] initWithTitle:ns_name];
-    //[menu_item setSubmenu:menu];
-	
-	//printf("created menu %p\n");
 
 	return (void*)menu;
 }
@@ -696,10 +689,21 @@ void mfb_destroy_menu(void* menu_item, const char* name)
 void mfb_remove_menu_item(void* parent, uint64_t menu_item) {
 	NSMenu* menu = (NSMenu*)parent;
 	NSMenuItem* item = (NSMenuItem*)(uintptr_t)menu_item; 
-
-	printf("remove item menu %p item %p\n", menu, item);
 	[menu removeItem:item];
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

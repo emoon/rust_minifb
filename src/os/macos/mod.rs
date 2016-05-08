@@ -151,20 +151,6 @@ static KEY_MAPPINGS: [Key; 128] = [
 ];
 
 
-/*
-#[repr(C)]
-struct CMenu {
-    name: [i8; STRING_SIZE],
-    sub_menu: *mut raw::c_void,
-    id: raw::c_int,
-    key: raw::c_int,
-    special_key: raw::c_int,
-    modifier: raw::c_int,
-    mac_mod: raw::c_int,
-    enabled: raw::c_int,
-}
-*/
-
 #[link(name = "Cocoa", kind = "framework")]
 #[link(name = "Carbon", kind = "framework")]
 extern {
@@ -182,9 +168,6 @@ extern {
     fn mfb_is_active(window: *mut c_void) -> u32;
     fn mfb_add_menu(window: *mut c_void, menu: *mut c_void);
     fn mfb_add_sub_menu(parent_menu: *mut c_void, name: *const c_char, menu: *mut c_void);
-    //fn mfb_remove_menu(window: *mut c_void, name: *const c_char);
-    //fn mfb_update_menu(window: *mut c_void, name: *const c_char, menu: *mut c_void);
-    //fn mfb_active_menu(window: *mut c_void) -> i32;
 
     fn mfb_create_menu(name: *const c_char) -> *mut c_void;
     //fn mfb_destroy_menu(menu_item: *mut c_void);
@@ -436,62 +419,6 @@ impl Window {
 
         return factor;
     }
-
-    /*
-    */
-
-    /*
-    unsafe fn recursive_convert(menu_build_vec: &mut Vec<Vec<CMenu>>, in_menu: &Option<&Vec<Menu>>) -> *mut raw::c_void {
-        if in_menu.is_none() {
-            return ptr::null_mut();
-        }
-
-        let mut menu_build = Vec::<CMenu>::new();
-        let menu_vec = in_menu.as_ref().unwrap();
-
-        for m in menu_vec.iter() {
-            let key_map = Self::map_key_to_menu_key(m.key);
-
-            let mut menu = CMenu {
-                name: mem::uninitialized(),
-                id: m.id as raw::c_int,
-                key: key_map as raw::c_int,
-                special_key: 0,
-                modifier: m.modifier as raw::c_int,
-                mac_mod: m.mac_mod as raw::c_int,
-                enabled: m.enabled as raw::c_int,
-                sub_menu : Self::recursive_convert(menu_build_vec, &m.sub_menu),
-            };
-
-            let name = CString::new(m.name).unwrap();
-            let name_len = m.name.len();
-
-            ptr::copy_nonoverlapping(name.as_ptr(),
-                          menu.name.as_mut_ptr() as *mut i8,
-                          name_len);
-            menu.name[name_len] = 0;
-
-            menu_build.push(menu);
-        }
-
-        // end marker
-
-        menu_build.push(CMenu {
-            name: [0; STRING_SIZE],
-            id: -2,
-            key: 0,
-            special_key: 0,
-            modifier: 0,
-            mac_mod: 0,
-            enabled: 0,
-            sub_menu : ptr::null_mut(),
-        });
-
-        let ptr = menu_build.as_mut_ptr() as *mut raw::c_void ;
-        menu_build_vec.push(menu_build);
-        ptr
-    }
-    */
 }
 
 pub struct Menu {
@@ -629,12 +556,9 @@ impl Menu {
             let item_name = CString::new(item.label.as_str()).unwrap();
             let conv_key = Self::map_key_to_menu_key(item.key);
 
-            println!("key {:?} conv {}", item.key, conv_key); 
-
-            MenuItemHandle(mfb_add_menu_item(self.menu_handle, item.id as i32, item_name.as_ptr(), 
-                           item.enabled,
-                           Self::map_key_to_menu_key(item.key), 
-                           item.modifier))
+            MenuItemHandle(mfb_add_menu_item(self.menu_handle, 
+                           item.id as i32, item_name.as_ptr(), 
+                           item.enabled, conv_key, item.modifier))
         }
     }
 
