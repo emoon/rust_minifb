@@ -191,6 +191,7 @@ extern {
     fn mfb_add_menu_item(menu_item: *mut c_void,
                         menu_id: i32,
                         name: *const c_char,
+                        enabled: bool,
                         key: u32,
                         modifier: u32) -> u64;
     fn mfb_remove_menu_item(menu: *mut c_void, item_handle: u64);
@@ -623,7 +624,9 @@ impl Menu {
             println!("key {:?} conv {}", item.key, conv_key); 
 
             MenuItemHandle(mfb_add_menu_item(self.menu_handle, item.id as i32, item_name.as_ptr(), 
-                           Self::map_key_to_menu_key(item.key), item.modifier))
+                           item.enabled,
+                           Self::map_key_to_menu_key(item.key), 
+                           item.modifier))
         }
     }
 

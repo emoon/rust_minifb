@@ -372,11 +372,11 @@ uint64_t mfb_add_menu_item(
 		}
 
 		if (key != 0x7f) {
-			NSString* key = convert_key_code_to_string(key);
+			NSString* key_string = convert_key_code_to_string(key);
 
-			if (key) {
+			if (key_string) {
 				[newItem setKeyEquivalentModifierMask: mask];
-				[newItem setKeyEquivalent:key];
+				[newItem setKeyEquivalent:key_string];
 			}
 		}
 
