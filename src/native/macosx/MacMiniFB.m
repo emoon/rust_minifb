@@ -1,4 +1,3 @@
-
 #include "OSXWindow.h"
 #include "OSXWindowFrameView.h"
 #include <Cocoa/Cocoa.h>
@@ -241,7 +240,8 @@ static int update_events()
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static int generic_update(OSXWindow* win) {
+static int generic_update(OSXWindow* win) 
+{
 	int state = update_events();
 
     if (win->shared_data) {
@@ -384,88 +384,6 @@ int mfb_active_menu(void* window) {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/*
-void mfb_add_menu(void* window, const char* name, void* m)
-{
-	OSXWindow* win = (OSXWindow*)window;
-
-	const char* n = strdup(name);
-
-	NSString* ns_name = [NSString stringWithUTF8String: n];
-
- 	NSMenu* main_menu = [NSApp mainMenu];
-
-    NSMenuItem* windowMenuItem = [main_menu addItemWithTitle:@"" action:NULL keyEquivalent:@""];
-    NSMenu* windowMenu = [[NSMenu alloc] initWithTitle:ns_name];
-    [NSApp setWindowsMenu:windowMenu];
-    [windowMenuItem setSubmenu:windowMenu];
-
-	MenuDesc* menu_desc = (MenuDesc*)m;
-
-	[windowMenu setAutoenablesItems:NO];
-
-	build_submenu(windowMenu, menu_desc);
-
-	Menu* menu = &win->menu_data->menus[win->menu_data->menu_count++];
-
-	menu->name = n;
-	menu->menu = windowMenu;
-	menu->menu_item = windowMenuItem;
-}
-*/
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-uint64_t mfb_add_menu(void* window, void* m)
-{
-	OSXWindow* win = (OSXWindow*)window;
-	NSMenu* menu = (NSMenu*)m; 
-
- 	NSMenu* main_menu = [NSApp mainMenu];
-
-    NSMenuItem* windowMenuItem = [main_menu addItemWithTitle:@"" action:NULL keyEquivalent:@""];
-    [NSApp setWindowsMenu:menu];
-    [windowMenuItem setSubmenu:menu];
-
-    return (uint64_t)menu;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-void mfb_remove_menu_at(void* window, int index)
-{
-	(void)window;
- 	NSMenu* main_menu = [NSApp mainMenu];
-	[main_menu removeItemAtIndex:index];
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/*
-void mfb_update_menu(void* window, const char* name, void* m)
-{
-	OSXWindow* win = (OSXWindow*)window;
-
-	NSString* ns_name = [NSString stringWithUTF8String: name];
- 	NSMenu* main_menu = [NSApp mainMenu];
-
- 	int len = win->menu_data->menu_count;
-
- 	for (int i = 0; i < len; ++i)
-	{
-		Menu* menu = &win->menu_data->menus[i];
-
-		if (!strcmp(menu->name, name)) {
-			[menu->menu removeAllItems];
-			build_submenu(menu->menu, (MenuDesc*)m);
-			return;
-		}
-	}
-}
-*/
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 static CFStringRef create_string_for_key(CGKeyCode keyCode)
 {
     TISInputSourceRef currentKeyboard = TISCopyCurrentKeyboardInputSource();
@@ -519,76 +437,6 @@ const uint32_t MENU_KEY_WIN = 2;
 const uint32_t MENU_KEY_SHIFT= 4;
 const uint32_t MENU_KEY_CTRL = 8;
 const uint32_t MENU_KEY_ALT = 16;
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/*
-void build_submenu(NSMenu* menu, MenuDesc* desc)
-{
-	[menu removeAllItems];
-
-	while (desc->menu_id != -2)
-	{
-		NSString* name = [NSString stringWithUTF8String: desc->name];
-
-		if (desc->menu_id == -1)
-		{
-			[menu addItem:[NSMenuItem separatorItem]];
-		}
-		else if (desc->sub_menu)
-		{
-			NSMenuItem* newItem = [[NSMenuItem alloc] initWithTitle:name action:NULL keyEquivalent:@""];
-			NSMenu* newMenu = [[NSMenu alloc] initWithTitle:name];
-			[newItem setSubmenu:newMenu];
-
-			build_submenu(newMenu, desc->sub_menu);
-
-			[newMenu release];
-			[menu addItem:newItem];
-			[newItem release];
-		}
-		else
-		{
-			int mask = 0;
-			NSMenuItem* newItem = [[NSMenuItem alloc] initWithTitle:name action:@selector(onMenuPress:) keyEquivalent:@""];
-			[newItem setTag:desc->menu_id];
-
-			if (desc->modifier_mac & MENU_KEY_COMMAND) {
-				mask |= NSCommandKeyMask;
-			}
-			if (desc->modifier_mac & MENU_KEY_SHIFT) {
-				mask |= NSShiftKeyMask;
-			}
-			if (desc->modifier_mac & MENU_KEY_CTRL) {
-				mask |= NSControlKeyMask;
-			}
-			if (desc->modifier_mac & MENU_KEY_ALT) {
-				mask |= NSAlternateKeyMask;
-			}
-
-			if (desc->key != 0x7f) {
-				NSString* key = convert_key_code_to_string(desc->key);
-
-				if (key) {
-					[newItem setKeyEquivalentModifierMask: mask];
-					[newItem setKeyEquivalent:key];
-				}
-			}
-
-			if (desc->enabled) {
-				[newItem setEnabled:YES];
-			} else {
-				[newItem setEnabled:NO];
-			}
-
-			[newItem setOnStateImage: newItem.offStateImage];
-			[menu addItem:newItem];
-			[newItem release];
-		}
-
-		desc++;
-	}
-}
-*/
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -678,7 +526,6 @@ uint64_t mfb_add_menu_item(
 
 		[newItem setOnStateImage: newItem.offStateImage];
 		[menu addItem:newItem];
-		//[newItem release];
 
 		return (uint64_t)newItem;
 	}
@@ -704,7 +551,6 @@ void mfb_add_sub_menu(void* parent_menu, const char* menu_name, void* attach_men
 void* mfb_create_menu(const char* name) {
 	NSString* ns_name = [NSString stringWithUTF8String: name];
     NSMenu* menu = [[NSMenu alloc] initWithTitle:ns_name];
-
 	return (void*)menu;
 }
 
@@ -725,19 +571,29 @@ void mfb_remove_menu_item(void* parent, uint64_t menu_item) {
 	[menu removeItem:item];
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+uint64_t mfb_add_menu(void* window, void* m)
+{
+	OSXWindow* win = (OSXWindow*)window;
+	NSMenu* menu = (NSMenu*)m; 
 
+ 	NSMenu* main_menu = [NSApp mainMenu];
 
+    NSMenuItem* windowMenuItem = [main_menu addItemWithTitle:@"" action:NULL keyEquivalent:@""];
+    [NSApp setWindowsMenu:menu];
+    [windowMenuItem setSubmenu:menu];
 
+    return (uint64_t)menu;
+}
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
-
-
-
-
-
-
-
+void mfb_remove_menu_at(void* window, int index)
+{
+	(void)window;
+ 	NSMenu* main_menu = [NSApp mainMenu];
+	[main_menu removeItemAtIndex:index];
+}
 
 
