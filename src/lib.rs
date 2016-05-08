@@ -530,8 +530,18 @@ impl Menu {
     }
 
     #[inline]
-    pub fn add_item(&mut self, item: &MenuItem) -> MenuItemHandle {
-        self.0.add_item(item)
+    pub fn add_menu_item(&mut self, item: &MenuItem) -> MenuItemHandle {
+        self.0.add_menu_item(item)
+    }
+
+    #[inline]
+    pub fn add_item(&mut self, name: &str, id: usize) -> MenuItem {
+        MenuItem {
+            id: id,
+            label: name.to_owned(),
+            menu: Some(self),
+            ..MenuItem::default()
+        }
     }
 
     #[inline]
@@ -540,22 +550,47 @@ impl Menu {
     }
 }
 
-pub struct MenuItem {
+pub struct MenuItem<'a> {
     pub id: usize,
     pub label: String,
     pub enabled: bool,
     pub key: Key,
     pub modifier: u32,
+    pub menu: Option<&'a mut Menu>,
 }
 
-impl MenuItem {
+impl<'a> Default for MenuItem<'a> {
+    fn default() -> Self {
+        MenuItem {
+            id: MENU_ID_SEPARATOR,
+            label: "".to_owned(),
+            enabled: true,
+            key: Key::Unknown,
+            modifier: 0,
+            menu: None,
+        }
+    }
+}
+
+impl<'a> Clone for MenuItem<'a> {
+    fn clone(&self) -> Self {
+        MenuItem {
+            id: self.id,
+            label: self.label.clone(), 
+            enabled: self.enabled,
+            key: self.key,
+            modifier: self.modifier, 
+            menu: None,
+        }
+    }
+}
+
+impl<'a> MenuItem<'a> {
     pub fn new(name: &str, id: usize) -> MenuItem {
         MenuItem {
             id: id,
             label: name.to_owned(),
-            enabled: true,
-            key: Key::Unknown,
-            modifier: 0,
+            ..MenuItem::default()
         }
     }
     #[inline]
@@ -578,6 +613,15 @@ impl MenuItem {
         MenuItem {
             enabled: enabled,
             .. self
+        }
+    }
+    #[inline]
+    pub fn build(&mut self) -> MenuItemHandle {
+        let t = self.clone();
+        if let Some(ref mut menu) = self.menu {
+            menu.0.add_menu_item(&t)
+        } else {
+            MenuItemHandle(0)
         }
     }
 }

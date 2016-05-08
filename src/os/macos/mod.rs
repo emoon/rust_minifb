@@ -616,7 +616,7 @@ impl Menu {
         }
     }
 
-    pub fn add_item(&mut self, item: &MenuItem) -> MenuItemHandle {
+    pub fn add_menu_item(&mut self, item: &MenuItem) -> MenuItemHandle {
         unsafe {
             let item_name = CString::new(item.label.as_str()).unwrap();
             let conv_key = Self::map_key_to_menu_key(item.key);

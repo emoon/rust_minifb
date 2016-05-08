@@ -90,9 +90,11 @@ fn main() {
 
     let mut menu = Menu::new("TestMenu").unwrap();
 
-    menu.add_item(&MenuItem::new("Item 1", 1).shortcut(Key::S, 0));
-    menu.add_item(&MenuItem::new("Item 2", 2));
-    menu.add_item(&MenuItem::new("Item 3", 3));
+    menu.add_menu_item(&MenuItem::new("Item 1", 1).shortcut(Key::S, 0));
+    menu.add_menu_item(&MenuItem::new("Item 2", 2));
+    menu.add_menu_item(&MenuItem::new("Item 3", 3));
+
+    menu.add_item("Some item", 2).shortcut(Key::Y, 0).build();
 
     let _ = window.add_menu(&menu);
 
