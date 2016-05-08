@@ -4,15 +4,15 @@ use {MouseButton, MouseMode, Scale, Key, KeyRepeat, WindowOptions};
 use key_handler::KeyHandler;
 use error::Error;
 use Result;
-//use MenuItem;
+// use MenuItem;
 use InputCallback;
 use mouse_handler;
 use window_flags;
 use {MenuItem, MenuItemHandle};
-//use menu::Menu;
+// use menu::Menu;
 
 use libc::{c_void, c_char, c_uchar};
-use std::ffi::{CString};
+use std::ffi::CString;
 use std::ptr;
 use std::mem;
 use std::os::raw;
@@ -150,18 +150,23 @@ static KEY_MAPPINGS: [Key; 128] = [
     /* 7f */ Key::Unknown,
 ];
 
-
 #[link(name = "Cocoa", kind = "framework")]
 #[link(name = "Carbon", kind = "framework")]
-extern {
-    fn mfb_open(name: *const c_char, width: u32, height: u32, flags: u32, scale: i32) -> *mut c_void;
+extern "C" {
+    fn mfb_open(name: *const c_char,
+                width: u32,
+                height: u32,
+                flags: u32,
+                scale: i32)
+                -> *mut c_void;
     fn mfb_close(window: *mut c_void);
     fn mfb_update(window: *mut c_void);
     fn mfb_update_with_buffer(window: *mut c_void, buffer: *const c_uchar);
     fn mfb_set_position(window: *mut c_void, x: i32, y: i32);
-    fn mfb_set_key_callback(window: *mut c_void, target: *mut c_void,
-                            cb: unsafe extern fn(*mut c_void, i32, i32),
-                            cb: unsafe extern fn(*mut c_void, u32));
+    fn mfb_set_key_callback(window: *mut c_void,
+                            target: *mut c_void,
+                            cb: unsafe extern "C" fn(*mut c_void, i32, i32),
+                            cb: unsafe extern "C" fn(*mut c_void, u32));
     fn mfb_set_mouse_data(window_handle: *mut c_void, shared_data: *mut SharedData);
     fn mfb_should_close(window: *mut c_void) -> i32;
     fn mfb_get_screen_size() -> u32;
@@ -170,14 +175,15 @@ extern {
     fn mfb_add_sub_menu(parent_menu: *mut c_void, name: *const c_char, menu: *mut c_void);
 
     fn mfb_create_menu(name: *const c_char) -> *mut c_void;
-    //fn mfb_destroy_menu(menu_item: *mut c_void);
+    // fn mfb_destroy_menu(menu_item: *mut c_void);
 
     fn mfb_add_menu_item(menu_item: *mut c_void,
-                        menu_id: i32,
-                        name: *const c_char,
-                        enabled: bool,
-                        key: u32,
-                        modifier: u32) -> u64;
+                         menu_id: i32,
+                         name: *const c_char,
+                         enabled: bool,
+                         key: u32,
+                         modifier: u32)
+                         -> u64;
     fn mfb_remove_menu_item(menu: *mut c_void, item_handle: u64);
 }
 
@@ -238,7 +244,11 @@ impl Window {
 
         unsafe {
             let scale_factor = Self::get_scale_factor(width, height, opts.scale) as usize;
-            let handle = mfb_open(n.as_ptr(), width as u32, height as u32, window_flags::get_flags(opts), scale_factor as i32);
+            let handle = mfb_open(n.as_ptr(),
+                                  width as u32,
+                                  height as u32,
+                                  window_flags::get_flags(opts),
+                                  scale_factor as i32);
 
             if handle == ptr::null_mut() {
                 return Err(Error::WindowCreate("Unable to open Window".to_owned()));
@@ -250,7 +260,7 @@ impl Window {
                 shared_data: SharedData {
                     width: width as u32 * scale_factor as u32,
                     height: height as u32 * scale_factor as u32,
-                    .. SharedData::default()
+                    ..SharedData::default()
                 },
                 key_handler: KeyHandler::new(),
                 has_set_data: false,
@@ -274,7 +284,10 @@ impl Window {
         unsafe {
             mfb_update_with_buffer(self.window_handle, buffer.as_ptr() as *const u8);
             Self::set_mouse_data(self);
-            mfb_set_key_callback(self.window_handle, mem::transmute(self), key_callback, char_callback);
+            mfb_set_key_callback(self.window_handle,
+                                 mem::transmute(self),
+                                 key_callback,
+                                 char_callback);
         }
     }
 
@@ -284,7 +297,10 @@ impl Window {
         unsafe {
             mfb_update(self.window_handle);
             Self::set_mouse_data(self);
-            mfb_set_key_callback(self.window_handle, mem::transmute(self), key_callback, char_callback);
+            mfb_set_key_callback(self.window_handle,
+                                 mem::transmute(self),
+                                 key_callback,
+                                 char_callback);
         }
     }
 
@@ -294,7 +310,8 @@ impl Window {
     }
 
     pub fn get_size(&self) -> (usize, usize) {
-        (self.shared_data.width as usize, self.shared_data.height as usize)
+        (self.shared_data.width as usize,
+         self.shared_data.height as usize)
     }
 
     pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
@@ -321,7 +338,12 @@ impl Window {
         let w = self.shared_data.width as f32;
         let h = self.shared_data.height as f32;
 
-        mouse_handler::get_pos(mode, self.shared_data.mouse_x, self.shared_data.mouse_y, s, w, h)
+        mouse_handler::get_pos(mode,
+                               self.shared_data.mouse_x,
+                               self.shared_data.mouse_y,
+                               s,
+                               w,
+                               h)
     }
 
     #[inline]
@@ -355,7 +377,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_input_callback(&mut self, callback: Box<InputCallback>)  {
+    pub fn set_input_callback(&mut self, callback: Box<InputCallback>) {
         self.key_handler.set_input_callback(callback)
     }
 
@@ -482,10 +504,10 @@ impl Menu {
             Key::N => 0x2d,
             Key::M => 0x2e,
             Key::Period => 0x2f,
-            //Key::Tab => 0x30,
+            // Key::Tab => 0x30,
             Key::Space => 0x31,
-            //Key::Backspace => 0x33,
-            //Key::Escape => 0x35,
+            // Key::Backspace => 0x33,
+            // Key::Escape => 0x35,
             Key::RightSuper => 0x36,
             Key::LeftSuper => 0x37,
             Key::LeftShift => 0x38,
@@ -495,7 +517,7 @@ impl Menu {
             Key::RightShift => 0x3c,
             Key::RightAlt => 0x3d,
             Key::RightCtrl => 0x3e,
-            //Key::Equal => 0x51,
+            // Key::Equal => 0x51,
             Key::NumPad0 => 0x52,
             Key::NumPad1 => 0x53,
             Key::NumPad2 => 0x54,
@@ -519,23 +541,23 @@ impl Menu {
             Key::F15 => 0x71,
             Key::Insert => 0x72, /* Really Help... */
             Key::Home => 0x73,
-            //Key::PageUp => 0x74,
+            // Key::PageUp => 0x74,
             Key::Delete => 0x75,
             Key::F4 => 0x76,
             Key::End => 0x77,
             Key::F2 => 0x78,
-            //Key::PageDown => 0x79,
+            // Key::PageDown => 0x79,
             Key::F1 => 0x7a,
-            //Key::Left => 0x7b,
-            //Key::Right => 0x7c,
-            //Key::Down => 0x7d,
-            //Key::Up => 0x7e,
+            // Key::Left => 0x7b,
+            // Key::Right => 0x7c,
+            // Key::Down => 0x7d,
+            // Key::Up => 0x7e,
             Key::Left => 0x2190,
             Key::Up => 0x2191,
             Key::Down => 0x2193,
             Key::Right => 0x2192,
             Key::Escape => 0x238b,
-            //Key::Enter => 0x000d,
+            // Key::Enter => 0x000d,
             Key::Backspace => 0x232b,
             Key::Tab => 0x21e4,
             Key::PageUp => 0x21de,
@@ -556,9 +578,12 @@ impl Menu {
             let item_name = CString::new(item.label.as_str()).unwrap();
             let conv_key = Self::map_key_to_menu_key(item.key);
 
-            MenuItemHandle(mfb_add_menu_item(self.menu_handle, 
-                           item.id as i32, item_name.as_ptr(), 
-                           item.enabled, conv_key, item.modifier))
+            MenuItemHandle(mfb_add_menu_item(self.menu_handle,
+                                             item.id as i32,
+                                             item_name.as_ptr(),
+                                             item.enabled,
+                                             conv_key,
+                                             item.modifier))
         }
     }
 
@@ -577,15 +602,11 @@ impl Drop for Window {
     }
 }
 
-/*
-impl Drop for Menu {
-    fn drop(&mut self) {
-        unsafe {
-            mfb_destroy_menu(self.menu_handle);
-        }
-    }
-}
-*/
-
-
-
+// impl Drop for Menu {
+// fn drop(&mut self) {
+// unsafe {
+// mfb_destroy_menu(self.menu_handle);
+// }
+// }
+// }
+//
