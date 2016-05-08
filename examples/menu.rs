@@ -40,7 +40,7 @@ fn main() {
 
     menu.add_sub_menu("Sub Test", &sub);
 
-    let _ = window.add_menu(&menu);
+    let menu_handle = window.add_menu(&menu);
 
     let mut color_mul = 1;
 
@@ -64,7 +64,7 @@ fn main() {
                 }
                 CLOSE_MENU_ID => {
                     println!("remove menu");
-                    //window.remove_menu(
+                    window.remove_menu(menu_handle);
                 }
                 _ => (),
             }

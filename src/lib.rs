@@ -464,27 +464,27 @@ impl Window {
     ///
     
     #[inline]
-    pub fn add_menu(&mut self, menu: &Menu) -> Result<()> {
+    pub fn add_menu(&mut self, menu: &Menu) -> MenuHandle {
         self.0.add_menu(&menu.0)
     }
-    /*
 
     ///
     /// Updates an existing menu created with [add_menu]
     ///
+    /*
     #[inline]
     pub fn update_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) -> Result<()> {
         self.0.update_menu(menu_name, menu)
     }
+    */
 
     ///
     /// Remove a menu that has been added with [add_menu]
     ///
     #[inline]
-    pub fn remove_menu(&mut self, menu_name: &str) -> Result<()> {
-        self.0.remove_menu(menu_name)
+    pub fn remove_menu(&mut self, handle: MenuHandle) {
+        self.0.remove_menu(handle)
     }
-    */
 
     ///
     /// Check if a menu item has been pressed
@@ -511,8 +511,11 @@ const MENU_ID_SEPARATOR:usize = 0xffffffff;
 
 pub struct Menu(imp::Menu);
 
-#[derive(Debug)]
+#[derive(Copy, Clone)]
 pub struct MenuItemHandle(pub u64);
+
+#[derive(Copy, Clone, PartialEq)]
+pub struct MenuHandle(pub u64);
 
 impl Menu {
     pub fn new(name: &str) -> Result<Menu> {

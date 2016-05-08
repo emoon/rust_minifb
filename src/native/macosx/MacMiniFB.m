@@ -416,7 +416,7 @@ void mfb_add_menu(void* window, const char* name, void* m)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void mfb_add_menu(void* window, void* m)
+uint64_t mfb_add_menu(void* window, void* m)
 {
 	OSXWindow* win = (OSXWindow*)window;
 	NSMenu* menu = (NSMenu*)m; 
@@ -426,6 +426,17 @@ void mfb_add_menu(void* window, void* m)
     NSMenuItem* windowMenuItem = [main_menu addItemWithTitle:@"" action:NULL keyEquivalent:@""];
     [NSApp setWindowsMenu:menu];
     [windowMenuItem setSubmenu:menu];
+
+    return (uint64_t)menu;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void mfb_remove_menu_at(void* window, int index)
+{
+	(void)window;
+ 	NSMenu* main_menu = [NSApp mainMenu];
+	[main_menu removeItemAtIndex:index];
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

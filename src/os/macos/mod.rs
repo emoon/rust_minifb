@@ -8,7 +8,7 @@ use Result;
 use InputCallback;
 use mouse_handler;
 use window_flags;
-use {MenuItem, MenuItemHandle};
+use {MenuItem, MenuItemHandle, MenuHandle};
 // use menu::Menu;
 
 use libc::{c_void, c_char, c_uchar};
@@ -171,12 +171,12 @@ extern "C" {
     fn mfb_should_close(window: *mut c_void) -> i32;
     fn mfb_get_screen_size() -> u32;
     fn mfb_is_active(window: *mut c_void) -> u32;
-    fn mfb_add_menu(window: *mut c_void, menu: *mut c_void);
+    fn mfb_add_menu(window: *mut c_void, menu: *mut c_void) -> u64;
     fn mfb_add_sub_menu(parent_menu: *mut c_void, name: *const c_char, menu: *mut c_void);
     fn mfb_active_menu(window: *mut c_void) -> i32;
 
     fn mfb_create_menu(name: *const c_char) -> *mut c_void;
-    // fn mfb_destroy_menu(menu_item: *mut c_void);
+    fn mfb_remove_menu_at(window: *mut c_void, index: i32);
 
     fn mfb_add_menu_item(menu_item: *mut c_void,
                          menu_id: i32,
@@ -206,6 +206,7 @@ pub struct Window {
     pub shared_data: SharedData,
     key_handler: KeyHandler,
     pub has_set_data: bool,
+    menus: Vec<MenuHandle>,
 }
 
 unsafe extern "C" fn key_callback(window: *mut c_void, key: i32, state: i32) {
@@ -265,6 +266,7 @@ impl Window {
                 },
                 key_handler: KeyHandler::new(),
                 has_set_data: false,
+                menus: Vec::new(),
             })
         }
     }
@@ -392,12 +394,25 @@ impl Window {
         }
     }
 
-    pub fn add_menu(&mut self, menu: &Menu) -> Result<()> {
+    pub fn add_menu(&mut self, menu: &Menu) -> MenuHandle {
         unsafe {
-            mfb_add_menu(self.window_handle, menu.menu_handle);
+            let handle = MenuHandle(mfb_add_menu(self.window_handle, menu.menu_handle));
+            self.menus.push(handle);
+            handle
         }
+    }
 
-        Ok(())
+    pub fn remove_menu(&mut self, handle: MenuHandle) {
+        for i in 0..self.menus.len() {
+            if self.menus[i] == handle {
+                self.menus.remove(i);
+                unsafe { 
+                    // + 1 here as we always have a default menu we shouldn't remove
+                    mfb_remove_menu_at(self.window_handle, (i + 1) as i32);
+                }
+                return;
+            }
+        }
     }
 
     #[inline]
@@ -579,8 +594,6 @@ impl Menu {
             let item_name = CString::new(item.label.as_str()).unwrap();
             let conv_key = Self::map_key_to_menu_key(item.key);
 
-            println!("menu id {}", item.id);
-
             MenuItemHandle(mfb_add_menu_item(self.menu_handle,
                                              item.id as i32,
                                              item_name.as_ptr(),
@@ -605,11 +618,3 @@ impl Drop for Window {
     }
 }
 
-// impl Drop for Menu {
-// fn drop(&mut self) {
-// unsafe {
-// mfb_destroy_menu(self.menu_handle);
-// }
-// }
-// }
-//
