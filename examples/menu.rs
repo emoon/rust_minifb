@@ -1,7 +1,7 @@
 extern crate minifb;
 
-use minifb::{Window, Key, Scale, WindowOptions, Menu, MenuItem};
-use minifb::{MENU_KEY_COMMAND, MENU_KEY_CTRL};
+use minifb::{Window, Key, Scale, WindowOptions, Menu};
+use minifb::{MENU_KEY_CTRL};
 
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;

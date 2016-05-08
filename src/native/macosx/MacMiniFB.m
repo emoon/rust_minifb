@@ -625,8 +625,6 @@ uint64_t mfb_add_menu_item(
 		NSMenuItem* newItem = [[NSMenuItem alloc] initWithTitle:name action:@selector(onMenuPress:) keyEquivalent:@""];
 		[newItem setTag:menu_id];
 
-		printf("set menu id %d\n", menu_id);
-
 		// This code may look a bit weird but is here for a reason:
 		//
 		// In order to make it easier to bulid cross-platform apps Ctrl is often used as
