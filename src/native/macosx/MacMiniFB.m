@@ -581,6 +581,14 @@ void build_submenu(NSMenu* menu, MenuDesc* desc)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+static NSString* get_string_for_key(uint32_t t) {
+	unichar c = (unichar)t;
+	NSString* key = [NSString stringWithCharacters:&c length:1];
+	return key;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 uint64_t mfb_add_menu_item(
 	void* in_menu,
 	int32_t menu_id,
@@ -601,9 +609,12 @@ uint64_t mfb_add_menu_item(
 	}
 	else
 	{
+		NSString* key_string = 0;
 		int mask = 0;
 		NSMenuItem* newItem = [[NSMenuItem alloc] initWithTitle:name action:@selector(onMenuPress:) keyEquivalent:@""];
 		[newItem setTag:menu_id];
+
+		printf("set menu id %d\n", menu_id);
 
 		// This code may look a bit weird but is here for a reason:
 		//
@@ -628,15 +639,30 @@ uint64_t mfb_add_menu_item(
 			mask |= NSAlternateKeyMask;
 		}
 
-		if (key != 0x7f) {
-			NSString* key_string = convert_key_code_to_string(key);
-
-			if (key_string) {
-				[newItem setKeyEquivalentModifierMask: mask];
-				[newItem setKeyEquivalent:key_string];
+		switch (key) {
+			case 0x7a: { key_string = get_string_for_key(NSF1FunctionKey); break; } // F1
+			case 0x78: { key_string = get_string_for_key(NSF2FunctionKey); break; } // F2
+			case 0x63: { key_string = get_string_for_key(NSF3FunctionKey); break; } // F3
+			case 0x76: { key_string = get_string_for_key(NSF4FunctionKey); break; } // F4
+			case 0x60: { key_string = get_string_for_key(NSF5FunctionKey); break; } // F5
+			case 0x61: { key_string = get_string_for_key(NSF6FunctionKey); break; } // F6
+			case 0x62: { key_string = get_string_for_key(NSF7FunctionKey); break; } // F7
+			case 0x64: { key_string = get_string_for_key(NSF8FunctionKey); break; } // F8
+			case 0x65: { key_string = get_string_for_key(NSF9FunctionKey); break; } // F9
+			case 0x6d: { key_string = get_string_for_key(NSF10FunctionKey); break; } // F10
+			case 0x67: { key_string = get_string_for_key(NSF11FunctionKey); break; } // F11
+			case 0x6f: { key_string = get_string_for_key(NSF12FunctionKey); break; } // F12
+			case 0x7f: break;
+			default: {
+				key_string = convert_key_code_to_string(key);
 			}
 		}
 
+		if (key_string) {
+			[newItem setKeyEquivalentModifierMask: mask];
+			[newItem setKeyEquivalent:key_string];
+		}
+		
 		if (enabled) {
 			[newItem setEnabled:YES];
 		} else {

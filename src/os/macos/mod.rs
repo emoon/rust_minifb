@@ -173,6 +173,7 @@ extern "C" {
     fn mfb_is_active(window: *mut c_void) -> u32;
     fn mfb_add_menu(window: *mut c_void, menu: *mut c_void);
     fn mfb_add_sub_menu(parent_menu: *mut c_void, name: *const c_char, menu: *mut c_void);
+    fn mfb_active_menu(window: *mut c_void) -> i32;
 
     fn mfb_create_menu(name: *const c_char) -> *mut c_void;
     // fn mfb_destroy_menu(menu_item: *mut c_void);
@@ -382,7 +383,7 @@ impl Window {
     }
 
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
-        let menu_id = 0; //unsafe { mfb_active_menu(self.window_handle) };
+        let menu_id = unsafe { mfb_active_menu(self.window_handle) };
 
         if menu_id < 0 {
             None
@@ -577,6 +578,8 @@ impl Menu {
         unsafe {
             let item_name = CString::new(item.label.as_str()).unwrap();
             let conv_key = Self::map_key_to_menu_key(item.key);
+
+            println!("menu id {}", item.id);
 
             MenuItemHandle(mfb_add_menu_item(self.menu_handle,
                                              item.id as i32,

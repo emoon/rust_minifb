@@ -529,6 +529,10 @@ impl Menu {
         self.0.add_sub_menu(name, &menu.0)
     }
 
+    pub fn add_separator(&mut self) {
+        self.add_menu_item(&MenuItem { id: MENU_ID_SEPARATOR, ..MenuItem::default() });
+    }
+
     #[inline]
     pub fn add_menu_item(&mut self, item: &MenuItem) -> MenuItemHandle {
         self.0.add_menu_item(item)
