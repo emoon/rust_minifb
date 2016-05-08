@@ -605,9 +605,21 @@ uint64_t mfb_add_menu_item(
 		NSMenuItem* newItem = [[NSMenuItem alloc] initWithTitle:name action:@selector(onMenuPress:) keyEquivalent:@""];
 		[newItem setTag:menu_id];
 
-		if ((modfier & MENU_KEY_COMMAND) ||
-		    (modfier & MENU_KEY_COMMAND)) {
+		// This code may look a bit weird but is here for a reason:
+		//
+		// In order to make it easier to bulid cross-platform apps Ctrl is often used as
+		// default modifier on Windows/Nix* while it's Command on Mac. Now we when Ctrl
+		// is set we default to Command on Mac for that reason but if Command AND Ctrl is
+		// set we allow both Ctrl and Command to be used but then it's up to the developer
+		// to deal with diffrent shortcuts depending on OS.
+		//
+
+		if ((modfier & MENU_KEY_CTRL)) {
 			mask |= NSCommandKeyMask;
+		}
+		if ((modfier & MENU_KEY_CTRL) &&
+		    (modfier & MENU_KEY_COMMAND)) {
+			mask |= NSControlKeyMask;
 		}
 		if (modfier & MENU_KEY_SHIFT) {
 			mask |= NSShiftKeyMask;
@@ -641,6 +653,18 @@ uint64_t mfb_add_menu_item(
 	return 0;
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void mfb_add_sub_menu(void* parent_menu, const char* menu_name, void* attach_menu) {
+	NSMenu* parent = (NSMenu*)parent_menu;
+	NSMenu* attach = (NSMenu*)attach_menu;
+	NSString* name = [NSString stringWithUTF8String: menu_name];
+
+	NSMenuItem* newItem = [[NSMenuItem alloc] initWithTitle:name action:NULL keyEquivalent:@""];
+	[newItem setSubmenu:attach];
+
+	[parent addItem:newItem];
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

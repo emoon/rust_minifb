@@ -89,12 +89,19 @@ fn main() {
     //window.add_menu("Test", &menu).expect("Unable to add menu");
 
     let mut menu = Menu::new("TestMenu").unwrap();
+    let mut sub = Menu::new("SubMenu").unwrap();
 
     menu.add_menu_item(&MenuItem::new("Item 1", 1).shortcut(Key::S, 0));
     menu.add_menu_item(&MenuItem::new("Item 2", 2));
     menu.add_menu_item(&MenuItem::new("Item 3", 3));
 
+    sub.add_item("Test", 0).build();
+    sub.add_item("Test 2", 0).build();
+
+    menu.add_item("", 0).separator().build();
     menu.add_item("Some item", 2).shortcut(Key::Y, MENU_KEY_CTRL).build();
+
+    menu.add_sub_menu("Sub Test", &sub);
 
     let _ = window.add_menu(&menu);
 

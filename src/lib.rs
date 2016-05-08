@@ -525,8 +525,8 @@ impl Menu {
     }
 
     #[inline]
-    pub fn add_sub_menu(&mut self, _menu: &Menu) {
-        //self.0.add_sub_menu(menu)
+    pub fn add_sub_menu(&mut self, name: &str, menu: &Menu) {
+        self.0.add_sub_menu(name, &menu.0)
     }
 
     #[inline]

@@ -181,6 +181,7 @@ extern {
     fn mfb_get_screen_size() -> u32;
     fn mfb_is_active(window: *mut c_void) -> u32;
     fn mfb_add_menu(window: *mut c_void, menu: *mut c_void);
+    fn mfb_add_sub_menu(parent_menu: *mut c_void, name: *const c_char, menu: *mut c_void);
     //fn mfb_remove_menu(window: *mut c_void, name: *const c_char);
     //fn mfb_update_menu(window: *mut c_void, name: *const c_char, menu: *mut c_void);
     //fn mfb_active_menu(window: *mut c_void) -> i32;
@@ -613,6 +614,13 @@ impl Menu {
             Key::PageUp => 0x21de,
             Key::PageDown => 0x21df,
             _ => 0x7f,
+        }
+    }
+
+    pub fn add_sub_menu(&mut self, name: &str, sub_menu: &Menu) {
+        unsafe {
+            let menu_name = CString::new(name).unwrap();
+            mfb_add_sub_menu(self.menu_handle, menu_name.as_ptr(), sub_menu.menu_handle)
         }
     }
 
