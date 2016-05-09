@@ -562,7 +562,7 @@ pub struct MenuItem<'a> {
     pub label: String,
     pub enabled: bool,
     pub key: Key,
-    pub modifier: u32,
+    pub modifier: usize,
     pub menu: Option<&'a mut Menu>,
 }
 
@@ -604,7 +604,7 @@ impl<'a> MenuItem<'a> {
     pub fn shortcut(self, key: Key, modifier: usize) -> Self {
         MenuItem {
             key: key,
-            modifier: modifier as u32,
+            modifier: modifier,
             .. self
         }
     }
