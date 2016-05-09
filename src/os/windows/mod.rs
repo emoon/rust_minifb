@@ -327,7 +327,7 @@ pub struct Window {
     scale_factor: i32,
     width: i32,
     height: i32,
-    //menus: Vec<MenuStore>,
+    menus: Vec<Menu>,
     key_handler: KeyHandler,
     accel_table: HACCEL,
     accel_key: usize,
@@ -450,7 +450,7 @@ impl Window {
                 scale_factor: scale_factor,
                 width: width as i32,
                 height: height as i32,
-                //menus: Vec::new(),
+                menus: Vec::new(),
                 accel_table: ptr::null_mut(),
                 accel_key: INVALID_ACCEL,
             };
@@ -735,24 +735,6 @@ impl Window {
         }
     }
 
-    unsafe fn set_accel_table(&mut self) {
-        let mut temp_accel_table = Vec::<ACCEL>::new();
-
-        for menu in self.menus.iter() {
-            for item in menu.accel_items.iter() {
-                println!("virt {} - cmd {} - key {}", item.fVirt, item.cmd, item.key);
-                temp_accel_table.push(item.clone());
-            }
-        }
-
-        if self.accel_table != ptr::null_mut() {
-            user32::DestroyAcceleratorTable(self.accel_table);
-        }
-
-        self.accel_table = user32::CreateAcceleratorTableW(temp_accel_table.as_mut_ptr(),
-                                                           temp_accel_table.len() as i32);
-    }
-
 
     unsafe fn recursive_add_menu(&mut self, parent_menu: HMENU, name: &str, menu: &Vec<Menu>) -> HMENU {
         let menu_name = to_wstring(name);
@@ -858,6 +840,27 @@ impl Window {
     }
     */
     
+    unsafe fn set_accel_table(&mut self) {
+        let mut temp_accel_table = Vec::<ACCEL>::new();
+
+        for menu in self.menus.iter() {
+            for item in menu.accel_table.iter() {
+                println!("virt {} - cmd {} - key {}", item.fVirt, item.cmd, item.key);
+                temp_accel_table.push(item.clone());
+            }
+        }
+
+        if self.accel_table != ptr::null_mut() {
+            user32::DestroyAcceleratorTable(self.accel_table);
+        }
+
+        self.accel_table = user32::CreateAcceleratorTableW(temp_accel_table.as_mut_ptr(),
+                                                           temp_accel_table.len() as i32);
+
+        println!("accel {:?}", self.accel_table);
+    }
+
+    
     pub fn add_menu(&mut self, menu: &Menu) -> MenuHandle {
         unsafe {
             let window = self.window.unwrap();
@@ -874,10 +877,11 @@ impl Window {
                                 menu.menu_handle as UINT_PTR, 
                                 menu.name.as_ptr());
 
+            self.menus.push(menu.clone());
             // TODO: Setup accel table
 
             //Self::add_menu_store(self, main_menu, menu_name, menu);
-            //Self::set_accel_table(self);
+            self.set_accel_table();
 
             user32::DrawMenuBar(window);
         }
@@ -901,6 +905,8 @@ impl Window {
         }
     }
 }
+
+#[derive(Clone)]
 pub struct Menu {
     menu_handle: HMENU,
     name: Vec<u16>,
@@ -915,16 +921,6 @@ impl Menu {
                 name: to_wstring(name),
                 accel_table: Vec::new(),
             })
-        }
-    }
-
-    pub fn add_sub_menu(&mut self, name: &str, menu: &Menu) {
-        unsafe {
-            let menu_name = to_wstring(name);
-            user32::AppendMenuW(self.menu_handle, 
-                                0x10, 
-                                menu.menu_handle as UINT_PTR, 
-                                menu_name.as_ptr());
         }
     }
 
@@ -1041,25 +1037,17 @@ impl Menu {
         }
     }
 
-
-
-    /*
-    unsafe fn add_menu_item(&mut self, parent_menu: HMENU, menu_item: &Menu) {
-        let item_name = to_wstring(menu_item.name);
-        let vk_accel = Self::map_key_to_vk_accel(menu_item.key);
-
-        match vk_accel.0 {
-            0 => {
-                user32::AppendMenuW(parent_menu, 0x10, menu_item.id as UINT_PTR, item_name.as_ptr());
-            },
-            _ => {
-                let menu_name = Self::format_name(menu_item, vk_accel.1);
-                let w_name = to_wstring(&menu_name);
-                user32::AppendMenuW(parent_menu, 0x10, menu_item.id as UINT_PTR, w_name.as_ptr());
-            }
+    pub fn add_sub_menu(&mut self, name: &str, menu: &Menu) {
+        unsafe {
+            let menu_name = to_wstring(name);
+            user32::AppendMenuW(self.menu_handle, 
+                                0x10, 
+                                menu.menu_handle as UINT_PTR, 
+                                menu_name.as_ptr());
+            self.accel_table.extend_from_slice(menu.accel_table.as_slice());
         }
     }
-    */
+
 
     fn format_name(menu_item: &MenuItem, key_name: &'static str) -> String {
         let mut name = menu_item.label.clone();
