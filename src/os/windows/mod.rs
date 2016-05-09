@@ -339,6 +339,7 @@ pub struct Window {
 #[allow(non_snake_case)]
 extern "system" {
     fn TranslateAcceleratorW(hWnd: HWND, accel: *const ACCEL, pmsg: *const MSG) -> INT;
+    fn RemoveMenu(menu: HMENU, pos: UINT, flags: UINT) -> BOOL;
 }
 
 impl Window {
@@ -886,13 +887,25 @@ impl Window {
             user32::DrawMenuBar(window);
         }
 
-
         // TODO: Proper handle
     
-        MenuHandle(0)
+        MenuHandle(menu.menu_handle as u64)
     }
 
-    pub fn remove_menu(&mut self, _handle: MenuHandle) {
+    pub fn remove_menu(&mut self, handle: MenuHandle) {
+        let window = self.window.unwrap();
+        let main_menu = unsafe { user32::GetMenu(window) };
+        for i in 0..self.menus.len() {
+            if self.menus[i].menu_handle == handle.0 as HMENU {
+                unsafe {
+                    println!("Removed menu at {}", i);
+                    let _t = RemoveMenu(main_menu, i as UINT, 0);
+                    user32::DrawMenuBar(self.window.unwrap());
+                }
+                self.menus.swap_remove(i);
+                return;
+            }
+        }
     }
 
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
@@ -1075,13 +1088,17 @@ impl Menu {
         name
     }
 
-    fn is_key_virtual_range(key: raw::c_int) -> u32 {
+    fn is_key_virtual_range(_key: raw::c_int) -> u32 {
+        /*
         if (key >= 0x30 && key <= 0x30) ||
            (key >= 0x41 && key <= 0x5a) {
-            1
-           } else {
             0
+           } else {
+            1
         }
+        */
+
+        1
     }
 
     fn get_virt_key(menu_item: &MenuItem, key: raw::c_int) -> u32 {
