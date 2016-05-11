@@ -53,6 +53,8 @@ pub struct Window {
     window_handle: *mut c_void,
     shared_data: SharedData,
     key_handler: KeyHandler,
+    menu_counter: MenuHandle,
+    menus: Vec<Menu>,
 }
 
 #[allow(non_upper_case_globals)]
@@ -196,6 +198,8 @@ impl Window {
                 	.. SharedData::default()
 				},
                 key_handler: KeyHandler::new(),
+                item_counter: MenuHandle(0),
+                menus: Vec::new(),
             })
         }
     }
@@ -351,31 +355,24 @@ impl Window {
         return factor;
     }
 
-    pub fn add_menu(&mut self, _menu: &Menu) -> MenuHandle {
-    	MenuHandle(0)
-    /*
-        unsafe {
-            let handle = MenuHandle(mfb_add_menu(self.window_handle, menu.menu_handle));
-            self.menus.push(handle);
-            handle
-        }
-    */
+    fn next_menu_handle(&mut self) -> MenuHandle {
+    	let handle = self.menu_counter;
+    	self.menu_counter.0 += 1;
+    	handle
     }
 
+    pub fn add_menu(&mut self, _menu: &Menu) -> MenuHandle {
+        let mut menu = menu.clone();
+        menu.handle = self.next_menu_handle();
+        self.menus.push(menu);
+    }
 
-    pub fn remove_menu(&mut self, _handle: MenuHandle) {
-    /*
-        for i in 0..self.menus.len() {
-            if self.menus[i] == handle {
-                self.menus.remove(i);
-                unsafe { 
-                    // + 1 here as we always have a default menu we shouldn't remove
-                    mfb_remove_menu_at(self.window_handle, (i + 1) as i32);
-                }
-                return;
-            }
-        }
-    */
+    pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
+        self.menus
+    }
+
+    pub fn remove_menu(&mut self, handle: MenuHandle) {
+        self.menus.retain(|&menu| menu.handle != handle);
     }
 
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
@@ -383,24 +380,9 @@ impl Window {
     }
 }
 
-pub struct UnixMenuItem {
-	pub sub_menu: Option<Box<Menu>>,
-	pub handle: MenuItemHandle,
-    pub id: usize,
-    pub label: String,
-    pub enabled: bool,
-    pub key: Key,
-    pub modifier: usize,
-}
 
-pub struct Menu {
-	pub handle: u64,
-	pub name: String,
-	pub items: Vec<UnixMenuItem>, 
-	pub item_counter: MenuItemHandle,
-}
 
-impl Menu {
+impl UnixMenu {
     pub fn new(name: &str) -> Result<Menu> {
     	Ok(Menu { 
     		handle: 0,
@@ -410,8 +392,16 @@ impl Menu {
     	})
     }
 
-    pub fn add_sub_menu(&mut self, _name: &str, _sub_menu: &Menu) {
-
+    pub fn add_sub_menu(&mut self, name: &str, sub_menu: &Menu) {
+    	self.items.push(UnixMenuItem {
+    	    label: name.to_owned(),
+    	    handle: self.next_item_handle(),
+    	    sub_menu: Some(Box::new(sub_menu.clone())),
+			id: 0,
+			enabled: true,
+			key: Key::Unknown,
+			modifier: 0,
+        });
     }
 
     fn next_item_handle(&mut self) -> MenuItemHandle {
@@ -434,7 +424,8 @@ impl Menu {
     	item_handle
     }
 
-    pub fn remove_item(&mut self, _handle: &MenuItemHandle) {
+    pub fn remove_item(&mut self, handle: &MenuItemHandle) {
+        self.items.retain(|&item| item.handle != handle);
     }
 }
 

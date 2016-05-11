@@ -469,21 +469,30 @@ impl Window {
     }
 
     ///
-    /// Updates an existing menu created with [add_menu]
-    ///
-    /*
-    #[inline]
-    pub fn update_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) -> Result<()> {
-        self.0.update_menu(menu_name, menu)
-    }
-    */
-
-    ///
     /// Remove a menu that has been added with [add_menu]
     ///
     #[inline]
     pub fn remove_menu(&mut self, handle: MenuHandle) {
         self.0.remove_menu(handle)
+    }
+
+    ///
+    /// Get Unix menu. Will only return menus on Unix class OSes
+    /// otherwise None 
+    ///
+    #[cfg(any(target_os="macos",
+              target_os="windows"))]
+    pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
+        None
+    }
+
+    #[cfg(any(target_os="linux",
+        target_os="freebsd",
+        target_os="dragonfly",
+        target_os="netbsd",
+        target_os="openbsd"))]
+    pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
+        self.0.get_unix_menus()
     }
 
     ///
@@ -509,13 +518,39 @@ pub const MENU_KEY_ALT: usize = 16;
 
 const MENU_ID_SEPARATOR:usize = 0xffffffff;
 
-pub struct Menu(imp::Menu);
+pub struct UnixMenu {
+	pub handle: u64,
+	pub name: String,
+	pub items: Vec<UnixMenuItem>, 
+	pub item_counter: MenuItemHandle,
+}
+
+pub struct UnixMenuItem {
+	pub sub_menu: Option<Box<imp::Menu>>,
+	pub handle: MenuItemHandle,
+    pub id: usize,
+    pub label: String,
+    pub enabled: bool,
+    pub key: Key,
+    pub modifier: usize,
+}
 
 #[derive(Copy, Clone)]
 pub struct MenuItemHandle(pub u64);
 
 #[derive(Copy, Clone, PartialEq)]
 pub struct MenuHandle(pub u64);
+
+#[cfg(target_os = "macos")]
+pub struct Menu(imp::Menu);
+#[cfg(target_os = "windows")]
+pub struct Menu(imp::Menu);
+#[cfg(any(target_os="linux",
+    target_os="freebsd",
+    target_os="dragonfly",
+    target_os="netbsd",
+    target_os="openbsd"))]
+pub struct Menu(UnixMenu);
 
 impl Menu {
     pub fn new(name: &str) -> Result<Menu> {
