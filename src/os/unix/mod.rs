@@ -8,10 +8,11 @@ extern crate x11_dl;
 
 use {MouseMode, MouseButton, Scale, Key, KeyRepeat, WindowOptions, InputCallback};
 use key_handler::KeyHandler;
-use menu::Menu;
+//use menu::Menu;
 use self::x11_dl::keysym::*;
 use error::Error;
 use Result;
+use {MenuItem, MenuItemHandle, MenuHandle};
 
 use libc::{c_void, c_char, c_uchar};
 use std::ffi::{CString};
@@ -350,19 +351,59 @@ impl Window {
         return factor;
     }
 
-    pub fn add_menu(&mut self, _menu_name: &str, _menu: &Vec<Menu>) -> Result<()> {
-        Err(Error::MenusNotSupported)
+    pub fn add_menu(&mut self, _menu: &Menu) -> MenuHandle {
+    	MenuHandle(0)
+    /*
+        unsafe {
+            let handle = MenuHandle(mfb_add_menu(self.window_handle, menu.menu_handle));
+            self.menus.push(handle);
+            handle
+        }
+    */
     }
-    pub fn update_menu(&mut self, _menu_name: &str, _menu: &Vec<Menu>) -> Result<()> {
-        Err(Error::MenusNotSupported)
+
+
+    pub fn remove_menu(&mut self, _handle: MenuHandle) {
+    /*
+        for i in 0..self.menus.len() {
+            if self.menus[i] == handle {
+                self.menus.remove(i);
+                unsafe { 
+                    // + 1 here as we always have a default menu we shouldn't remove
+                    mfb_remove_menu_at(self.window_handle, (i + 1) as i32);
+                }
+                return;
+            }
+        }
+    */
     }
-    pub fn remove_menu(&mut self, _menu_name: &str) -> Result<()> {
-        Err(Error::MenusNotSupported)
-    }
+
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
         None
     }
 }
+
+pub struct Menu {
+	pub handle: u64,
+    //menu_handle: *mut c_void,
+}
+
+impl Menu {
+    pub fn new(_name: &str) -> Result<Menu> {
+    	Ok(Menu { handle: 0 })
+    }
+
+    pub fn add_sub_menu(&mut self, _name: &str, _sub_menu: &Menu) {
+    }
+
+    pub fn add_menu_item(&mut self, _item: &MenuItem) -> MenuItemHandle {
+    	MenuItemHandle(0)
+    }
+
+    pub fn remove_item(&mut self, _handle: &MenuItemHandle) {
+    }
+}
+
 
 impl Drop for Window {
     fn drop(&mut self) {
