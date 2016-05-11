@@ -518,15 +518,17 @@ pub const MENU_KEY_ALT: usize = 16;
 
 const MENU_ID_SEPARATOR:usize = 0xffffffff;
 
+#[derive(Debug, Clone)]
 pub struct UnixMenu {
-	pub handle: u64,
+	pub handle: MenuHandle,
 	pub name: String,
 	pub items: Vec<UnixMenuItem>, 
 	pub item_counter: MenuItemHandle,
 }
 
+#[derive(Debug, Clone)]
 pub struct UnixMenuItem {
-	pub sub_menu: Option<Box<imp::Menu>>,
+	pub sub_menu: Option<Box<UnixMenu>>,
 	pub handle: MenuItemHandle,
     pub id: usize,
     pub label: String,
@@ -535,22 +537,13 @@ pub struct UnixMenuItem {
     pub modifier: usize,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct MenuItemHandle(pub u64);
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct MenuHandle(pub u64);
 
-#[cfg(target_os = "macos")]
 pub struct Menu(imp::Menu);
-#[cfg(target_os = "windows")]
-pub struct Menu(imp::Menu);
-#[cfg(any(target_os="linux",
-    target_os="freebsd",
-    target_os="dragonfly",
-    target_os="netbsd",
-    target_os="openbsd"))]
-pub struct Menu(UnixMenu);
 
 impl Menu {
     pub fn new(name: &str) -> Result<Menu> {

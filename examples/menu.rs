@@ -44,6 +44,10 @@ fn main() {
 
     let menu_handle = window.add_menu(&menu);
 
+    window.get_unix_menus().map(|menus| {
+    	println!("Menus {:?}", menus);
+    });
+    	
     let mut color_mul = 1;
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
