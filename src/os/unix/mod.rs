@@ -383,21 +383,55 @@ impl Window {
     }
 }
 
+pub struct UnixMenuItem {
+	pub sub_menu: Option<Box<Menu>>,
+	pub handle: MenuItemHandle,
+    pub id: usize,
+    pub label: String,
+    pub enabled: bool,
+    pub key: Key,
+    pub modifier: usize,
+}
+
 pub struct Menu {
 	pub handle: u64,
-    //menu_handle: *mut c_void,
+	pub name: String,
+	pub items: Vec<UnixMenuItem>, 
+	pub item_counter: MenuItemHandle,
 }
 
 impl Menu {
-    pub fn new(_name: &str) -> Result<Menu> {
-    	Ok(Menu { handle: 0 })
+    pub fn new(name: &str) -> Result<Menu> {
+    	Ok(Menu { 
+    		handle: 0,
+    		item_counter: MenuItemHandle(0),
+    		name: name.to_owned(),
+    		items: Vec::new(),
+    	})
     }
 
     pub fn add_sub_menu(&mut self, _name: &str, _sub_menu: &Menu) {
+
     }
 
-    pub fn add_menu_item(&mut self, _item: &MenuItem) -> MenuItemHandle {
-    	MenuItemHandle(0)
+    fn next_item_handle(&mut self) -> MenuItemHandle {
+    	let handle = self.item_counter;
+    	self.item_counter.0 += 1;
+    	handle
+    }
+
+    pub fn add_menu_item(&mut self, item: &MenuItem) -> MenuItemHandle {
+    	let item_handle = self.next_item_handle();
+    	self.items.push(UnixMenuItem {
+			sub_menu: None,
+			handle: self.item_counter,
+			id: item.id,
+			label: item.label.clone(),
+			enabled: item.enabled,
+			key: item.key,
+			modifier: item.modifier,
+    	});
+    	item_handle
     }
 
     pub fn remove_item(&mut self, _handle: &MenuItemHandle) {
