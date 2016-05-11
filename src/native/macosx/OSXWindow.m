@@ -1,6 +1,5 @@
 #import "OSXWindow.h"
 #import "OSXWindowFrameView.h"
-#include <Carbon/Carbon.h>
 
 @implementation OSXWindow
 
@@ -69,14 +68,6 @@
 {
 	if (key_callback) {
 		key_callback(rust_data, [event keyCode], 1);
-	}
-
-	if (char_callback) {
-		NSString* characters = [event characters];
-		NSUInteger i, length = [characters length];
-
-		for (i = 0; i < length; i++)
-			char_callback(rust_data, [characters characterAtIndex:i]);
 	}
 
 	[super keyDown:event];
@@ -216,154 +207,7 @@
 	self->active_menu_id = menu_id;
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-static CFStringRef create_string_for_key(CGKeyCode keyCode)
-{
-    TISInputSourceRef currentKeyboard = TISCopyCurrentKeyboardInputSource();
-    CFDataRef layoutData = TISGetInputSourceProperty(currentKeyboard, kTISPropertyUnicodeKeyLayoutData);
-
-	if (!layoutData)
-		return 0;
-
-    const UCKeyboardLayout *keyboardLayout = (const UCKeyboardLayout *)CFDataGetBytePtr(layoutData);
-
-    UInt32 keysDown = 0;
-    UniChar chars[4];
-    UniCharCount realLength;
-
-    UCKeyTranslate(keyboardLayout,
-                   keyCode,
-                   kUCKeyActionDisplay,
-                   0,
-                   LMGetKbdType(),
-                   kUCKeyTranslateNoDeadKeysBit,
-                   &keysDown,
-                   sizeof(chars) / sizeof(chars[0]),
-                   &realLength,
-                   chars);
-    CFRelease(currentKeyboard);
-
-    return CFStringCreateWithCharacters(kCFAllocatorDefault, chars, 1);
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-static NSString* convert_key_code_to_string(int key)
-{
-	if (key < 128)
-	{
-		NSString* charName = (NSString*)create_string_for_key(key);
-
-		if (charName)
-			return charName;
-
-		return [NSString stringWithFormat:@"%c", (char)key];
-	}
-
-	return [NSString stringWithFormat:@"%C", (uint16_t)key];
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-const uint32_t MENU_KEY_COMMAND = 1;
-const uint32_t MENU_KEY_WIN = 2;
-const uint32_t MENU_KEY_SHIFT= 4;
-const uint32_t MENU_KEY_CTRL = 8;
-const uint32_t MENU_KEY_ALT = 16;
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-static NSString* get_string_for_key(uint32_t t) {
-	unichar c = (unichar)t;
-	NSString* key = [NSString stringWithCharacters:&c length:1];
-	return key;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-void build_submenu(NSMenu* menu, MenuDesc* desc)
-{
-	[menu removeAllItems];
-
-	while (desc->menu_id != -2)
-	{
-		NSString* name = [NSString stringWithUTF8String: desc->name];
-
-		if (desc->menu_id == -1)
-		{
-			[menu addItem:[NSMenuItem separatorItem]];
-		}
-		else if (desc->sub_menu)
-		{
-			NSMenuItem* newItem = [[NSMenuItem alloc] initWithTitle:name action:NULL keyEquivalent:@""];
-			NSMenu* newMenu = [[NSMenu alloc] initWithTitle:name];
-			[newItem setSubmenu:newMenu];
-
-			build_submenu(newMenu, desc->sub_menu);
-
-			[newMenu release];
-			[menu addItem:newItem];
-			[newItem release];
-		}
-		else
-		{
-			int mask = 0;
-			NSString* key = 0;
-
-			NSMenuItem* newItem = [[NSMenuItem alloc] initWithTitle:name action:@selector(onMenuPress:) keyEquivalent:@""];
-			[newItem setTag:desc->menu_id];
-
-			if (desc->modifier_mac & MENU_KEY_COMMAND) {
-				mask |= NSCommandKeyMask;
-			}
-			if (desc->modifier_mac & MENU_KEY_SHIFT) {
-				mask |= NSShiftKeyMask;
-			}
-			if (desc->modifier_mac & MENU_KEY_CTRL) {
-				mask |= NSControlKeyMask;
-			}
-			if (desc->modifier_mac & MENU_KEY_ALT) {
-				mask |= NSAlternateKeyMask;
-			}
-
-			switch (desc->key) {
-				case 0x7a: { key = get_string_for_key(NSF1FunctionKey); break; } // F1
-				case 0x78: { key = get_string_for_key(NSF2FunctionKey); break; } // F2
-				case 0x63: { key = get_string_for_key(NSF3FunctionKey); break; } // F3
-				case 0x76: { key = get_string_for_key(NSF4FunctionKey); break; } // F4
-				case 0x60: { key = get_string_for_key(NSF5FunctionKey); break; } // F5
-				case 0x61: { key = get_string_for_key(NSF6FunctionKey); break; } // F6
-				case 0x62: { key = get_string_for_key(NSF7FunctionKey); break; } // F7
-				case 0x64: { key = get_string_for_key(NSF8FunctionKey); break; } // F8
-				case 0x65: { key = get_string_for_key(NSF9FunctionKey); break; } // F9
-				case 0x6d: { key = get_string_for_key(NSF10FunctionKey); break; } // F10
-				case 0x67: { key = get_string_for_key(NSF11FunctionKey); break; } // F11
-				case 0x6f: { key = get_string_for_key(NSF12FunctionKey); break; } // F12
-				case 0x7f: break;
-				default: {
-					key = convert_key_code_to_string(desc->key);
-				}
-			}
-
-			if (key) {
-				[newItem setKeyEquivalentModifierMask: mask];
-				[newItem setKeyEquivalent:key];
-			}
-
-			if (desc->enabled) {
-				[newItem setEnabled:YES];
-			} else {
-				[newItem setEnabled:NO];
-			}
-
-			[newItem setOnStateImage: newItem.offStateImage];
-			[menu addItem:newItem];
-			[newItem release];
-		}
-
-		desc++;
-	}
-}
-
 @end
+
+
+

@@ -10,10 +10,10 @@ const INVALID_ACCEL: usize = 0xffffffff;
 
 use {Scale, Key, KeyRepeat, MouseButton, MouseMode, WindowOptions, InputCallback};
 use key_handler::KeyHandler;
-use menu::Menu;
 use error::Error;
 use Result;
-use menu::{MENU_KEY_WIN, MENU_KEY_SHIFT, MENU_KEY_CTRL, MENU_KEY_ALT};
+use {MenuItem, MenuItemHandle, MenuHandle};
+use {MENU_KEY_WIN, MENU_KEY_SHIFT, MENU_KEY_CTRL, MENU_KEY_ALT};
 
 use std::ptr;
 use std::os::windows::ffi::OsStrExt;
@@ -298,8 +298,7 @@ pub enum MinifbError {
 }
 
 fn to_wstring(str: &str) -> Vec<u16> {
-    let mut v: Vec<u16> = OsStr::new(str).encode_wide().chain(Some(0).into_iter()).collect();
-    v.push(0u16);
+    let v: Vec<u16> = OsStr::new(str).encode_wide().chain(Some(0).into_iter()).collect();
     v
 }
 
@@ -311,11 +310,13 @@ struct MouseData {
     pub scroll: f32,
 }
 
+/*
 struct MenuStore {
     name: String,
     menu: HMENU,
     accel_items: Vec<ACCEL>,
 }
+*/
 
 pub struct Window {
     mouse: MouseData,
@@ -326,7 +327,7 @@ pub struct Window {
     scale_factor: i32,
     width: i32,
     height: i32,
-    menus: Vec<MenuStore>,
+    menus: Vec<Menu>,
     key_handler: KeyHandler,
     accel_table: HACCEL,
     accel_key: usize,
@@ -338,6 +339,7 @@ pub struct Window {
 #[allow(non_snake_case)]
 extern "system" {
     fn TranslateAcceleratorW(hWnd: HWND, accel: *const ACCEL, pmsg: *const MSG) -> INT;
+    fn RemoveMenu(menu: HMENU, pos: UINT, flags: UINT) -> BOOL;
 }
 
 impl Window {
@@ -635,6 +637,120 @@ impl Window {
         return factor;
     }
 
+    //
+    // When attaching a menu to the window we need to resize it so
+    // the current client size is preserved and still show all pixels
+    //
+    unsafe fn adjust_window_size_for_menu(handle: HWND) {
+        let mut rect: winapi::RECT = mem::uninitialized();
+
+        let menu_height = user32::GetSystemMetrics(winapi::winuser::SM_CYMENU);
+
+        user32::GetWindowRect(handle, &mut rect);
+        user32::MoveWindow(handle,
+                           rect.left,
+                           rect.top,
+                           rect.right - rect.left,
+                           (rect.bottom - rect.top) + menu_height,
+                           1);
+    }
+
+    unsafe fn set_accel_table(&mut self) {
+        let mut temp_accel_table = Vec::<ACCEL>::new();
+
+        for menu in self.menus.iter() {
+            for item in menu.accel_table.iter() {
+                println!("virt {} - cmd {} - key {}", item.fVirt, item.cmd, item.key);
+                temp_accel_table.push(item.clone());
+            }
+        }
+
+        if self.accel_table != ptr::null_mut() {
+            user32::DestroyAcceleratorTable(self.accel_table);
+        }
+
+        self.accel_table = user32::CreateAcceleratorTableW(temp_accel_table.as_mut_ptr(),
+                                                           temp_accel_table.len() as i32);
+
+        println!("accel {:?}", self.accel_table);
+    }
+
+    
+    pub fn add_menu(&mut self, menu: &Menu) -> MenuHandle {
+        unsafe {
+            let window = self.window.unwrap();
+            let mut main_menu = user32::GetMenu(window);
+
+            if main_menu == ptr::null_mut() {
+                main_menu = user32::CreateMenu();
+                user32::SetMenu(window, main_menu);
+                Self::adjust_window_size_for_menu(window);
+            }
+
+            user32::AppendMenuW(main_menu, 
+                                0x10, 
+                                menu.menu_handle as UINT_PTR, 
+                                menu.name.as_ptr());
+
+            self.menus.push(menu.clone());
+            // TODO: Setup accel table
+
+            //Self::add_menu_store(self, main_menu, menu_name, menu);
+            self.set_accel_table();
+
+            user32::DrawMenuBar(window);
+        }
+
+        // TODO: Proper handle
+    
+        MenuHandle(menu.menu_handle as u64)
+    }
+
+    pub fn remove_menu(&mut self, handle: MenuHandle) {
+        let window = self.window.unwrap();
+        let main_menu = unsafe { user32::GetMenu(window) };
+        for i in 0..self.menus.len() {
+            if self.menus[i].menu_handle == handle.0 as HMENU {
+                unsafe {
+                    println!("Removed menu at {}", i);
+                    let _t = RemoveMenu(main_menu, i as UINT, 0);
+                    user32::DrawMenuBar(self.window.unwrap());
+                }
+                self.menus.swap_remove(i);
+                return;
+            }
+        }
+    }
+
+    pub fn is_menu_pressed(&mut self) -> Option<usize> {
+        if self.accel_key == INVALID_ACCEL {
+            None
+        } else {
+            let t = self.accel_key;
+            self.accel_key = INVALID_ACCEL;
+            Some(t)
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Menu {
+    menu_handle: HMENU,
+    name: Vec<u16>,
+    accel_table: Vec<ACCEL>,
+}
+
+impl Menu {
+    pub fn new(name: &str) -> Result<Menu> {
+        unsafe {
+            Ok(Menu {
+                menu_handle: user32::CreatePopupMenu(),
+                name: to_wstring(name),
+                accel_table: Vec::new(),
+            })
+        }
+    }
+
     fn map_key_to_vk_accel(key: Key) -> (raw::c_int, &'static str) {
         match key {
             Key::Key0 => (0x30, "0"),
@@ -748,27 +864,20 @@ impl Window {
         }
     }
 
-
-    //
-    // When attaching a menu to the window we need to resize it so
-    // the current client size is preserved and still show all pixels
-    //
-    unsafe fn adjust_window_size_for_menu(handle: HWND) {
-        let mut rect: winapi::RECT = mem::uninitialized();
-
-        let menu_height = user32::GetSystemMetrics(winapi::winuser::SM_CYMENU);
-
-        user32::GetWindowRect(handle, &mut rect);
-        user32::MoveWindow(handle,
-                           rect.left,
-                           rect.top,
-                           rect.right - rect.left,
-                           (rect.bottom - rect.top) + menu_height,
-                           1);
+    pub fn add_sub_menu(&mut self, name: &str, menu: &Menu) {
+        unsafe {
+            let menu_name = to_wstring(name);
+            user32::AppendMenuW(self.menu_handle, 
+                                0x10, 
+                                menu.menu_handle as UINT_PTR, 
+                                menu_name.as_ptr());
+            self.accel_table.extend_from_slice(menu.accel_table.as_slice());
+        }
     }
 
-    fn format_name(menu_item: &Menu, key_name: &'static str) -> String {
-        let mut name = menu_item.name.to_owned();
+
+    fn format_name(menu_item: &MenuItem, key_name: &'static str) -> String {
+        let mut name = menu_item.label.clone();
 
         name.push_str("\t");
 
@@ -793,16 +902,20 @@ impl Window {
         name
     }
 
-    fn is_key_virtual_range(key: raw::c_int) -> u32 {
+    fn is_key_virtual_range(_key: raw::c_int) -> u32 {
+        /*
         if (key >= 0x30 && key <= 0x30) ||
            (key >= 0x41 && key <= 0x5a) {
-            1
-           } else {
             0
+           } else {
+            1
         }
+        */
+
+        1
     }
 
-    fn get_virt_key(menu_item: &Menu, key: raw::c_int) -> u32 {
+    fn get_virt_key(menu_item: &MenuItem, key: raw::c_int) -> u32 {
         let mut virt = Self::is_key_virtual_range(key);
 
         if (menu_item.modifier & MENU_KEY_ALT) == MENU_KEY_ALT {
@@ -820,164 +933,47 @@ impl Window {
         virt
     }
 
-    fn add_accel(accel_table: &mut Vec<ACCEL>, menu_item: &Menu) {
+    fn add_accel(&mut self, vk: raw::c_int, menu_item: &MenuItem) {
         let vk_accel = Self::map_key_to_vk_accel(menu_item.key);
-        let virt = Self::get_virt_key(menu_item, vk_accel.0);
+        let virt = Self::get_virt_key(menu_item, vk);
         let accel = winuser::ACCEL {
             fVirt: virt as BYTE,
             cmd: menu_item.id as WORD,
             key: vk_accel.0 as WORD };
 
-        accel_table.push(accel);
+        self.accel_table.push(accel);
     }
 
-    unsafe fn add_menu_item(&mut self, parent_menu: HMENU, menu_item: &Menu) {
-        let item_name = to_wstring(menu_item.name);
+    pub fn add_menu_item(&mut self, menu_item: &MenuItem) -> MenuItemHandle {
         let vk_accel = Self::map_key_to_vk_accel(menu_item.key);
 
-        match vk_accel.0 {
-            0 => {
-                user32::AppendMenuW(parent_menu, 0x10, menu_item.id as UINT_PTR, item_name.as_ptr());
-            },
-            _ => {
-                let menu_name = Self::format_name(menu_item, vk_accel.1);
-                let w_name = to_wstring(&menu_name);
-                user32::AppendMenuW(parent_menu, 0x10, menu_item.id as UINT_PTR, w_name.as_ptr());
-            }
-        }
-    }
-
-    unsafe fn set_accel_table(&mut self) {
-        let mut temp_accel_table = Vec::<ACCEL>::new();
-
-        for menu in self.menus.iter() {
-            for item in menu.accel_items.iter() {
-                println!("virt {} - cmd {} - key {}", item.fVirt, item.cmd, item.key);
-                temp_accel_table.push(item.clone());
-            }
-        }
-
-        if self.accel_table != ptr::null_mut() {
-            user32::DestroyAcceleratorTable(self.accel_table);
-        }
-
-        self.accel_table = user32::CreateAcceleratorTableW(temp_accel_table.as_mut_ptr(),
-                                                           temp_accel_table.len() as i32);
-    }
-
-
-    unsafe fn recursive_add_menu(&mut self, parent_menu: HMENU, name: &str, menu: &Vec<Menu>) -> HMENU {
-        let menu_name = to_wstring(name);
-
-        let popup_menu = user32::CreatePopupMenu();
-
-        user32::AppendMenuW(parent_menu, 0x10, popup_menu as UINT_PTR, menu_name.as_ptr());
-
-        for m in menu.iter() {
-            if let Some(ref sub_menu) = m.sub_menu {
-                Self::recursive_add_menu(self, popup_menu, m.name, sub_menu);
-            } else {
-                if m.id == 0xffffffff {
-                    user32::AppendMenuW(popup_menu, 0x800, 0, ptr::null()); // separator
-                } else {
-                    Self::add_menu_item(self, popup_menu, m);
-                }
-            }
-        }
-
-        popup_menu
-    }
-
-    pub fn menu_exists(&mut self, menu_name: &str) -> bool {
-        for menu in self.menus.iter() {
-            if menu.name == menu_name {
-                return true;
-            }
-        }
-
-        false
-    }
-
-    fn clone_menu(accel_dest: &mut Vec<ACCEL>, menu: &Vec<Menu>) {
-        for m in menu.iter() {
-            if let Some(ref sub_menu) = m.sub_menu {
-                Self::clone_menu(accel_dest, sub_menu);
-            }
-
-            if m.key != Key::Unknown {
-                Self::add_accel(accel_dest, m);
-            }
-        }
-    }
-
-    unsafe fn add_menu_store(&mut self, parent_menu: HMENU, menu_name: &str, menu: &Vec<Menu>) {
-        let mut items = Vec::<ACCEL>::new();
-        let menu_handle = Self::recursive_add_menu(self, parent_menu, menu_name, menu);
-
-        Self::clone_menu(&mut items, menu);
-
-        self.menus.push(MenuStore {
-            name: menu_name.to_owned(),
-            menu: menu_handle,
-            accel_items: items
-        });
-    }
-
-    pub fn add_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) -> Result<()> {
-        if Self::menu_exists(self, menu_name) {
-            return Err(Error::MenuExists(menu_name.to_owned()));
-        }
-
         unsafe {
-            let window = self.window.unwrap();
-            let mut main_menu = user32::GetMenu(window);
-
-            if main_menu == ptr::null_mut() {
-                main_menu = user32::CreateMenu();
-                user32::SetMenu(window, main_menu);
-                Self::adjust_window_size_for_menu(window);
-            }
-
-            Self::add_menu_store(self, main_menu, menu_name, menu);
-            Self::set_accel_table(self);
-
-            user32::DrawMenuBar(window);
-        }
-
-        Ok(())
-    }
-
-    pub fn update_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) -> Result<()> {
-        try!(Self::remove_menu(self, menu_name));
-        Self::add_menu(self, menu_name, menu)
-    }
-
-    pub fn remove_menu(&mut self, menu_name: &str) -> Result<()> {
-        for i in 0..self.menus.len() {
-            if self.menus[i].name == menu_name {
-                unsafe {
-                    user32::DestroyMenu(self.menus[i].menu);
-                    user32::DrawMenuBar(self.window.unwrap());
-                    self.menus.swap_remove(i);
-                    break;
+            match vk_accel.0 {
+                0 => {
+                    let item_name = to_wstring(&menu_item.label);
+                    user32::AppendMenuW(self.menu_handle, 0x10, menu_item.id as UINT_PTR, item_name.as_ptr());
+                },
+                _ => {
+                    let menu_name = Self::format_name(menu_item, vk_accel.1);
+                    let w_name = to_wstring(&menu_name);
+                    user32::AppendMenuW(self.menu_handle, 0x10, menu_item.id as UINT_PTR, w_name.as_ptr());
+                    self.add_accel(vk_accel.0, menu_item);
                 }
             }
         }
 
-        // TODO: Proper return here
-        Ok(())
+        // TODO: This is not correct and needs to be fixed if remove_item is added. The
+        // issue here is that AppendMenuW doesn't return a handle so it's hard to track
+        // in an easy way :(
+
+        MenuItemHandle(0)
     }
 
-    pub fn is_menu_pressed(&mut self) -> Option<usize> {
-        if self.accel_key == INVALID_ACCEL {
-            None
-        } else {
-            let t = self.accel_key;
-            self.accel_key = INVALID_ACCEL;
-            Some(t)
-        }
+    pub fn remove_item(&mut self, _item: &MenuItemHandle) {
+        panic!("remove item hasn't been implemented");
     }
 }
+
 
 impl Drop for Window {
     fn drop(&mut self) {

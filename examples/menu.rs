@@ -1,7 +1,7 @@
 extern crate minifb;
 
 use minifb::{Window, Key, Scale, WindowOptions, Menu};
-use minifb::{MENU_KEY_CTRL, MENU_KEY_COMMAND};
+use minifb::{MENU_KEY_CTRL};
 
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
@@ -26,63 +26,23 @@ fn main() {
                                  })
                          .expect("Unable to Open Window");
 
-    // Setup a sub menu
+    let mut menu = Menu::new("Test").unwrap();
+    let mut sub = Menu::new("Select Color").unwrap();
 
-    let sub_menu = vec![
-        Menu {
-            name: "Color 0",
-            key: Key::F1,
-            id: COLOR_0_ID,
-            ..Menu::default()
-        },
-        Menu {
-            name: "Color 1",
-            key: Key::F2,
-            id: COLOR_1_ID,
-            ..Menu::default()
-        },
-        Menu {
-            name: "Color 2",
-            key: Key::F12,
-            id: COLOR_2_ID,
-            ..Menu::default()
-        },
-    ];
+    sub.add_item("Color 0", COLOR_0_ID).shortcut(Key::F1, 0).build();
+    sub.add_item("Color 1", COLOR_1_ID).shortcut(Key::F2, 0).build();
+    sub.add_item("Color 2", COLOR_2_ID).shortcut(Key::F7, 0).build();
 
-    // Main menu
+    menu.add_item("Menu Test", MENU_TEST_ID).shortcut(Key::W, MENU_KEY_CTRL).build();
 
-    let menu = vec![
-        Menu {
-            name: "Menu Test",
-            key: Key::W,
-            id: MENU_TEST_ID,
-            modifier: MENU_KEY_CTRL,
-            mac_mod: MENU_KEY_COMMAND,
-            ..Menu::default()
-        },
-        Menu::separotor(),
-        Menu {
-            name: "Other menu!",
-            key: Key::S,
-            modifier: MENU_KEY_CTRL,
-            mac_mod: MENU_KEY_CTRL,
-            id: OTHER_MENU_ID,
-            ..Menu::default()
-        },
-        Menu {
-            name: "Remove Menu",
-            key: Key::R,
-            id: CLOSE_MENU_ID,
-            ..Menu::default()
-        },
-        Menu {
-            name: "Select Color",
-            sub_menu: Some(&sub_menu),
-            ..Menu::default()
-        }
-    ];
+    menu.add_separator();
 
-    window.add_menu("Test", &menu).expect("Unable to add menu");
+    menu.add_item("Other Menu", OTHER_MENU_ID).shortcut(Key::W, MENU_KEY_CTRL).build();
+    menu.add_item("Remove Menu", CLOSE_MENU_ID).shortcut(Key::R, 0).build();
+
+    menu.add_sub_menu("Sub Test", &sub);
+
+    let menu_handle = window.add_menu(&menu);
 
     let mut color_mul = 1;
 
@@ -106,7 +66,7 @@ fn main() {
                 }
                 CLOSE_MENU_ID => {
                     println!("remove menu");
-                    window.remove_menu("Test").expect("Unable to remove menu");
+                    window.remove_menu(menu_handle);
                 }
                 _ => (),
             }
