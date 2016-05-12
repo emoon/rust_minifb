@@ -2,6 +2,11 @@
 
 This project follows semantic versioning.
 
+### v0.7.0 (2016-05-12)
+
+- [changed] - Fully rewrote the Menu API. See the documentation/menu example for the changes.
+- [added] - Added ```Window::get_unix_menus``` to get data access to menus on Linux/x11
+
 ### v0.6.0 (2016-05-01)
 
 - [added] added ```get_size()``` to retrive the size of the window.
