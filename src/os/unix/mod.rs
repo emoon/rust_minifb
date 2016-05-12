@@ -8,10 +8,11 @@ extern crate x11_dl;
 
 use {MouseMode, MouseButton, Scale, Key, KeyRepeat, WindowOptions, InputCallback};
 use key_handler::KeyHandler;
-use menu::Menu;
+//use menu::Menu;
 use self::x11_dl::keysym::*;
 use error::Error;
 use Result;
+use {MenuItem, MenuItemHandle, MenuHandle, UnixMenu, UnixMenuItem};
 
 use libc::{c_void, c_char, c_uchar};
 use std::ffi::{CString};
@@ -52,6 +53,8 @@ pub struct Window {
     window_handle: *mut c_void,
     shared_data: SharedData,
     key_handler: KeyHandler,
+    menu_counter: MenuHandle,
+    menus: Vec<UnixMenu>,
 }
 
 #[allow(non_upper_case_globals)]
@@ -195,6 +198,8 @@ impl Window {
                 	.. SharedData::default()
 				},
                 key_handler: KeyHandler::new(),
+                menu_counter: MenuHandle(0),
+                menus: Vec::new(),
             })
         }
     }
@@ -350,19 +355,87 @@ impl Window {
         return factor;
     }
 
-    pub fn add_menu(&mut self, _menu_name: &str, _menu: &Vec<Menu>) -> Result<()> {
-        Err(Error::MenusNotSupported)
+    fn next_menu_handle(&mut self) -> MenuHandle {
+    	let handle = self.menu_counter;
+    	self.menu_counter.0 += 1;
+    	handle
     }
-    pub fn update_menu(&mut self, _menu_name: &str, _menu: &Vec<Menu>) -> Result<()> {
-        Err(Error::MenusNotSupported)
+
+    pub fn add_menu(&mut self, menu: &Menu) -> MenuHandle {
+    	let handle = self.next_menu_handle();
+        let mut menu = menu.internal.clone();
+        menu.handle = handle;
+        self.menus.push(menu);
+        handle
     }
-    pub fn remove_menu(&mut self, _menu_name: &str) -> Result<()> {
-        Err(Error::MenusNotSupported)
+
+    pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
+        Some(&self.menus)
     }
+
+    pub fn remove_menu(&mut self, handle: MenuHandle) {
+        self.menus.retain(|ref menu| menu.handle != handle);
+    }
+
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
         None
     }
 }
+
+pub struct Menu {
+	pub internal: UnixMenu,
+}
+
+impl Menu {
+    pub fn new(name: &str) -> Result<Menu> {
+    	Ok(Menu { 
+    		internal: UnixMenu {
+				handle: MenuHandle(0),
+				item_counter: MenuItemHandle(0),
+				name: name.to_owned(),
+				items: Vec::new(),
+    		}
+    	})
+    }
+
+    pub fn add_sub_menu(&mut self, name: &str, sub_menu: &Menu) {
+    	let handle = self.next_item_handle();
+    	self.internal.items.push(UnixMenuItem {
+    	    label: name.to_owned(),
+    	    handle: handle,
+    	    sub_menu: Some(Box::new(sub_menu.internal.clone())),
+			id: 0,
+			enabled: true,
+			key: Key::Unknown,
+			modifier: 0,
+        });
+    }
+
+    fn next_item_handle(&mut self) -> MenuItemHandle {
+    	let handle = self.internal.item_counter;
+    	self.internal.item_counter.0 += 1;
+    	handle
+    }
+
+    pub fn add_menu_item(&mut self, item: &MenuItem) -> MenuItemHandle {
+    	let item_handle = self.next_item_handle();
+    	self.internal.items.push(UnixMenuItem {
+			sub_menu: None,
+			handle: self.internal.item_counter,
+			id: item.id,
+			label: item.label.clone(),
+			enabled: item.enabled,
+			key: item.key,
+			modifier: item.modifier,
+    	});
+    	item_handle
+    }
+
+    pub fn remove_item(&mut self, handle: &MenuItemHandle) {
+        self.internal.items.retain(|ref item| item.handle.0 != handle.0);
+    }
+}
+
 
 impl Drop for Window {
     fn drop(&mut self) {

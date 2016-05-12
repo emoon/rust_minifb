@@ -1,3 +1,11 @@
+//! minifb is a cross platform library written in [Rust](https://www.rust-lang.org) that makes to
+//! open windows (usually native to the running operating system) and can optionally show a 32-bit
+//! buffer. minifb also support keyboard, mouse input and menus on selected operating systems.
+//!
+extern crate libc;
+
+use std::os::raw;
+
 /// Scale will scale the frame buffer and the window that is being sent in when calling the update
 /// function. This is useful if you for example want to display a 320 x 256 window on a screen with
 /// much higher resolution which would result in that the window is very small.
@@ -60,17 +68,19 @@ pub trait InputCallback {
     fn add_char(&mut self, uni_char: u32);
 }
 
-extern crate libc;
 
-use std::os::raw;
 
 #[doc(hidden)]
 mod error;
 pub use self::error::Error;
+#[doc(hidden)]
 pub type Result<T> = std::result::Result<T, Error>;
 
+#[doc(hidden)]
 pub mod key;
+#[doc(hidden)]
 pub use key::Key as Key;
+#[doc(hidden)]
 pub mod os;
 mod mouse_handler;
 mod key_handler;
@@ -95,6 +105,10 @@ use self::os::windows as imp;
     target_os="openbsd"))]
 use self::os::unix as imp;
 
+///
+/// Window is used to open up a window. It's possible to optionally display a 32-bit buffer when
+/// the widow is set as non-resizable.
+///
 pub struct Window(imp::Window);
 
 ///
@@ -112,31 +126,6 @@ pub struct WindowOptions {
     pub scale: Scale
 }
 
-///
-/// Window is used to open up a window. It's possible to optionally display a 32-bit buffer when
-/// the widow is set as non-resizable.
-///
-/// # Examples
-///
-/// Open up a window and display a 32-bit RGB buffer (without error checking)
-///
-/// ```ignore
-/// const WIDTH: usize = 640;
-/// const HEIGHT: usize = 360;
-///
-/// let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
-///
-/// let mut window = match Window::new("Test - Press ESC to exit", WIDTH, HEIGHT,
-///                                     WindowOptions::default()).unwrap()
-///
-/// while window.is_open() && !window.is_key_down(Key::Escape) {
-///     for i in buffer.iter_mut() {
-///         *i = 0; // write something interesting here
-///     }
-///     window.update_with_buffer(&buffer);
-/// }
-/// ```
-///
 impl Window {
     ///
     /// Opens up a new window
@@ -449,7 +438,7 @@ impl Window {
 
     ///
     /// This allows adding menus to your windows. As menus behaves a bit diffrently depending on
-    /// Operating system here is how it works. See [Menu] for description on each field.
+    /// Operating system here is how it works.
     ///
     /// ```ignore
     /// Windows:
@@ -459,31 +448,39 @@ impl Window {
     ///   on which window you have active.
     /// Linux/BSD/etc:
     ///   Menus aren't supported as they depend on each WindowManager and is outside of the
-    ///   scope for this library to support.
+    ///   scope for this library to support. Use [get_unix_menus] to get a structure
     /// ```
     ///
-    
     #[inline]
     pub fn add_menu(&mut self, menu: &Menu) -> MenuHandle {
         self.0.add_menu(&menu.0)
     }
 
     ///
-    /// Updates an existing menu created with [add_menu]
-    ///
-    /*
-    #[inline]
-    pub fn update_menu(&mut self, menu_name: &str, menu: &Vec<Menu>) -> Result<()> {
-        self.0.update_menu(menu_name, menu)
-    }
-    */
-
-    ///
-    /// Remove a menu that has been added with [add_menu]
+    /// Remove a menu that has been added with [#add_menu]
     ///
     #[inline]
     pub fn remove_menu(&mut self, handle: MenuHandle) {
         self.0.remove_menu(handle)
+    }
+
+    ///
+    /// Get Unix menu. Will only return menus on Unix class OSes
+    /// otherwise ```None```
+    ///
+    #[cfg(any(target_os="macos",
+              target_os="windows"))]
+    pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
+        None
+    }
+
+    #[cfg(any(target_os="linux",
+        target_os="freebsd",
+        target_os="dragonfly",
+        target_os="netbsd",
+        target_os="openbsd"))]
+    pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
+        self.0.get_unix_menus()
     }
 
     ///
@@ -509,39 +506,94 @@ pub const MENU_KEY_ALT: usize = 16;
 
 const MENU_ID_SEPARATOR:usize = 0xffffffff;
 
-pub struct Menu(imp::Menu);
+///
+/// Used on Unix (Linux, FreeBSD, etc) as menus aren't supported in a native where there.
+/// This structure can be used by calling [#get_unix_menus] on Window.
+///
+#[derive(Debug, Clone)]
+pub struct UnixMenu {
+	/// Name of the menu
+	pub name: String,
+	/// All items of the menu.
+	pub items: Vec<UnixMenuItem>, 
+    #[doc(hidden)]
+	pub handle: MenuHandle,
+    #[doc(hidden)]
+	pub item_counter: MenuItemHandle,
+}
 
-#[derive(Copy, Clone)]
+///
+/// Used for on Unix (Linux, FreeBSD, etc) as menus aren't supported in a native where there.
+/// This structure holds info for each item in a #UnixMenu
+///
+#[derive(Debug, Clone)]
+pub struct UnixMenuItem {
+    /// Set to a menu if there is a Item is a sub_menu otherwise None
+	pub sub_menu: Option<Box<UnixMenu>>,
+	/// Handle of the MenuItem
+	pub handle: MenuItemHandle,
+	/// Id of the item (set by the user from the outside and should be reported back when pressed)
+    pub id: usize,
+    /// Name of the item
+    pub label: String,
+    /// Set to true if enabled otherwise false
+    pub enabled: bool,
+    /// Shortcut key
+    pub key: Key,
+    /// Modifier for the key (Shift, Ctrl, etc)
+    pub modifier: usize,
+}
+
+#[derive(Debug, Copy, Clone)]
+#[doc(hidden)]
 pub struct MenuItemHandle(pub u64);
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[doc(hidden)]
 pub struct MenuHandle(pub u64);
 
+
+///
+/// Menu holds info for menus 
+///
+pub struct Menu(imp::Menu);
+
 impl Menu {
+    /// Create a new menu. Returns error if failed
     pub fn new(name: &str) -> Result<Menu> {
         imp::Menu::new(name).map(Menu)
     }
 
     #[inline]
+    /// Destroys a menu. Currently not implemented 
     pub fn destroy_menu(&mut self) {
         //self.0.destroy_menu()
     }
 
     #[inline]
+    /// Adds a sub menu to the current menu 
     pub fn add_sub_menu(&mut self, name: &str, menu: &Menu) {
         self.0.add_sub_menu(name, &menu.0)
     }
 
+    /// Adds a menu separator 
     pub fn add_separator(&mut self) {
         self.add_menu_item(&MenuItem { id: MENU_ID_SEPARATOR, ..MenuItem::default() });
     }
 
     #[inline]
+    /// Adds an item to the menu 
     pub fn add_menu_item(&mut self, item: &MenuItem) -> MenuItemHandle {
         self.0.add_menu_item(item)
     }
 
     #[inline]
+    /// Adds an item to the menu. Notice that you need to call "build" to finish the add
+    /// # Examples
+    ///
+    /// ```ignore
+    /// menu.add_item("test", 1).shortcut(Key::A, 0).build()
+    /// ```
     pub fn add_item(&mut self, name: &str, id: usize) -> MenuItem {
         MenuItem {
             id: id,
@@ -552,17 +604,22 @@ impl Menu {
     }
 
     #[inline]
+    /// Removes an item from the menu 
     pub fn remove_item(&mut self, item: &MenuItemHandle) {
         self.0.remove_item(item)
     }
 }
 
+///
+/// Holds info about each item in a menu 
+///
 pub struct MenuItem<'a> {
     pub id: usize,
     pub label: String,
     pub enabled: bool,
     pub key: Key,
     pub modifier: usize,
+    #[doc(hidden)]
     pub menu: Option<&'a mut Menu>,
 }
 
@@ -593,6 +650,7 @@ impl<'a> Clone for MenuItem<'a> {
 }
 
 impl<'a> MenuItem<'a> {
+    /// Creates a new menu item
     pub fn new(name: &str, id: usize) -> MenuItem {
         MenuItem {
             id: id,
@@ -601,6 +659,13 @@ impl<'a> MenuItem<'a> {
         }
     }
     #[inline]
+    /// Sets a shortcut key and modifer (and returns itself) 
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// menu.add_item("test", 1).shortcut(Key::A, 0).build()
+    /// ```
     pub fn shortcut(self, key: Key, modifier: usize) -> Self {
         MenuItem {
             key: key,
@@ -609,6 +674,14 @@ impl<'a> MenuItem<'a> {
         }
     }
     #[inline]
+    /// Sets item to a separator 
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// menu.add_item("", 0).separator().build()
+    /// ```
+    /// Notice that it's usually easier to just call ```menu.add_separator()``` directly
     pub fn separator(self) -> Self {
         MenuItem {
             id: MENU_ID_SEPARATOR,
@@ -616,6 +689,13 @@ impl<'a> MenuItem<'a> {
         }
     }
     #[inline]
+    /// Sets the menu item disabled/or not
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// menu.add_item("test", 1).enabled(false).build()
+    /// ```
     pub fn enabled(self, enabled: bool) -> Self {
         MenuItem {
             enabled: enabled,
@@ -623,6 +703,13 @@ impl<'a> MenuItem<'a> {
         }
     }
     #[inline]
+    /// Must be called to finialize building of a menu item when started with ```menu.add_item()``` 
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// menu.add_item("test", 1).enabled(false).build()
+    /// ```
     pub fn build(&mut self) -> MenuItemHandle {
         let t = self.clone();
         if let Some(ref mut menu) = self.menu {
