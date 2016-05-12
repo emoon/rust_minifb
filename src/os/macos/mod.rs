@@ -406,7 +406,7 @@ impl Window {
         for i in 0..self.menus.len() {
             if self.menus[i] == handle {
                 self.menus.remove(i);
-                unsafe { 
+                unsafe {
                     // + 1 here as we always have a default menu we shouldn't remove
                     mfb_remove_menu_at(self.window_handle, (i + 1) as i32);
                 }
@@ -599,7 +599,7 @@ impl Menu {
                                              item_name.as_ptr(),
                                              item.enabled,
                                              conv_key,
-                                             item.modifier))
+                                             item.modifier as u32))
         }
     }
 
