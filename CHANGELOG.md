@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.7.1 (2016-05-27)
+
+- [fixed] Character callback wouldn't get called on Mac.
+
 ### v0.7.0 (2016-05-12)
 
 - [changed] - Fully rewrote the Menu API. See the documentation/menu example for the changes.
