@@ -197,6 +197,23 @@ impl Window {
     }
 
     ///
+    /// Updates the window title
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let new_title = format!("Howdy, {}", "minifb!");
+    ///
+    /// let mut window = match Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    ///
+    /// window.update_title(&new_title);
+    /// ```
+    #[inline]
+    pub fn update_title(&mut self, title: &str) {
+        self.0.update_title(title)
+    }
+
+    ///
     /// Updates the window (this is required to call in order to get keyboard/mouse input, etc)
     ///
     /// # Examples

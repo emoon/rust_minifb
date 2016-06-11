@@ -293,6 +293,13 @@ impl Window {
         self.key_handler.set_key_repeat_rate(rate)
     }
 
+    pub fn update_title(&mut self, title: &str ) {
+        unsafe {
+            let title_str = CString::new(title).unwrap();
+            // TODO: implement unix update_title
+        }
+    }
+
     #[inline]
     pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
         self.key_handler.is_key_pressed(key, repeat)
