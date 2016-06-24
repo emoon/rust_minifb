@@ -12,7 +12,7 @@ use {Scale, Key, KeyRepeat, MouseButton, MouseMode, WindowOptions, InputCallback
 use key_handler::KeyHandler;
 use error::Error;
 use Result;
-use {MenuItem, MenuItemHandle, MenuHandle};
+use {CursorStyle, MenuItem, MenuItemHandle, MenuHandle};
 use {MENU_KEY_WIN, MENU_KEY_SHIFT, MENU_KEY_CTRL, MENU_KEY_ALT};
 
 use std::ptr;
@@ -331,6 +331,8 @@ pub struct Window {
     key_handler: KeyHandler,
     accel_table: HACCEL,
     accel_key: usize,
+    prev_cursor: CursorStyle,
+    cursors: [winapi::HCURSOR; 8],
 }
 
 // TranslateAccelerator is currently missing in win-rs
@@ -454,9 +456,28 @@ impl Window {
                 menus: Vec::new(),
                 accel_table: ptr::null_mut(),
                 accel_key: INVALID_ACCEL,
+                prev_cursor: CursorStyle::Arrow,
+                cursors: [
+                    user32::LoadCursorW(ptr::null_mut(), winuser::IDC_ARROW),
+                    user32::LoadCursorW(ptr::null_mut(), winuser::IDC_IBEAM),
+                    user32::LoadCursorW(ptr::null_mut(), winuser::IDC_CROSS),
+                    user32::LoadCursorW(ptr::null_mut(), winuser::IDC_HAND),
+                    user32::LoadCursorW(ptr::null_mut(), winuser::IDC_HAND),
+                    user32::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZENS),
+                    user32::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZEWE),
+                    user32::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZEALL),
+                ],
             };
 
             Ok(window)
+        }
+    }
+
+    #[inline]
+    pub fn set_title(&mut self, title: &str) {
+        unsafe {
+            let title_name = to_wstring(title);
+            user32::SetWindowTextW(self.window.unwrap(), title_name.as_ptr());
         }
     }
 
@@ -504,6 +525,19 @@ impl Window {
     }
 
     #[inline]
+    pub fn set_cursor_style(&mut self, cursor: CursorStyle) {
+        unsafe {
+            if self.prev_cursor == cursor {
+                return;
+            }
+
+            user32::SetCursor(self.cursors[cursor as usize]);
+
+            self.prev_cursor = cursor;
+        }
+    }
+
+    #[inline]
     pub fn get_keys(&self) -> Option<Vec<Key>> {
         self.key_handler.get_keys()
     }
@@ -537,7 +571,6 @@ impl Window {
     pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
         self.key_handler.is_key_pressed(key, repeat)
     }
-
 
     #[inline]
     pub fn is_open(&self) -> bool {
@@ -675,7 +708,7 @@ impl Window {
         println!("accel {:?}", self.accel_table);
     }
 
-    
+
     pub fn add_menu(&mut self, menu: &Menu) -> MenuHandle {
         unsafe {
             let window = self.window.unwrap();
@@ -687,9 +720,9 @@ impl Window {
                 Self::adjust_window_size_for_menu(window);
             }
 
-            user32::AppendMenuW(main_menu, 
-                                0x10, 
-                                menu.menu_handle as UINT_PTR, 
+            user32::AppendMenuW(main_menu,
+                                0x10,
+                                menu.menu_handle as UINT_PTR,
                                 menu.name.as_ptr());
 
             self.menus.push(menu.clone());
@@ -702,7 +735,7 @@ impl Window {
         }
 
         // TODO: Proper handle
-    
+
         MenuHandle(menu.menu_handle as u64)
     }
 
@@ -867,9 +900,9 @@ impl Menu {
     pub fn add_sub_menu(&mut self, name: &str, menu: &Menu) {
         unsafe {
             let menu_name = to_wstring(name);
-            user32::AppendMenuW(self.menu_handle, 
-                                0x10, 
-                                menu.menu_handle as UINT_PTR, 
+            user32::AppendMenuW(self.menu_handle,
+                                0x10,
+                                menu.menu_handle as UINT_PTR,
                                 menu_name.as_ptr());
             self.accel_table.extend_from_slice(menu.accel_table.as_slice());
         }

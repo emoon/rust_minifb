@@ -51,6 +51,7 @@ void build_submenu(NSMenu* menu, MenuDesc* desc);
 	@public bool should_close;
 	@public bool is_active;
 	@public int active_menu_id;
+	@public int prev_cursor;
 	@public MenuData* menu_data;
 }
 

@@ -2,8 +2,6 @@
 //! open windows (usually native to the running operating system) and can optionally show a 32-bit
 //! buffer. minifb also support keyboard, mouse input and menus on selected operating systems.
 //!
-extern crate libc;
-
 use std::os::raw;
 
 /// Scale will scale the frame buffer and the window that is being sent in when calling the update
@@ -51,7 +49,7 @@ pub enum MouseButton
 }
 
 
-/// Key is used by the get key functions to check if some keys on the keyboard has been pressed
+/// The diffrent modes that can be used to decide how mouse coordinates should be handled
 #[derive(PartialEq, Clone, Copy)]
 pub enum MouseMode {
     /// Return mouse coords from outside of the window (may be negative)
@@ -62,13 +60,32 @@ pub enum MouseMode {
     Discard,
 }
 
+/// Different style of cursors that can be used
+#[derive(PartialEq, Clone, Copy)]
+pub enum CursorStyle {
+    /// Regular arrow style (this is what the cursor normal looks like)
+    Arrow,
+    /// Used when indicating insertion (like text field)
+    Ibeam,
+    /// Cross-hair cursor
+    Crosshair,
+    /// Closed hand which useful for dragging things, may use default hand on unsupported OSes.
+    ClosedHand,
+    /// Open hand which useful for indicating drangable things, may use default hand on unsupported OSes.
+    OpenHand,
+    /// Rezining left-rigth direction
+    ResizeLeftRight,
+    /// Rezining up-down direction
+    ResizeUpDown,
+    /// Resize in all directions
+    ResizeAll,
+}
+
 /// This trait can be implemented and set with ```set_input_callback``` to reieve a callback
 /// whene there is inputs incoming. Currently only support unicode chars.
 pub trait InputCallback {
     fn add_char(&mut self, uni_char: u32);
 }
-
-
 
 #[doc(hidden)]
 mod error;
@@ -161,6 +178,21 @@ impl Window {
     /// ```
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
         imp::Window::new(name, width, height, opts).map(Window)
+    }
+
+    ///
+    /// Allows you to set a new title of the window after creation
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let mut window = match Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    ///
+    /// window.set_title("My New Title!");
+    /// ```
+    ///
+    pub fn set_title(&mut self, title: &str) {
+        self.0.set_title(title)
     }
 
     ///
@@ -312,6 +344,20 @@ impl Window {
     #[inline]
     pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
         self.0.get_scroll_wheel()
+    }
+
+    ///
+    /// Set a diffrent cursor style. This can be used if you have resizing
+    /// elements or something like that
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// window.set_cursor_style(CursorStyle::ResizeLeftRight);
+    /// ```
+    ///
+    pub fn set_cursor_style(&mut self, cursor: CursorStyle) {
+        self.0.set_cursor_style(cursor)
     }
 
     ///
@@ -515,7 +561,7 @@ pub struct UnixMenu {
 	/// Name of the menu
 	pub name: String,
 	/// All items of the menu.
-	pub items: Vec<UnixMenuItem>, 
+	pub items: Vec<UnixMenuItem>,
     #[doc(hidden)]
 	pub handle: MenuHandle,
     #[doc(hidden)]
@@ -554,7 +600,7 @@ pub struct MenuHandle(pub u64);
 
 
 ///
-/// Menu holds info for menus 
+/// Menu holds info for menus
 ///
 pub struct Menu(imp::Menu);
 
@@ -565,24 +611,24 @@ impl Menu {
     }
 
     #[inline]
-    /// Destroys a menu. Currently not implemented 
+    /// Destroys a menu. Currently not implemented
     pub fn destroy_menu(&mut self) {
         //self.0.destroy_menu()
     }
 
     #[inline]
-    /// Adds a sub menu to the current menu 
+    /// Adds a sub menu to the current menu
     pub fn add_sub_menu(&mut self, name: &str, menu: &Menu) {
         self.0.add_sub_menu(name, &menu.0)
     }
 
-    /// Adds a menu separator 
+    /// Adds a menu separator
     pub fn add_separator(&mut self) {
         self.add_menu_item(&MenuItem { id: MENU_ID_SEPARATOR, ..MenuItem::default() });
     }
 
     #[inline]
-    /// Adds an item to the menu 
+    /// Adds an item to the menu
     pub fn add_menu_item(&mut self, item: &MenuItem) -> MenuItemHandle {
         self.0.add_menu_item(item)
     }
@@ -604,14 +650,14 @@ impl Menu {
     }
 
     #[inline]
-    /// Removes an item from the menu 
+    /// Removes an item from the menu
     pub fn remove_item(&mut self, item: &MenuItemHandle) {
         self.0.remove_item(item)
     }
 }
 
 ///
-/// Holds info about each item in a menu 
+/// Holds info about each item in a menu
 ///
 pub struct MenuItem<'a> {
     pub id: usize,
@@ -640,10 +686,10 @@ impl<'a> Clone for MenuItem<'a> {
     fn clone(&self) -> Self {
         MenuItem {
             id: self.id,
-            label: self.label.clone(), 
+            label: self.label.clone(),
             enabled: self.enabled,
             key: self.key,
-            modifier: self.modifier, 
+            modifier: self.modifier,
             menu: None,
         }
     }
@@ -659,7 +705,7 @@ impl<'a> MenuItem<'a> {
         }
     }
     #[inline]
-    /// Sets a shortcut key and modifer (and returns itself) 
+    /// Sets a shortcut key and modifer (and returns itself)
     ///
     /// # Examples
     ///
@@ -674,7 +720,7 @@ impl<'a> MenuItem<'a> {
         }
     }
     #[inline]
-    /// Sets item to a separator 
+    /// Sets item to a separator
     ///
     /// # Examples
     ///
@@ -703,7 +749,7 @@ impl<'a> MenuItem<'a> {
         }
     }
     #[inline]
-    /// Must be called to finialize building of a menu item when started with ```menu.add_item()``` 
+    /// Must be called to finialize building of a menu item when started with ```menu.add_item()```
     ///
     /// # Examples
     ///

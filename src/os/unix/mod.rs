@@ -8,13 +8,12 @@ extern crate x11_dl;
 
 use {MouseMode, MouseButton, Scale, Key, KeyRepeat, WindowOptions, InputCallback};
 use key_handler::KeyHandler;
-//use menu::Menu;
 use self::x11_dl::keysym::*;
 use error::Error;
 use Result;
-use {MenuItem, MenuItemHandle, MenuHandle, UnixMenu, UnixMenuItem};
+use {CursorStyle, MenuItem, MenuItemHandle, MenuHandle, UnixMenu, UnixMenuItem};
 
-use libc::{c_void, c_char, c_uchar};
+use std::os::raw::{c_void, c_char, c_uchar};
 use std::ffi::{CString};
 use std::ptr;
 use std::mem;
@@ -23,8 +22,10 @@ use mouse_handler;
 use window_flags;
 
 #[link(name = "X11")]
+#[link(name = "Xcursor")]
 extern {
     fn mfb_open(name: *const c_char, width: u32, height: u32, flags: u32, scale: i32) -> *mut c_void;
+    fn mfb_set_title(window: *mut c_void, title: *const c_char);
     fn mfb_close(window: *mut c_void);
     fn mfb_update(window: *mut c_void);
     fn mfb_update_with_buffer(window: *mut c_void, buffer: *const c_uchar);
@@ -33,6 +34,7 @@ extern {
     fn mfb_set_shared_data(window: *mut c_void, target: *mut SharedData);
     fn mfb_should_close(window: *mut c_void) -> i32;
     fn mfb_get_screen_size() -> u32;
+    fn mfb_set_cursor_style(window: *mut c_void, cursor: u32);
     fn mfb_get_window_handle(window: *mut c_void) -> *mut c_void;
 }
 
@@ -204,6 +206,13 @@ impl Window {
         }
     }
 
+    pub fn set_title(&mut self, title: &str) {
+        unsafe {
+            let t = CString::new(title).unwrap();
+            mfb_set_title(self.window_handle, t.as_ptr());
+        }
+    }
+
     unsafe fn set_shared_data(&mut self) {
         mfb_set_shared_data(self.window_handle, &mut self.shared_data);
     }
@@ -265,6 +274,13 @@ impl Window {
             Some((self.shared_data.scroll_x, self.shared_data.scroll_y))
         } else {
             None
+        }
+    }
+
+    #[inline]
+    pub fn set_cursor_style(&mut self, cursor: CursorStyle) {
+        unsafe {
+            mfb_set_cursor_style(self.window_handle, cursor as u32);
         }
     }
 
@@ -388,7 +404,7 @@ pub struct Menu {
 
 impl Menu {
     pub fn new(name: &str) -> Result<Menu> {
-    	Ok(Menu { 
+    	Ok(Menu {
     		internal: UnixMenu {
 				handle: MenuHandle(0),
 				item_counter: MenuItemHandle(0),

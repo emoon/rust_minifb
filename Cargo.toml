@@ -14,7 +14,6 @@ build = "build.rs"
 gcc = "0.3.19"
 
 [dependencies]
-libc = "0.2"
 time = "0.1.34"
 
 [target.x86_64-pc-windows-msvc.dependencies]

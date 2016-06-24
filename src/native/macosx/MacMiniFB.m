@@ -13,6 +13,34 @@ const uint32_t WINDOW_TITLE = 1 << 3;
 
 static void create_standard_menu();
 
+// Needs to match lib.rs enum
+enum CursorStyle {
+    CursorStyle_Arrow,
+    CursorStyle_Ibeam,
+    CursorStyle_Crosshair,
+    CursorStyle_ClosedHand,
+    CursorStyle_OpenHand,
+    CursorStyle_ResizeLeftRight,
+    CursorStyle_ResizeUpDown,
+    CursorStyle_SizeAll,
+    CursorStyle_Count,
+};
+
+static NSCursor* s_cursors[CursorStyle_Count];
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void cursor_init() {
+    s_cursors[CursorStyle_Arrow] = [[NSCursor arrowCursor] retain];
+    s_cursors[CursorStyle_Ibeam] = [[NSCursor IBeamCursor] retain];
+    s_cursors[CursorStyle_Crosshair] = [[NSCursor crosshairCursor] retain];
+    s_cursors[CursorStyle_ClosedHand] = [[NSCursor closedHandCursor] retain];
+    s_cursors[CursorStyle_OpenHand] = [[NSCursor openHandCursor] retain];
+    s_cursors[CursorStyle_ResizeLeftRight] = [[NSCursor resizeLeftRightCursor] retain];
+    s_cursors[CursorStyle_ResizeUpDown] = [[NSCursor resizeUpDownCursor] retain];
+    s_cursors[CursorStyle_SizeAll] = [[NSCursor closedHandCursor] retain];
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #ifdef __clang__
@@ -31,6 +59,7 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 		[NSApplication sharedApplication];
 		[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 		create_standard_menu();
+		cursor_init();
 		s_init = true;
 	}
 
@@ -63,6 +92,7 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 	window->key_callback = 0;
 	window->shared_data = 0;
 	window->active_menu_id = -1;
+	window->prev_cursor = 0;
 
 	window->menu_data = malloc(sizeof(MenuData));
 	memset(window->menu_data, 0, sizeof(MenuData));
@@ -195,6 +225,14 @@ static void create_standard_menu(void)
     //[NSApp performSelector:setAppleMenuSelector withObject:appMenu];
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void mfb_set_title(void* window, const char* title)
+{
+	OSXWindow* win = (OSXWindow*)window;
+	NSString* ns_title = [NSString stringWithUTF8String: title];
+	[win setTitle: ns_title];
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -240,7 +278,7 @@ static int update_events()
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static int generic_update(OSXWindow* win) 
+static int generic_update(OSXWindow* win)
 {
 	int state = update_events();
 
@@ -332,6 +370,25 @@ void mfb_set_mouse_data(void* window, SharedData* shared_data)
 {
 	OSXWindow* win = (OSXWindow*)window;
 	win->shared_data = shared_data;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void mfb_set_cursor_style(void* window, int cursor)
+{
+	OSXWindow* win = (OSXWindow*)window;
+
+	if (win->prev_cursor == cursor)
+		return;
+
+	if (cursor < 0 || cursor >= CursorStyle_Count) {
+		printf("cursor out of range %d\n", cursor);
+		return;
+	}
+
+	[s_cursors[cursor] set];
+
+	win->prev_cursor = cursor;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -451,12 +508,12 @@ static NSString* get_string_for_key(uint32_t t) {
 uint64_t mfb_add_menu_item(
 	void* in_menu,
 	int32_t menu_id,
-	const char* item_name, 
-	bool enabled, 
+	const char* item_name,
+	bool enabled,
 	uint32_t key,
 	uint32_t modfier)
 {
-	NSMenu* menu = (NSMenu*)in_menu; 
+	NSMenu* menu = (NSMenu*)in_menu;
 
 	NSString* name = [NSString stringWithUTF8String: item_name];
 
@@ -517,7 +574,7 @@ uint64_t mfb_add_menu_item(
 			[newItem setKeyEquivalentModifierMask: mask];
 			[newItem setKeyEquivalent:key_string];
 		}
-		
+
 		if (enabled) {
 			[newItem setEnabled:YES];
 		} else {
@@ -567,7 +624,7 @@ void mfb_destroy_menu(void* menu_item, const char* name)
 
 void mfb_remove_menu_item(void* parent, uint64_t menu_item) {
 	NSMenu* menu = (NSMenu*)parent;
-	NSMenuItem* item = (NSMenuItem*)(uintptr_t)menu_item; 
+	NSMenuItem* item = (NSMenuItem*)(uintptr_t)menu_item;
 	[menu removeItem:item];
 }
 
@@ -576,7 +633,7 @@ void mfb_remove_menu_item(void* parent, uint64_t menu_item) {
 uint64_t mfb_add_menu(void* window, void* m)
 {
 	OSXWindow* win = (OSXWindow*)window;
-	NSMenu* menu = (NSMenu*)m; 
+	NSMenu* menu = (NSMenu*)m;
 
  	NSMenu* main_menu = [NSApp mainMenu];
 

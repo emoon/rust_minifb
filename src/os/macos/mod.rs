@@ -8,10 +8,10 @@ use Result;
 use InputCallback;
 use mouse_handler;
 use window_flags;
-use {MenuItem, MenuItemHandle, MenuHandle};
+use {CursorStyle, MenuItem, MenuItemHandle, MenuHandle};
 // use menu::Menu;
 
-use libc::{c_void, c_char, c_uchar};
+use std::os::raw::{c_void, c_char, c_uchar};
 use std::ffi::CString;
 use std::ptr;
 use std::mem;
@@ -159,6 +159,7 @@ extern "C" {
                 flags: u32,
                 scale: i32)
                 -> *mut c_void;
+    fn mfb_set_title(window: *mut c_void, title: *const c_char);
     fn mfb_close(window: *mut c_void);
     fn mfb_update(window: *mut c_void);
     fn mfb_update_with_buffer(window: *mut c_void, buffer: *const c_uchar);
@@ -168,6 +169,7 @@ extern "C" {
                             cb: unsafe extern "C" fn(*mut c_void, i32, i32),
                             cb: unsafe extern "C" fn(*mut c_void, u32));
     fn mfb_set_mouse_data(window_handle: *mut c_void, shared_data: *mut SharedData);
+    fn mfb_set_cursor_style(window: *mut c_void, cursor: u32);
     fn mfb_should_close(window: *mut c_void) -> i32;
     fn mfb_get_screen_size() -> u32;
     fn mfb_is_active(window: *mut c_void) -> u32;
@@ -272,6 +274,14 @@ impl Window {
     }
 
     #[inline]
+    pub fn set_title(&mut self, title: &str) {
+        unsafe {
+            let t = CString::new(title).unwrap();
+            mfb_set_title(self.window_handle, t.as_ptr());
+        }
+    }
+
+    #[inline]
     pub fn get_window_handle(&self) -> *mut raw::c_void {
         self.window_handle as *mut raw::c_void
     }
@@ -347,6 +357,13 @@ impl Window {
                                s,
                                w,
                                h)
+    }
+
+    #[inline]
+    pub fn set_cursor_style(&mut self, cursor: CursorStyle) {
+        unsafe {
+            mfb_set_cursor_style(self.window_handle, cursor as u32);
+        }
     }
 
     #[inline]
