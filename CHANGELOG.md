@@ -2,6 +2,12 @@
 
 This project follows semantic versioning.
 
+### v0.8.0 (2016-06-24)
+
+- [added] ```window.set_title``` Can now change title after creation
+- [added] ```window.set_cursor_style``` Can now change the style of the cursor with a number of (OS supported types)
+- [added] Added cursor_title example code to show the newly added features
+
 ### v0.7.1 (2016-05-27)
 
 - [fixed] Character callback wouldn't get called on Mac.
