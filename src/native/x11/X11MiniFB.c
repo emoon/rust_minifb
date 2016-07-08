@@ -34,6 +34,7 @@ static int s_setup_done = 0;
 static Visual* s_visual;
 static int s_screen_width;
 static int s_screen_height;
+static int s_keyb_ext = 0;
 static XContext s_context;
 static Atom s_wm_delete_window;
 
@@ -98,6 +99,12 @@ static void init_cursors() {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 static int setup_display() {
+    int major = 1;
+    int minor = 0;
+	int majorOpcode = 0;
+	int eventBase = 0;
+	int errorBase = 0;
+
     int depth, i, formatCount, convDepth = -1;
     XPixmapFormatValues* formats;
 
@@ -147,6 +154,8 @@ static int setup_display() {
     s_setup_done = 1;
 
     init_cursors();
+
+	s_keyb_ext = XkbQueryExtension(s_display, &majorOpcode, &eventBase, &errorBase, &major, &minor);
 
     return 1;
 }
@@ -281,6 +290,43 @@ void mfb_set_cursor_style(void* window_info, int cursor)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+static int handle_special_keys(WindowInfo* info, XEvent* event, int down) {
+	int keySym;
+
+	if (!s_keyb_ext) 
+		return 0;
+
+	keySym = XkbKeycodeToKeysym(s_display, event->xkey.keycode, 0, 1);
+
+	switch (keySym)
+	{
+		case XK_KP_0:
+		case XK_KP_1:
+		case XK_KP_2:
+		case XK_KP_3:
+		case XK_KP_4:
+		case XK_KP_5:
+		case XK_KP_6:
+		case XK_KP_7:
+		case XK_KP_8:
+		case XK_KP_9:
+		case XK_KP_Separator:
+		case XK_KP_Decimal:
+		case XK_KP_Equal:
+		case XK_KP_Enter:
+		{
+			if (info->key_callback) {
+				info->key_callback(info->rust_data, keySym, down);
+				return 1;
+			}
+		}
+	}
+
+	return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 static int process_event(XEvent* event) {
     KeySym sym;
 
@@ -304,6 +350,9 @@ static int process_event(XEvent* event) {
         {
             sym = XLookupKeysym(&event->xkey, 0);
 
+			if (handle_special_keys(info, event, 1))
+				break;
+
             if (info->key_callback)
                 info->key_callback(info->rust_data, sym, 1);
 
@@ -318,6 +367,9 @@ static int process_event(XEvent* event) {
 
         case KeyRelease:
         {
+			if (handle_special_keys(info, event, 0))
+				break;
+
             sym = XLookupKeysym(&event->xkey, 0);
 
             if (info->key_callback)
