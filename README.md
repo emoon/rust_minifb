@@ -14,7 +14,7 @@ Usage
 ```toml
 # Cargo.toml
 [dependencies]
-minifb = "0.8.1"
+minifb = "0.8.2"
 ```
 
 Example

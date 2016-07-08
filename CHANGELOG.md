@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.8.2 (2016-07-07)
+
+- [fixed] Fixed so keypad keys works on Linux
+
 ### v0.8.1 (2016-07-07)
 
 - [fixed] Character callback wouldn't get called on Mac and Linux
