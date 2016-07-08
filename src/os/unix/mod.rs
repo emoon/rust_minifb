@@ -132,7 +132,7 @@ unsafe extern "C" fn key_callback(window: *mut c_void, key: i32, s: i32) {
         XK_braceright => (*win).key_handler.set_key_state(Key::RightBracket, state),
         XK_semicolon => (*win).key_handler.set_key_state(Key::Semicolon, state),
         XK_slash => (*win).key_handler.set_key_state(Key::Slash, state),
-        //XK_backslash => (*win).key_handler.set_key_state(Key::Backspace, state),
+        XK_BackSpace => (*win).key_handler.set_key_state(Key::Backspace, state),
         XK_Delete => (*win).key_handler.set_key_state(Key::Delete, state),
         XK_End => (*win).key_handler.set_key_state(Key::End, state),
         XK_Return => (*win).key_handler.set_key_state(Key::Enter, state),
