@@ -1,6 +1,6 @@
 extern crate minifb;
 
-use minifb::{Window, Key, Scale, WindowOptions, Menu};
+use minifb::{InputCallback, Window, Key, Scale, WindowOptions, Menu};
 use minifb::{MENU_KEY_CTRL};
 
 const WIDTH: usize = 640;
@@ -12,6 +12,14 @@ const COLOR_0_ID: usize = 3;
 const COLOR_1_ID: usize = 4;
 const COLOR_2_ID: usize = 5;
 const CLOSE_MENU_ID: usize = 6;
+
+struct KeyCharCallback;
+
+impl InputCallback for KeyCharCallback {
+    fn add_char(&mut self, c: u32) {
+        println!("add_char {}", c);
+    }
+}
 
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
@@ -25,6 +33,8 @@ fn main() {
                                      ..WindowOptions::default()
                                  })
                          .expect("Unable to Open Window");
+
+    window.set_input_callback(Box::new(KeyCharCallback {}));
 
     let mut menu = Menu::new("Test").unwrap();
     let mut sub = Menu::new("Select Color").unwrap();
@@ -45,9 +55,9 @@ fn main() {
     let menu_handle = window.add_menu(&menu);
 
     window.get_unix_menus().map(|menus| {
-    	println!("Menus {:?}", menus);
+        println!("Menus {:?}", menus);
     });
-    	
+
     let mut color_mul = 1;
 
     while window.is_open() && !window.is_key_down(Key::Escape) {

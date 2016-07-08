@@ -30,7 +30,9 @@ extern {
     fn mfb_update(window: *mut c_void);
     fn mfb_update_with_buffer(window: *mut c_void, buffer: *const c_uchar);
     fn mfb_set_position(window: *mut c_void, x: i32, y: i32);
-    fn mfb_set_key_callback(window: *mut c_void, target: *mut c_void, cb: unsafe extern fn(*mut c_void, i32, i32));
+    fn mfb_set_key_callback(window: *mut c_void, target: *mut c_void, 
+    						kb: unsafe extern fn(*mut c_void, i32, i32),
+    						cb: unsafe extern fn(*mut c_void, u32));
     fn mfb_set_shared_data(window: *mut c_void, target: *mut SharedData);
     fn mfb_should_close(window: *mut c_void) -> i32;
     fn mfb_get_screen_size() -> u32;
@@ -171,6 +173,19 @@ unsafe extern "C" fn key_callback(window: *mut c_void, key: i32, s: i32) {
     }
 }
 
+unsafe extern "C" fn char_callback(window: *mut c_void, code_point: u32) {
+    let win: *mut Window = mem::transmute(window);
+
+    // Taken from GLFW
+    if code_point < 32 || (code_point > 126 && code_point < 160) {
+        return;
+    }
+
+    if let Some(ref mut callback) = (*win).key_handler.key_callback {
+        callback.add_char(code_point);
+    }
+}
+
 impl Window {
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
         let n = match CString::new(name) {
@@ -223,7 +238,10 @@ impl Window {
         unsafe {
             Self::set_shared_data(self);
             mfb_update_with_buffer(self.window_handle, buffer.as_ptr() as *const u8);
-            mfb_set_key_callback(self.window_handle, mem::transmute(self), key_callback);
+            mfb_set_key_callback(self.window_handle,
+            					 mem::transmute(self),
+            					 key_callback,
+            					 char_callback);
         }
     }
 
@@ -233,7 +251,10 @@ impl Window {
         unsafe {
             Self::set_shared_data(self);
             mfb_update(self.window_handle);
-            mfb_set_key_callback(self.window_handle, mem::transmute(self), key_callback);
+            mfb_set_key_callback(self.window_handle,
+            					 mem::transmute(self),
+            					 key_callback,
+            					 char_callback);
         }
     }
 
