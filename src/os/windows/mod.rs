@@ -145,6 +145,11 @@ fn update_key_state(window: &mut Window, wparam: u32, state: bool) {
     }
 }
 
+fn char_down(window: &mut Window, code_point: u32) {
+    if let Some(ref mut callback) = window.key_handler.key_callback {
+        callback.add_char(code_point);
+    }
+}
 
 #[cfg(target_arch = "x86_64")]
 unsafe fn set_window_long(window: winapi::HWND, data: winapi::LONG_PTR) -> winapi::LONG_PTR {
@@ -201,6 +206,14 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
         winapi::winuser::WM_KEYDOWN => {
             update_key_state(wnd, (lparam as u32) >> 16, true);
             return 0;
+        }
+
+        winapi::winuser::WM_CHAR => {
+            char_down(wnd, wparam as u32);
+        }
+
+        winapi::winuser::WM_SYSCHAR => {
+            char_down(wnd, wparam as u32);
         }
 
         winapi::winuser::WM_LBUTTONDOWN => {
@@ -463,8 +476,8 @@ impl Window {
                     user32::LoadCursorW(ptr::null_mut(), winuser::IDC_CROSS),
                     user32::LoadCursorW(ptr::null_mut(), winuser::IDC_HAND),
                     user32::LoadCursorW(ptr::null_mut(), winuser::IDC_HAND),
-                    user32::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZENS),
                     user32::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZEWE),
+                    user32::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZENS),
                     user32::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZEALL),
                 ],
             };
