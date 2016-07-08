@@ -476,8 +476,8 @@ impl Window {
                     user32::LoadCursorW(ptr::null_mut(), winuser::IDC_CROSS),
                     user32::LoadCursorW(ptr::null_mut(), winuser::IDC_HAND),
                     user32::LoadCursorW(ptr::null_mut(), winuser::IDC_HAND),
-                    user32::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZENS),
                     user32::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZEWE),
+                    user32::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZENS),
                     user32::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZEALL),
                 ],
             };
