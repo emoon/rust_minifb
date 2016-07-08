@@ -2,6 +2,11 @@
 
 This project follows semantic versioning.
 
+### v0.8.1 (2016-07-07)
+
+- [fixed] Character callback wouldn't get called on Mac and Linux
+- [fixed] Resize cursors on Windows was swapped
+
 ### v0.8.0 (2016-06-24)
 
 - [added] ```window.set_title``` Can now change title after creation
