@@ -61,7 +61,7 @@ fn main() {
         Rect { x: 480, y: 180, width: 160, height: 180, color: 0x00b25091, cursor_style: CursorStyle::ResizeAll }
     ];
 
-    window.set_title("Diffrent cursor on each color region");
+    window.set_title("Different cursor on each color region");
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         let (mx, my) = window.get_mouse_pos(MouseMode::Clamp).unwrap();
