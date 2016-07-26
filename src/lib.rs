@@ -347,7 +347,7 @@ impl Window {
     }
 
     ///
-    /// Set a diffrent cursor style. This can be used if you have resizing
+    /// Set a different cursor style. This can be used if you have resizing
     /// elements or something like that
     ///
     /// # Examples
@@ -749,7 +749,7 @@ impl<'a> MenuItem<'a> {
         }
     }
     #[inline]
-    /// Must be called to finialize building of a menu item when started with ```menu.add_item()```
+    /// Must be called to finalize building of a menu item when started with ```menu.add_item()```
     ///
     /// # Examples
     ///
