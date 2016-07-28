@@ -126,10 +126,10 @@
 
 - (void)windowResized:(NSNotification *)notification;
 {
-	NSSize size = [[self window] frame].size;
+	NSSize size = [self bounds].size;
     OSXWindow* window = (OSXWindow*)[self window];
-    window->shared_data->width = (int)size.width;
-    window->shared_data->height = (int)size.height;
+    window->shared_data->width = (int)(size.width);
+    window->shared_data->height = (int)(size.height);
 }
 
 @end
