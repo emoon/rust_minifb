@@ -2,6 +2,11 @@
 
 This project follows semantic versioning.
 
+### v0.8.3 (2016-07-29)
+
+- [fixed] Mac: "Plonk sound" when pressing keys
+- [fixed] Mac: incorrect size for ``get_size()``
+
 ### v0.8.2 (2016-07-07)
 
 - [fixed] Fixed so keypad keys works on Linux

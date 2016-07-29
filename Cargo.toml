@@ -1,6 +1,6 @@
 [package]
 name = "minifb"
-version = "0.8.2"
+version = "0.8.3"
 license = "MIT/Apache-2.0"
 authors = ["Daniel Collin <daniel@collin.com>"]
 description = "Cross-platform window setup with optional bitmap rendering"
