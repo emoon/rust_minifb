@@ -359,6 +359,19 @@ impl Window {
                                h)
     }
 
+    pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
+        let s = 1.0;
+        let w = self.shared_data.width as f32;
+        let h = self.shared_data.height as f32;
+
+        mouse_handler::get_pos(mode,
+                               self.shared_data.mouse_x,
+                               self.shared_data.mouse_y,
+                               s,
+                               w,
+                               h)
+    }
+
     #[inline]
     pub fn set_cursor_style(&mut self, cursor: CursorStyle) {
         unsafe {

@@ -311,6 +311,24 @@ impl Window {
     }
 
     ///
+    /// Get the current position of the mouse relative to the current window
+    /// The coordinate system is as 0, 0 as the upper left corner and ignores
+    /// any scaling set to the window.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// window.get_unscaled_mouse_pos(MouseMode::Clamp).map(|mouse| {
+    ///     println!("x {} y {}", mouse.0, mouse.1);
+    /// });
+    /// ```
+    ///
+    #[inline]
+    pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
+        self.0.get_unscaled_mouse_pos(mode)
+    }
+
+    ///
     /// Check if a mouse button is down or not
     ///
     /// # Examples

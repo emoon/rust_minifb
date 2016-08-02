@@ -30,7 +30,7 @@ extern {
     fn mfb_update(window: *mut c_void);
     fn mfb_update_with_buffer(window: *mut c_void, buffer: *const c_uchar);
     fn mfb_set_position(window: *mut c_void, x: i32, y: i32);
-    fn mfb_set_key_callback(window: *mut c_void, target: *mut c_void, 
+    fn mfb_set_key_callback(window: *mut c_void, target: *mut c_void,
     						kb: unsafe extern fn(*mut c_void, i32, i32),
     						cb: unsafe extern fn(*mut c_void, u32));
     fn mfb_set_shared_data(window: *mut c_void, target: *mut SharedData);
@@ -279,6 +279,14 @@ impl Window {
         let h = self.shared_data.height as f32;
 
         mouse_handler::get_pos(mode, self.shared_data.mouse_x, self.shared_data.mouse_y, s, w, h)
+    }
+
+    pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
+        let s = self.shared_data.scale as f32;
+        let w = self.shared_data.width as f32;
+        let h = self.shared_data.height as f32;
+
+        mouse_handler::get_pos(mode, self.shared_data.mouse_x, self.shared_data.mouse_y, 1.0, w, h)
     }
 
     pub fn get_mouse_down(&self, button: MouseButton) -> bool {

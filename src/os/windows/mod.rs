@@ -521,6 +521,15 @@ impl Window {
         mouse_handler::get_pos(mode, self.mouse.x, self.mouse.y, s, w * s, h * s)
     }
 
+    pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
+        let s = self.scale_factor as f32;
+        let w = self.width as f32;
+        let h = self.height as f32;
+
+        // TODO: Needs to be fixed with resize support
+        mouse_handler::get_pos(mode, self.mouse.x, self.mouse.y, 1.0, w * s, h * s)
+    }
+
     pub fn get_mouse_down(&self, button: MouseButton) -> bool {
         match button {
             MouseButton::Left => self.mouse.state[0],
