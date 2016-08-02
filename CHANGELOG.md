@@ -2,9 +2,13 @@
 
 This project follows semantic versioning.
 
+### v0.9.0 (2016-08-02)
+
+- [added] ```get_unscaled_mouse_pos``` Can be used the get actual mouse pos on a scaled window
+
 ### v0.8.4 (2016-07-31)
 
-- [fixed] Mac: Fixed crash on large window sizes 
+- [fixed] Mac: Fixed crash on large window sizes
 
 ### v0.8.3 (2016-07-29)
 
