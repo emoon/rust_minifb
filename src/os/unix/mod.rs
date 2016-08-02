@@ -282,7 +282,6 @@ impl Window {
     }
 
     pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
-        let s = self.shared_data.scale as f32;
         let w = self.shared_data.width as f32;
         let h = self.shared_data.height as f32;
 
