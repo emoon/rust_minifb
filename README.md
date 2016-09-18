@@ -1,12 +1,12 @@
 [![Crates.io](https://img.shields.io/crates/v/minifb.svg)](https://crates.io/crates/minifb)
 [![Build Status](https://travis-ci.org/emoon/rust_minifb.svg)](https://travis-ci.org/emoon/rust_minifb)
 [![Build Status](https://ci.appveyor.com/api/projects/status/sfvgqq4d4sjulkbx?svg=true)](https://ci.appveyor.com/project/emoon/rust-minifb)
+[![Documentation](https://docs.rs/minifb/badge.svg)](https://docs.rs/minifb)
 
 minifb is a cross platform library written in [Rust](https://www.rust-lang.org) and that makes it easy to setup a window and to (optional) display a 32-bit pixel buffer.  It also makes it easy to get input from keyboard and mouse.
 An example is the best way to show how it works:
 
-[Documentation](http://prodbg.com/minifb/minifb/index.html)
-[Changelog](https://github.com/emoon/rust_minifb/blob/window-opts/CHANGELOG.md)
+[Changelog](https://github.com/emoon/rust_minifb/blob/master/CHANGELOG.md)
 
 Usage
 -----
