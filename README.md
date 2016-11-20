@@ -23,7 +23,7 @@ Example
 ```rust
 extern crate minifb;
 
-use minifb::{Key, Scale, WindowOptions};
+use minifb::{Key, WindowOptions, Window};
 
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
