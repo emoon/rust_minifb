@@ -24,7 +24,7 @@ impl InputCallback for KeyCharCallback {
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 
-    let mut window = Window::new("Noise Test - Press ESC to exit",
+    let mut window = Window::new("Menu Test - Press ESC to exit",
                                  WIDTH,
                                  HEIGHT,
                                  WindowOptions {
