@@ -639,7 +639,7 @@ impl Window {
 
         Self::generic_update(self, window);
 
-        self.buffer = buffer.iter().cloned().collect();
+        self.buffer = buffer.to_vec();
         unsafe {
             user32::InvalidateRect(window, ptr::null_mut(), winapi::TRUE);
         }
