@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.9.1 (2017-04-02)
+
+- [fixed] Correct link to docs in Cargo.toml
+
 ### v0.9.0 (2016-08-02)
 
 - [added] ```get_unscaled_mouse_pos``` Can be used the get actual mouse pos on a scaled window
