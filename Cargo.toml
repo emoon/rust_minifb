@@ -57,3 +57,6 @@ x11-dl = "~2.2"
 
 [target.x86_64-unknown-freebsd.dependencies]
 x11-dl = "~2.2"
+
+[target.x86_64-unknown-redox.dependencies]
+orbclient = "0.3.4"

@@ -121,7 +121,8 @@ use self::os::windows as imp;
     target_os="netbsd",
     target_os="openbsd"))]
 use self::os::unix as imp;
-
+#[cfg(target_os = "redox")]
+use self::os::redox as imp;
 ///
 /// Window is used to open up a window. It's possible to optionally display a 32-bit buffer when
 /// the widow is set as non-resizable.
@@ -542,7 +543,8 @@ impl Window {
         target_os="freebsd",
         target_os="dragonfly",
         target_os="netbsd",
-        target_os="openbsd"))]
+        target_os="openbsd",
+        target_os="redox"))]
     pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
         self.0.get_unix_menus()
     }
