@@ -162,6 +162,7 @@ extern "C" {
     fn mfb_set_title(window: *mut c_void, title: *const c_char);
     fn mfb_close(window: *mut c_void);
     fn mfb_update(window: *mut c_void);
+    fn mfb_update_title(window: *mut c_void, title: *const c_char);
     fn mfb_update_with_buffer(window: *mut c_void, buffer: *const c_uchar);
     fn mfb_set_position(window: *mut c_void, x: i32, y: i32);
     fn mfb_set_key_callback(window: *mut c_void,
@@ -289,6 +290,13 @@ impl Window {
     #[inline]
     unsafe fn set_mouse_data(&mut self) {
         mfb_set_mouse_data(self.window_handle, &mut self.shared_data);
+    }
+
+    pub fn update_title(&mut self, title: &str ) {
+        unsafe {
+            let title_str = CString::new(title).unwrap();
+            mfb_update_title(self.window_handle, title_str.as_ptr());
+        }
     }
 
     pub fn update_with_buffer(&mut self, buffer: &[u32]) {

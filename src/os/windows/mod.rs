@@ -512,6 +512,13 @@ impl Window {
         (self.width as usize, self.height as usize)
     }
 
+    pub fn update_title(&mut self, title: &str ) {
+        unsafe {
+            let title_str = CString::new(title).unwrap();
+            // TODO: implement windows update_title
+        }
+    }
+
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         let s = self.scale_factor as f32;
         let w = self.width as f32;
