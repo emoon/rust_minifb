@@ -7,4 +7,6 @@ pub mod windows;
     target_os="dragonfly",
     target_os="netbsd",
     target_os="openbsd"))]
-pub mod unix; 
+pub mod unix;
+#[cfg(target_os = "redox")]
+pub mod redox;
