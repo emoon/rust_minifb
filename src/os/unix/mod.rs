@@ -128,7 +128,7 @@ unsafe extern "C" fn key_callback(window: *mut c_void, key: i32, s: i32) {
         XK_equal => (*win).key_handler.set_key_state(Key::Equal, state),
         XK_bracketleft => (*win).key_handler.set_key_state(Key::LeftBracket, state),
         XK_minus => (*win).key_handler.set_key_state(Key::Minus, state),
-        //XP_period => (*win).key_handler.set_key_state(Key::Period, state),
+        XK_period => (*win).key_handler.set_key_state(Key::Period, state),
         XK_braceright => (*win).key_handler.set_key_state(Key::RightBracket, state),
         XK_semicolon => (*win).key_handler.set_key_state(Key::Semicolon, state),
         XK_slash => (*win).key_handler.set_key_state(Key::Slash, state),
