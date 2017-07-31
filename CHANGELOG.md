@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.9.2 (2017-07-31)
+
+- [fixed] Bumped x11-dll to 2.14 as it was causing issues on nightly.
+
 ### v0.9.1 (2017-04-02)
 
 - [fixed] Correct link to docs in Cargo.toml
