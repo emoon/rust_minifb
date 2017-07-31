@@ -41,22 +41,22 @@ kernel32-sys = "0.1.4"
 gdi32-sys = "0.1.1"
 
 [target.i686-unknown-linux-gnu.dependencies]
-x11-dl = "~2.2"
+x11-dl = "~2.14"
 
 [target.x86_64-unknown-linux-gnu.dependencies]
-x11-dl = "~2.2"
+x11-dl = "~2.14"
 
 [target.arm-unknown-linux-gnueabihf.dependencies]
-x11-dl = "~2.2"
+x11-dl = "~2.14"
 
 [target.aarch64-unknown-linux-gnu.dependencies]
-x11-dl = "~2.2"
+x11-dl = "~2.14"
 
 [target.x86_64-unknown-dragonfly.dependencies]
-x11-dl = "~2.2"
+x11-dl = "~2.14"
 
 [target.x86_64-unknown-freebsd.dependencies]
-x11-dl = "~2.2"
+x11-dl = "~2.14"
 
 [target.x86_64-unknown-redox.dependencies]
 orbclient = "0.3.4"
