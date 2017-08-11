@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.10.0 (2017-08-11)
+
+- [changed]  ```update_with_buffer``` Now make sures that input buffer will be large enough. As of this it now returns ```Result<>``` to indicate the status of the call.
+
 ### v0.9.2 (2017-07-31)
 
 - [fixed] Bumped x11-dll to 2.14 as it was causing issues on nightly.
