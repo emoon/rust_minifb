@@ -238,7 +238,7 @@ impl Window {
 
         let check_res = buffer_helper::check_buffer_size(self.shared_data.width as usize,
                                                          self.shared_data.height as usize,
-                                                         self.scale_factor as usize,
+                                                         self.scale as usize,
                                                          buffer);
         if check_res.is_err() {
             return check_res;
