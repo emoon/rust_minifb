@@ -233,7 +233,7 @@ impl Window {
         mfb_set_shared_data(self.window_handle, &mut self.shared_data);
     }
 
-    pub fn update_with_buffer(&mut self, buffer: &[u32]) {
+    pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
         self.key_handler.update();
 
         let check_res = buffer_helper::check_buffer_size(self.shared_data.width as usize,
@@ -252,6 +252,8 @@ impl Window {
             					 key_callback,
             					 char_callback);
         }
+
+        Ok(())
     }
 
     pub fn update(&mut self) {
