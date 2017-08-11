@@ -26,7 +26,7 @@ fn main() {
 
     let mut window = Window::new("Menu Test - Press ESC to exit",
                                  WIDTH,
-                                 HEIGHT,
+                                 HEIGHT + 2,
                                  WindowOptions {
                                      resize: true,
                                      scale: Scale::X2,
@@ -98,6 +98,7 @@ fn main() {
             }
         });
 
-        window.update_with_buffer(&buffer);
+        // We unwrap here as we want this code to exit if it fails
+        window.update_with_buffer(&buffer).unwrap();
     }
 }

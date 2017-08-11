@@ -6,6 +6,7 @@ use os::redox::orbclient::Renderer;
 use error::Error;
 use Result;
 use mouse_handler;
+use buffer_height;
 use key_handler::KeyHandler;
 use InputCallback;
 use {CursorStyle, MouseButton, MouseMode};
@@ -100,11 +101,19 @@ impl Window {
         0 as *mut raw::c_void
     }
 
-    pub fn update_with_buffer(&mut self, buffer: &[u32]) {
+    pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
         self.process_events();
         self.key_handler.update();
+
+        let check_res = buffer_helper::check_buffer_size(self.buffer_width, self.buffer_height, self.window_scale, buffer);
+        if check_res.is_err() {
+            return check_res;
+        }
+
         self.render_buffer(buffer);
         self.window.sync();
+
+        Ok(())
     }
 
     pub fn update(&mut self) {

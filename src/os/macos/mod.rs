@@ -7,6 +7,7 @@ use Result;
 // use MenuItem;
 use InputCallback;
 use mouse_handler;
+use buffer_helper;
 use window_flags;
 use {CursorStyle, MenuItem, MenuItemHandle, MenuHandle};
 // use menu::Menu;
@@ -291,8 +292,16 @@ impl Window {
         mfb_set_mouse_data(self.window_handle, &mut self.shared_data);
     }
 
-    pub fn update_with_buffer(&mut self, buffer: &[u32]) {
+    pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
         self.key_handler.update();
+
+        let check_res = buffer_helper::check_buffer_size(self.shared_data.width as usize,
+                                                         self.shared_data.height as usize,
+                                                         self.scale_factor as usize,
+                                                         buffer);
+        if check_res.is_err() {
+            return check_res;
+        }
 
         unsafe {
             mfb_update_with_buffer(self.window_handle, buffer.as_ptr() as *const u8);
@@ -302,6 +311,8 @@ impl Window {
                                  key_callback,
                                  char_callback);
         }
+
+        Ok(())
     }
 
     pub fn update(&mut self) {

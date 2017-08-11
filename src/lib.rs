@@ -100,6 +100,7 @@ pub use key::Key as Key;
 #[doc(hidden)]
 pub mod os;
 mod mouse_handler;
+mod buffer_helper;
 mod key_handler;
 mod window_flags;
 //mod menu;
@@ -222,10 +223,10 @@ impl Window {
     ///
     /// let mut window = match Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     ///
-    /// window.update_with_buffer(&buffer);
+    /// window.update_with_buffer(&buffer).unwrap();
     /// ```
     #[inline]
-    pub fn update_with_buffer(&mut self, buffer: &[u32]) {
+    pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
         self.0.update_with_buffer(buffer)
     }
 

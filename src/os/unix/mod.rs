@@ -19,6 +19,7 @@ use std::ptr;
 use std::mem;
 use std::os::raw;
 use mouse_handler;
+use buffer_helper;
 use window_flags;
 
 #[link(name = "X11")]
@@ -234,6 +235,14 @@ impl Window {
 
     pub fn update_with_buffer(&mut self, buffer: &[u32]) {
         self.key_handler.update();
+
+        let check_res = buffer_helper::check_buffer_size(self.shared_data.width as usize,
+                                                         self.shared_data.height as usize,
+                                                         self.scale_factor as usize,
+                                                         buffer);
+        if check_res.is_err() {
+            return check_res;
+        }
 
         unsafe {
             Self::set_shared_data(self);

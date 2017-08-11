@@ -21,6 +21,7 @@ use std::ffi::OsStr;
 use std::mem;
 use std::os::raw;
 use mouse_handler;
+use buffer_helper;
 
 //use self::winapi::windef::HWND;
 //use self::winapi::windef::HDC;
@@ -634,10 +635,18 @@ impl Window {
         }
     }
 
-    pub fn update_with_buffer(&mut self, buffer: &[u32]) {
+    pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
         let window = self.window.unwrap();
 
         Self::generic_update(self, window);
+
+        let check_res = buffer_helper::check_buffer_size(self.width as usize,
+                                                         self.height as usize,
+                                                         self.scale_factor as usize,
+                                                         buffer);
+        if check_res.is_err() {
+            return check_res;
+        }
 
         self.buffer = buffer.to_vec();
         unsafe {
@@ -645,6 +654,8 @@ impl Window {
         }
 
         Self::message_loop(self, window);
+
+        Ok(())
     }
 
     pub fn update(&mut self) {

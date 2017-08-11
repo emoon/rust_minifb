@@ -5,12 +5,14 @@ use std::fmt;
 ///
 #[derive(Debug)]
 pub enum Error {
-    /// Returned if menu Menu function isn't supported 
+    /// Returned if menu Menu function isn't supported
     MenusNotSupported,
-    /// Menu already exists 
+    /// Menu already exists
     MenuExists(String),
-    /// Menu already exists 
+    /// Menu already exists
     WindowCreate(String),
+    /// Unable to Update
+    UpdateFailed(String),
 }
 
 impl StdError for Error {
@@ -18,7 +20,8 @@ impl StdError for Error {
         match *self {
             Error::MenusNotSupported => "Menus not supported",
             Error::MenuExists(_) => "Menu already exists",
-            Error::WindowCreate(_) => "Failed to create Window",
+            Error::WindowCreate(_) => "Failed to create window",
+            Error::UpdateFailed(_) => "Failed to Update",
         }
     }
 
@@ -27,6 +30,7 @@ impl StdError for Error {
             Error::MenusNotSupported => None,
             Error::MenuExists(_) => None,
             Error::WindowCreate(_) => None,
+            Error::UpdateFailed(_) => None,
         }
     }
 }
@@ -41,6 +45,9 @@ impl fmt::Display for Error {
                 write!(fmt, "{} {:?}", self.description(), e)
             },
             Error::WindowCreate(ref e) => {
+                write!(fmt, "{} {:?}", self.description(), e)
+            }
+            Error::UpdateFailed(ref e) => {
                 write!(fmt, "{} {:?}", self.description(), e)
             }
         }
