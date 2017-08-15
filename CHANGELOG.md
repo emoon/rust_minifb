@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.10.1 (2017-08-15)
+
+- [fixed] Typo in the Redox implementation was fixed after changes in 0.10.0
+
 ### v0.10.0 (2017-08-11)
 
 - [changed]  ```update_with_buffer``` Now make sures that input buffer will be large enough. As of this it now returns ```Result<>``` to indicate the status of the call.
