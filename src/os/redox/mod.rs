@@ -6,7 +6,7 @@ use os::redox::orbclient::Renderer;
 use error::Error;
 use Result;
 use mouse_handler;
-use buffer_height;
+use buffer_helper;
 use key_handler::KeyHandler;
 use InputCallback;
 use {CursorStyle, MouseButton, MouseMode};
