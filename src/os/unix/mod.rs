@@ -24,6 +24,56 @@ use mouse_handler;
 use buffer_helper;
 use window_flags;
 
+struct DisplayInfo {
+    lib: x11_dl::xlib::Xlib,
+    display: *mut xlib::Display,
+    screen: i32,
+
+/* TODO
+    GC s_gc;
+    int s_depth;
+    int s_setup_done = 0;
+    Visual* s_visual;
+    int s_screen_width;
+    int s_screen_height;
+    int s_keyb_ext = 0;
+    XContext s_context;
+    Atom s_wm_delete_window;
+*/
+
+// TODO cursors: [10]
+}
+
+impl DisplayInfo {
+    fn setup() -> Result<DisplayInfo> {
+        // load the Xlib library
+        unsafe {
+            let lib = xlib::Xlib::open();
+
+            if let Err(_) = lib {
+                return Err(Error::WindowCreate("failed to load Xlib".to_owned()));
+            }
+
+            let lib = lib.unwrap();
+
+            let display = (lib.XOpenDisplay)(ptr::null());
+
+            if display.is_null() {
+                return Err(Error::WindowCreate("XOpenDisplay failed".to_owned()));
+            }
+
+            let screen = (lib.XDefaultScreen)(display);
+
+            Ok(DisplayInfo {
+                lib,
+                display,
+                screen
+            })
+        }
+    }
+}
+
+
 #[derive(Default)]
 #[repr(C)]
 pub struct SharedData {
@@ -38,6 +88,8 @@ pub struct SharedData {
 }
 
 pub struct Window {
+    display: DisplayInfo,
+
     handle: xlib::Window,
 
     shared_data: SharedData,
@@ -181,6 +233,8 @@ impl Window {
             Ok(n) => n,
         };
 
+        let display = DisplayInfo::setup()?;
+
         let scale = Self::get_scale_factor(width, height, opts.scale);
         let handle: xlib::Window = 0;  // FIXME
 
@@ -195,6 +249,7 @@ impl Window {
         }
 
         Ok(Window {
+            display,
             handle: 0, // !!!! FIXME
 
             shared_data: SharedData {
