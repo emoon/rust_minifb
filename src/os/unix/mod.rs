@@ -285,27 +285,27 @@ impl Window {
             Ok(n) => n,
         };
 
-        let dis = DisplayInfo::new()?;
+        let d = DisplayInfo::new()?;
 
         let scale = Self::get_scale_factor(width, height, opts.scale);
 
         unsafe {
             let mut attributes: xlib::XSetWindowAttributes = mem::zeroed();
 
-            let root = (dis.lib.XDefaultRootWindow)(dis.display);
+            let root = (d.lib.XDefaultRootWindow)(d.display);
 
             //TODO attributes.border_pixel = BlackPixel(s_display, s_screen);
             //TODO attributes.background_pixel = BlackPixel(s_display, s_screen);
 
             attributes.backing_store = xlib::NotUseful;
 
-            let x = (dis.screen_width  - width  as i32) / 2;
-            let y = (dis.screen_height - height as i32) / 2;
+            let x = (d.screen_width  - width  as i32) / 2;
+            let y = (d.screen_height - height as i32) / 2;
 
-            let handle = (dis.lib.XCreateWindow)(dis.display, root,
+            let handle = (d.lib.XCreateWindow)(d.display, root,
                             x, y, width as u32, height as u32,
-                            0 /* border_width */, dis.depth,
-                            xlib::InputOutput as u32 /* class */, dis.visual,
+                            0 /* border_width */, d.depth,
+                            xlib::InputOutput as u32 /* class */, d.visual,
                             xlib::CWBackingStore | xlib::CWBackPixel | xlib::CWBorderPixel,
                             &mut attributes);
 
@@ -313,8 +313,12 @@ impl Window {
                 return Err(Error::WindowCreate("Unable to open Window".to_owned()));
             }
 
+            (d.lib.XClearWindow)(d.display, handle);
+            (d.lib.XMapRaised)(d.display, handle);
+            (d.lib.XFlush)(d.display);
+
             Ok(Window {
-                display: dis,
+                display: d,
                 handle,
                 shared_data: SharedData {
                     scale: scale as f32,
