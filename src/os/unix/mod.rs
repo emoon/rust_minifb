@@ -99,6 +99,8 @@ impl DisplayInfo {
     }
 
     fn check_formats(&mut self) -> Result<()> {
+        // FIXME
+
         // We only support 32-bit right now
 /*
         if (convDepth != 32) {
@@ -111,6 +113,8 @@ impl DisplayInfo {
     }
 
     fn init_cursors(&mut self) -> Result<()> {
+        // FIXME
+
         Ok(())
     }
 }
@@ -281,33 +285,46 @@ impl Window {
             Ok(n) => n,
         };
 
-        let display = DisplayInfo::new()?;
+        let dis = DisplayInfo::new()?;
 
         let scale = Self::get_scale_factor(width, height, opts.scale);
-        let handle: xlib::Window = 0;  // FIXME
 
-// !!                        mfb_open(n.as_ptr(),
-// !!            					  width as u32,
-// !!            					  height as u32,
-// !!            					  window_flags::get_flags(opts),
-// !!            					  scale);
+        unsafe {
+            let mut attributes: xlib::XSetWindowAttributes = mem::zeroed();
 
-        if handle == 0 {
-            return Err(Error::WindowCreate("Unable to open Window".to_owned()));
+            let root = (dis.lib.XDefaultRootWindow)(dis.display);
+
+            //TODO attributes.border_pixel = BlackPixel(s_display, s_screen);
+            //TODO attributes.background_pixel = BlackPixel(s_display, s_screen);
+
+            attributes.backing_store = xlib::NotUseful;
+
+            let x = (dis.screen_width  - width  as i32) / 2;
+            let y = (dis.screen_height - height as i32) / 2;
+
+            let handle = (dis.lib.XCreateWindow)(dis.display, root,
+                            x, y, width as u32, height as u32,
+                            0 /* border_width */, dis.depth,
+                            xlib::InputOutput as u32 /* class */, dis.visual,
+                            xlib::CWBackingStore | xlib::CWBackPixel | xlib::CWBorderPixel,
+                            &mut attributes);
+
+            if handle == 0 {
+                return Err(Error::WindowCreate("Unable to open Window".to_owned()));
+            }
+
+            Ok(Window {
+                display: dis,
+                handle,
+                shared_data: SharedData {
+                    scale: scale as f32,
+                    .. SharedData::default()
+                },
+                key_handler: KeyHandler::new(),
+                menu_counter: MenuHandle(0),
+                menus: Vec::new(),
+            })
         }
-
-        Ok(Window {
-            display,
-            handle: 0, // !!!! FIXME
-
-            shared_data: SharedData {
-                scale: scale as f32,
-                .. SharedData::default()
-            },
-            key_handler: KeyHandler::new(),
-            menu_counter: MenuHandle(0),
-            menus: Vec::new(),
-        })
     }
 
     pub fn set_title(&mut self, title: &str) {
