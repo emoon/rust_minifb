@@ -9,6 +9,8 @@ extern crate x11_dl;
 use {MouseMode, MouseButton, Scale, Key, KeyRepeat, WindowOptions, InputCallback};
 use key_handler::KeyHandler;
 use self::x11_dl::keysym::*;
+use self::x11_dl::xlib;
+
 use error::Error;
 use Result;
 use {CursorStyle, MenuItem, MenuItemHandle, MenuHandle, UnixMenu, UnixMenuItem};
@@ -36,7 +38,8 @@ pub struct SharedData {
 }
 
 pub struct Window {
-    window_handle: *mut c_void,
+    handle: xlib::Window,
+
     shared_data: SharedData,
     key_handler: KeyHandler,
     menu_counter: MenuHandle,
@@ -178,9 +181,8 @@ impl Window {
             Ok(n) => n,
         };
 
-        unsafe {
-        	let scale = Self::get_scale_factor(width, height, opts.scale);
-            let handle = ptr::null_mut() ;
+        let scale = Self::get_scale_factor(width, height, opts.scale);
+        let handle: xlib::Window = 0;  // FIXME
 
 // !!                        mfb_open(n.as_ptr(),
 // !!            					  width as u32,
@@ -188,21 +190,21 @@ impl Window {
 // !!            					  window_flags::get_flags(opts),
 // !!            					  scale);
 
-            if handle == ptr::null_mut() {
-                return Err(Error::WindowCreate("Unable to open Window".to_owned()));
-            }
-
-            Ok(Window {
-                window_handle: handle,
-                shared_data: SharedData {
-                	scale: scale as f32,
-                	.. SharedData::default()
-				},
-                key_handler: KeyHandler::new(),
-                menu_counter: MenuHandle(0),
-                menus: Vec::new(),
-            })
+        if handle == 0 {
+            return Err(Error::WindowCreate("Unable to open Window".to_owned()));
         }
+
+        Ok(Window {
+            handle: 0, // !!!! FIXME
+
+            shared_data: SharedData {
+                scale: scale as f32,
+                .. SharedData::default()
+            },
+            key_handler: KeyHandler::new(),
+            menu_counter: MenuHandle(0),
+            menus: Vec::new(),
+        })
     }
 
     pub fn set_title(&mut self, title: &str) {
@@ -210,6 +212,10 @@ impl Window {
 // !!            let t = CString::new(title).unwrap();
 // !!            mfb_set_title(self.window_handle, t.as_ptr());
 // !!        }
+
+/*
+        WindowInfo* info = (WindowInfo*)window_info;
+        XStoreName(s_display, info->window, title);   */
     }
 
     unsafe fn set_shared_data(&mut self) {
@@ -258,7 +264,7 @@ impl Window {
     #[inline]
     pub fn get_window_handle(&self) -> *mut raw::c_void {
 // !!    	unsafe { mfb_get_window_handle(self.window_handle) as *mut raw::c_void }
-        unsafe { mem::transmute(self) }
+        unsafe { mem::transmute(self.handle as usize) }
     }
 
     #[inline]
@@ -362,7 +368,7 @@ impl Window {
         true
     }
 
-    unsafe fn get_scale_factor(width: usize, height: usize, scale: Scale) -> i32 {
+    fn get_scale_factor(width: usize, height: usize, scale: Scale) -> i32 {
         let factor: i32 = match scale {
             Scale::X1 => 1,
             Scale::X2 => 2,
