@@ -12,9 +12,5 @@ fn main() {
             .compile("libminifb_native.a");
         println!("cargo:rustc-link-lib=framework=Metal");
         println!("cargo:rustc-link-lib=framework=MetalKit");
-    } else if env.contains("linux") {
-        cc::Build::new()
-            .file("src/native/x11/X11MiniFB.c")
-            .compile("libminifb_native.a");
     }
 }
