@@ -28,16 +28,15 @@ struct DisplayInfo {
     lib: x11_dl::xlib::Xlib,
     display: *mut xlib::Display,
     screen: i32,
+    visual: *mut xlib::Visual,
+    gc: xlib::GC,
+    depth: i32,
+    screen_width: i32,
+    screen_height: i32,
+    context: xlib::XContext,
 
 /* TODO
-    GC s_gc;
-    int s_depth;
-    int s_setup_done = 0;
-    Visual* s_visual;
-    int s_screen_width;
-    int s_screen_height;
     int s_keyb_ext = 0;
-    XContext s_context;
     Atom s_wm_delete_window;
 */
 
@@ -45,9 +44,18 @@ struct DisplayInfo {
 }
 
 impl DisplayInfo {
+    fn new() -> Result<DisplayInfo> {
+        let mut display = Self::setup()?;
+
+        display.check_formats()?;
+        display.init_cursors()?;
+
+        Ok(display)
+    }
+
     fn setup() -> Result<DisplayInfo> {
-        // load the Xlib library
         unsafe {
+            // load the Xlib library
             let lib = xlib::Xlib::open();
 
             if let Err(_) = lib {
@@ -63,13 +71,53 @@ impl DisplayInfo {
             }
 
             let screen = (lib.XDefaultScreen)(display);
+            let visual = (lib.XDefaultVisual)(display, screen);
+            let gc     = (lib.XDefaultGC)    (display, screen);
+            let depth  = (lib.XDefaultDepth) (display, screen);
+
+            let screen_width  = (lib.XDisplayWidth) (display, screen);
+            let screen_height = (lib.XDisplayHeight)(display, screen);
+
+            // andrewj: using this instead of XUniqueContext(), as the latter
+            // seems to be erroneously feature guarded in the x11_dl crate.
+            let context = (lib.XrmUniqueQuark)();
+
+            // TODO keyb_ext
 
             Ok(DisplayInfo {
                 lib,
                 display,
-                screen
+                screen,
+                visual,
+                gc,
+                depth,
+                screen_width,
+                screen_height,
+                context,
             })
         }
+    }
+
+    fn check_formats(&mut self) -> Result<()> {
+        // We only support 32-bit right now
+/*
+        if (convDepth != 32) {
+            printf("Unable to find 32-bit format for X11 display\n");
+            XCloseDisplay(s_display);
+            return 0;
+        } */
+
+        Ok(())
+    }
+
+    fn init_cursors(&mut self) -> Result<()> {
+        Ok(())
+    }
+}
+
+impl Drop for DisplayInfo {
+    fn drop(&mut self) {
+        // FIXME !!!
     }
 }
 
@@ -233,7 +281,7 @@ impl Window {
             Ok(n) => n,
         };
 
-        let display = DisplayInfo::setup()?;
+        let display = DisplayInfo::new()?;
 
         let scale = Self::get_scale_factor(width, height, opts.scale);
         let handle: xlib::Window = 0;  // FIXME
