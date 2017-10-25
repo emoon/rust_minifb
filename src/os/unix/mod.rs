@@ -22,25 +22,6 @@ use mouse_handler;
 use buffer_helper;
 use window_flags;
 
-#[link(name = "X11")]
-#[link(name = "Xcursor")]
-extern {
-    fn mfb_open(name: *const c_char, width: u32, height: u32, flags: u32, scale: i32) -> *mut c_void;
-    fn mfb_set_title(window: *mut c_void, title: *const c_char);
-    fn mfb_close(window: *mut c_void);
-    fn mfb_update(window: *mut c_void);
-    fn mfb_update_with_buffer(window: *mut c_void, buffer: *const c_uchar);
-    fn mfb_set_position(window: *mut c_void, x: i32, y: i32);
-    fn mfb_set_key_callback(window: *mut c_void, target: *mut c_void,
-    						kb: unsafe extern fn(*mut c_void, i32, i32),
-    						cb: unsafe extern fn(*mut c_void, u32));
-    fn mfb_set_shared_data(window: *mut c_void, target: *mut SharedData);
-    fn mfb_should_close(window: *mut c_void) -> i32;
-    fn mfb_get_screen_size() -> u32;
-    fn mfb_set_cursor_style(window: *mut c_void, cursor: u32);
-    fn mfb_get_window_handle(window: *mut c_void) -> *mut c_void;
-}
-
 #[derive(Default)]
 #[repr(C)]
 pub struct SharedData {
@@ -199,11 +180,13 @@ impl Window {
 
         unsafe {
         	let scale = Self::get_scale_factor(width, height, opts.scale);
-            let handle = mfb_open(n.as_ptr(),
-            					  width as u32,
-            					  height as u32,
-            					  window_flags::get_flags(opts),
-            					  scale);
+            let handle = ptr::null_mut() ;
+
+// !!                        mfb_open(n.as_ptr(),
+// !!            					  width as u32,
+// !!            					  height as u32,
+// !!            					  window_flags::get_flags(opts),
+// !!            					  scale);
 
             if handle == ptr::null_mut() {
                 return Err(Error::WindowCreate("Unable to open Window".to_owned()));
@@ -223,14 +206,14 @@ impl Window {
     }
 
     pub fn set_title(&mut self, title: &str) {
-        unsafe {
-            let t = CString::new(title).unwrap();
-            mfb_set_title(self.window_handle, t.as_ptr());
-        }
+// !!        unsafe {
+// !!            let t = CString::new(title).unwrap();
+// !!            mfb_set_title(self.window_handle, t.as_ptr());
+// !!        }
     }
 
     unsafe fn set_shared_data(&mut self) {
-        mfb_set_shared_data(self.window_handle, &mut self.shared_data);
+// !!        mfb_set_shared_data(self.window_handle, &mut self.shared_data);
     }
 
     pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
@@ -249,11 +232,11 @@ impl Window {
         }
 
         unsafe {
-            mfb_update_with_buffer(self.window_handle, buffer.as_ptr() as *const u8);
-            mfb_set_key_callback(self.window_handle,
-            					 mem::transmute(self),
-            					 key_callback,
-            					 char_callback);
+// !!            mfb_update_with_buffer(self.window_handle, buffer.as_ptr() as *const u8);
+// !!            mfb_set_key_callback(self.window_handle,
+// !!            					 mem::transmute(self),
+// !!            					 key_callback,
+// !!            					 char_callback);
         }
 
         Ok(())
@@ -262,24 +245,25 @@ impl Window {
     pub fn update(&mut self) {
         self.key_handler.update();
 
-        unsafe {
-            Self::set_shared_data(self);
-            mfb_update(self.window_handle);
-            mfb_set_key_callback(self.window_handle,
-            					 mem::transmute(self),
-            					 key_callback,
-            					 char_callback);
-        }
+// !!        unsafe {
+// !!            Self::set_shared_data(self);
+// !!            mfb_update(self.window_handle);
+// !!            mfb_set_key_callback(self.window_handle,
+// !!            					 mem::transmute(self),
+// !!            					 key_callback,
+// !!            					 char_callback);
+// !!        }
     }
 
     #[inline]
     pub fn get_window_handle(&self) -> *mut raw::c_void {
-    	unsafe { mfb_get_window_handle(self.window_handle) as *mut raw::c_void }
+// !!    	unsafe { mfb_get_window_handle(self.window_handle) as *mut raw::c_void }
+        unsafe { mem::transmute(self) }
     }
 
     #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
-        unsafe { mfb_set_position(self.window_handle, x as i32, y as i32) }
+// !!        unsafe { mfb_set_position(self.window_handle, x as i32, y as i32) }
     }
 
     #[inline]
@@ -321,9 +305,9 @@ impl Window {
 
     #[inline]
     pub fn set_cursor_style(&mut self, cursor: CursorStyle) {
-        unsafe {
-            mfb_set_cursor_style(self.window_handle, cursor as u32);
-        }
+// !!        unsafe {
+// !!            mfb_set_cursor_style(self.window_handle, cursor as u32);
+// !!        }
     }
 
     #[inline]
@@ -368,7 +352,8 @@ impl Window {
 
     #[inline]
     pub fn is_open(&self) -> bool {
-        unsafe { mfb_should_close(self.window_handle) == 1 }
+// !!        unsafe { mfb_should_close(self.window_handle) == 1 }
+        true
     }
 
     #[inline]
@@ -386,7 +371,8 @@ impl Window {
             Scale::X16 => 16,
             Scale::X32 => 32,
             Scale::FitScreen => {
-                let wh: u32 = mfb_get_screen_size();
+// !!                 let wh: u32 = mfb_get_screen_size();
+                let wh: u32 = unimplemented!();
                 let screen_x = (wh >> 16) as i32;
                 let screen_y = (wh & 0xffff) as i32;
 
@@ -500,9 +486,9 @@ impl Menu {
 
 impl Drop for Window {
     fn drop(&mut self) {
-        unsafe {
-            mfb_close(self.window_handle);
-        }
+// !!        unsafe {
+// !!            mfb_close(self.window_handle);
+// !!        }
     }
 }
 
