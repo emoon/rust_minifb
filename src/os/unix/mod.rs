@@ -147,6 +147,8 @@ pub struct Window {
     scroll_y: f32,
     buttons: [u8; 3],
 
+    should_close: bool,   // received delete window message from X server
+
     key_handler: KeyHandler,
     menu_counter: MenuHandle,
     menus: Vec<UnixMenu>,
@@ -375,6 +377,7 @@ impl Window {
                 scroll_x: 0.0,
                 scroll_y: 0.0,
                 buttons: [0, 0, 0],
+                should_close: false,
                 key_handler: KeyHandler::new(),
                 menu_counter: MenuHandle(0),
                 menus: Vec::new(),
@@ -546,8 +549,7 @@ impl Window {
 
     #[inline]
     pub fn is_open(&self) -> bool {
-// !!        unsafe { mfb_should_close(self.window_handle) == 1 }
-        true
+        !self.should_close
     }
 
     #[inline]
@@ -770,8 +772,16 @@ impl Menu {
 
 impl Drop for Window {
     fn drop(&mut self) {
-// !! FIXME !!!
-// !! mfb_close(self.window_handle);
+        unsafe {
+            (*self.ximage).data = ptr::null_mut();
+
+            // TODO  [ andrewj: right now DisplayInfo is not shared, so doing this is
+            //                  probably pointless ]
+            // XSaveContext(s_display, info->window, s_context, (XPointer)0);
+
+            (self.d.lib.XDestroyImage)(self.ximage);
+            (self.d.lib.XDestroyWindow)(self.d.display, self.handle);
+        }
     }
 }
 
