@@ -4,6 +4,9 @@
     target_os="netbsd",
     target_os="openbsd"))]
 
+// FIXME
+#![allow(warnings)]
+
 extern crate x11_dl;
 
 use {MouseMode, MouseButton, Scale, Key, KeyRepeat, WindowOptions, InputCallback};
@@ -143,6 +146,7 @@ pub struct Window {
     display: DisplayInfo,
 
     handle: xlib::Window,
+    ximage: *mut xlib::XImage,
 
     shared_data: SharedData,
     key_handler: KeyHandler,
@@ -340,9 +344,23 @@ impl Window {
             (d.lib.XMapRaised)(d.display, handle);
             (d.lib.XFlush)(d.display);
 
+            let bytes_per_line = (width as i32) * 4;
+
+            let mut ximage = (d.lib.XCreateImage)(d.display,
+                                d.visual /* TODO: this was CopyFromParent in the C code */,
+                                d.depth as u32, xlib::ZPixmap, 0, ptr::null_mut(),
+                                width as u32, height as u32,
+                                32, (width * 4) as i32);
+
+            if ximage == ptr::null_mut() {
+                (d.lib.XDestroyWindow)(d.display, handle);
+                return Err(Error::WindowCreate("Unable to create pixel buffer".to_owned()));
+            }
+
             Ok(Window {
                 display: d,
                 handle,
+                ximage,
                 shared_data: SharedData {
                     scale: scale as f32,
                     .. SharedData::default()
