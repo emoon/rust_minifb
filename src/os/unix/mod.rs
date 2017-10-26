@@ -129,26 +129,22 @@ impl Drop for DisplayInfo {
 }
 
 
-#[derive(Default)]
-#[repr(C)]
-pub struct SharedData {
-    pub width: u32,
-    pub height: u32,
-    pub scale: f32,
-    pub mouse_x: f32,
-    pub mouse_y: f32,
-    pub scroll_x: f32,
-    pub scroll_y: f32,
-    pub state: [u8; 3],
-}
-
 pub struct Window {
     display: DisplayInfo,
 
     handle: xlib::Window,
     ximage: *mut xlib::XImage,
 
-    shared_data: SharedData,
+    width:  u32,
+    height: u32,
+    scale:  i32,
+
+    mouse_x: f32,
+    mouse_y: f32,
+    scroll_x: f32,
+    scroll_y: f32,
+    buttons: [u8; 3],
+
     key_handler: KeyHandler,
     menu_counter: MenuHandle,
     menus: Vec<UnixMenu>,
@@ -361,10 +357,14 @@ impl Window {
                 display: d,
                 handle,
                 ximage,
-                shared_data: SharedData {
-                    scale: scale as f32,
-                    .. SharedData::default()
-                },
+                width: width as u32,
+                height: height as u32,
+                scale: scale as i32,
+                mouse_x: 0.0,
+                mouse_y: 0.0,
+                scroll_x: 0.0,
+                scroll_y: 0.0,
+                buttons: [0, 0, 0],
                 key_handler: KeyHandler::new(),
                 menu_counter: MenuHandle(0),
                 menus: Vec::new(),
@@ -383,24 +383,20 @@ impl Window {
         XStoreName(s_display, info->window, title);   */
     }
 
-    unsafe fn set_shared_data(&mut self) {
-// !!        mfb_set_shared_data(self.window_handle, &mut self.shared_data);
-    }
-
     pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
         self.key_handler.update();
 
-        unsafe {
-            Self::set_shared_data(self);
-        }
+         unsafe {
+// !!            Self::set_shared_data(self);
+         }
 
-        let check_res = buffer_helper::check_buffer_size(self.shared_data.width as usize,
-                                                         self.shared_data.height as usize,
-                                                         self.shared_data.scale as usize,
-                                                         buffer);
-        if check_res.is_err() {
-            return check_res;
-        }
+// !!        let check_res = buffer_helper::check_buffer_size(self.shared_data.width as usize,
+// !!                                                         self.shared_data.height as usize,
+// !!                                                         self.shared_data.scale as usize,
+// !!                                                         buffer);
+// !!        if check_res.is_err() {
+// !!            return check_res;
+// !!        }
 
         unsafe {
 // !!            mfb_update_with_buffer(self.window_handle, buffer.as_ptr() as *const u8);
@@ -439,39 +435,39 @@ impl Window {
 
     #[inline]
     pub fn get_size(&self) -> (usize, usize) {
-        (self.shared_data.width as usize, self.shared_data.height as usize)
+        (self.width as usize, self.height as usize)
     }
 
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
-        let s = self.shared_data.scale as f32;
-        let w = self.shared_data.width as f32;
-        let h = self.shared_data.height as f32;
+        let s = self.scale  as f32;
+        let w = self.width  as f32;
+        let h = self.height as f32;
 
-        mouse_handler::get_pos(mode, self.shared_data.mouse_x, self.shared_data.mouse_y, s, w, h)
+        mouse_handler::get_pos(mode, self.mouse_x, self.mouse_y, s, w, h)
     }
 
     pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
-        let w = self.shared_data.width as f32;
-        let h = self.shared_data.height as f32;
+        let w = self.width  as f32;
+        let h = self.height as f32;
 
-        mouse_handler::get_pos(mode, self.shared_data.mouse_x, self.shared_data.mouse_y, 1.0, w, h)
+        mouse_handler::get_pos(mode, self.mouse_x, self.mouse_y, 1.0, w, h)
     }
 
     pub fn get_mouse_down(&self, button: MouseButton) -> bool {
-    	match button {
-    		MouseButton::Left => self.shared_data.state[0] > 0,
-    		MouseButton::Middle => self.shared_data.state[1] > 0,
-    		MouseButton::Right => self.shared_data.state[2] > 0,
-    	}
+        match button {
+            MouseButton::Left   => self.buttons[0] > 0,
+            MouseButton::Middle => self.buttons[1] > 0,
+            MouseButton::Right  => self.buttons[2] > 0,
+        }
     }
 
     pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
-        if self.shared_data.scroll_x.abs() > 0.0 ||
-           self.shared_data.scroll_y.abs() > 0.0 {
-            Some((self.shared_data.scroll_x, self.shared_data.scroll_y))
-        } else {
+// !!        if self.shared_data.scroll_x.abs() > 0.0 ||
+// !!           self.shared_data.scroll_y.abs() > 0.0 {
+// !!            Some((self.shared_data.scroll_x, self.shared_data.scroll_y))
+// !!        } else {
             None
-        }
+// !!        }
     }
 
     #[inline]
@@ -572,13 +568,13 @@ impl Window {
     }
 
     fn next_menu_handle(&mut self) -> MenuHandle {
-    	let handle = self.menu_counter;
-    	self.menu_counter.0 += 1;
-    	handle
+        let handle = self.menu_counter;
+        self.menu_counter.0 += 1;
+        handle
     }
 
     pub fn add_menu(&mut self, menu: &Menu) -> MenuHandle {
-    	let handle = self.next_menu_handle();
+        let handle = self.next_menu_handle();
         let mut menu = menu.internal.clone();
         menu.handle = handle;
         self.menus.push(menu);
@@ -599,7 +595,7 @@ impl Window {
 }
 
 pub struct Menu {
-	pub internal: UnixMenu,
+    pub internal: UnixMenu,
 }
 
 impl Menu {
