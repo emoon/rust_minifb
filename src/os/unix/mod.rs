@@ -411,6 +411,8 @@ impl Window {
     }
 
     pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
+        // FIXME : check if buffer is the right size
+
         let res = {
             unsafe { self.raw_push_buffer(buffer) };
 
@@ -504,12 +506,12 @@ impl Window {
     }
 
     pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
-// !!        if self.shared_data.scroll_x.abs() > 0.0 ||
-// !!           self.shared_data.scroll_y.abs() > 0.0 {
-// !!            Some((self.shared_data.scroll_x, self.shared_data.scroll_y))
-// !!        } else {
+        if self.scroll_x.abs() > 0.0 ||
+           self.scroll_y.abs() > 0.0 {
+            Some((self.scroll_x, self.scroll_y))
+        } else {
             None
-// !!        }
+        }
     }
 
     #[inline]
@@ -653,6 +655,7 @@ impl Window {
     unsafe fn raw_push_buffer(&mut self, buffer: &[u32]) {
 
 /* FIXME
+
         let buffer = if buffer.len() != self.draw_buffer.len() {
             &buffer[..self.draw_buffer.len()]
         } else {
