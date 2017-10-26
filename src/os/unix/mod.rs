@@ -136,8 +136,9 @@ pub struct Window {
     ximage: *mut xlib::XImage,
     draw_buffer: Vec<u32>,
 
-    width:  u32,
-    height: u32,
+    width:  u32,    // this is the *scaled* size
+    height: u32,    //
+
     scale:  i32,
 
     mouse_x: f32,
@@ -620,28 +621,29 @@ impl Window {
     ////////////////////////////////////
 
     unsafe fn raw_push_buffer(&mut self, buffer: &[u32]) {
+
+/* FIXME
         let buffer = if buffer.len() != self.draw_buffer.len() {
             &buffer[..self.draw_buffer.len()]
         } else {
             &buffer[..]
         };
+*/
 
         // FIXME
         match self.scale {
             1 => {
                 self.draw_buffer[..].copy_from_slice(buffer);
             }
-/* TODO
-            case 2: {
-                scale_2x(info->draw_buffer, buffer, width, height, scale);
-                break;
+
+            2 => {
+                self.scale_2x(buffer);
             }
 
-            case 4: {
-                scale_4x(info->draw_buffer, buffer, width, height, scale);
-                break;
+            4 => {
+                self.scale_4x(buffer);
             }
-*/
+
             _ => {
                 // FIXME
                 panic!("bad scale for raw_push_buffer()");
@@ -652,6 +654,32 @@ impl Window {
                                0, 0, 0, 0,
                                self.width, self.height);
         (self.d.lib.XFlush)(self.d.display);
+    }
+
+    unsafe fn scale_2x(&mut self, buffer: &[u32]) {
+        let total = buffer.len();
+
+        let w = self.width as usize;
+
+        let bw = (self.width  as usize) / 2;
+        let bh = (self.height as usize) / 2;
+
+        let mut dest = &mut self.draw_buffer[..];
+
+        for y in 0..bh {
+            for x in 0..bw {
+                let c = buffer[x + y*bw];
+
+                dest[x*2 + (y*2)*w] = c;
+                dest[x*2 + (y*2)*w + 1] = c;
+                dest[x*2 + (y*2)*w + w] = c;
+                dest[x*2 + (y*2)*w + w + 1] = c;
+            }
+        }
+    }
+
+    unsafe fn scale_4x(&mut self, buffer: &[u32]) {
+        // FIXME
     }
 
     unsafe fn raw_get_mouse_pos(&mut self) {
