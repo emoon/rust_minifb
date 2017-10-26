@@ -277,7 +277,7 @@ unsafe extern "C" fn char_callback(window: *mut c_void, code_point: u32) {
 
 impl Window {
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
-        let n = match CString::new(name) {
+        let name = match CString::new(name) {
             Err(_) => {
                 println!("Unable to convert {} to c_string", name);
                 return Err(Error::WindowCreate("Unable to set correct name".to_owned()));
@@ -289,13 +289,16 @@ impl Window {
 
         let scale = Self::get_scale_factor(width, height, opts.scale);
 
+        let width  = width  * scale;
+        let height = height * scale;
+
         unsafe {
             let mut attributes: xlib::XSetWindowAttributes = mem::zeroed();
 
             let root = (d.lib.XDefaultRootWindow)(d.display);
 
-            //TODO attributes.border_pixel = BlackPixel(s_display, s_screen);
-            //TODO attributes.background_pixel = BlackPixel(s_display, s_screen);
+            attributes.border_pixel = (d.lib.XBlackPixel)(d.display, d.screen);
+            attributes.background_pixel = attributes.border_pixel;
 
             attributes.backing_store = xlib::NotUseful;
 
@@ -311,6 +314,26 @@ impl Window {
 
             if handle == 0 {
                 return Err(Error::WindowCreate("Unable to open Window".to_owned()));
+            }
+
+            (d.lib.XStoreName)(d.display, handle, name.as_ptr());
+
+            (d.lib.XSelectInput)(d.display, handle,
+                xlib::StructureNotifyMask |
+                xlib::ButtonPressMask | xlib::KeyPressMask | xlib::KeyReleaseMask | xlib::ButtonReleaseMask);
+
+            if opts.resize {
+                let mut size_hints: xlib::XSizeHints = mem::zeroed();
+
+                size_hints.flags = xlib::PPosition | xlib::PMinSize | xlib::PMaxSize;
+                size_hints.x = 0;
+                size_hints.y = 0;
+                size_hints.min_width  = width  as i32;
+                size_hints.max_width  = width  as i32;
+                size_hints.min_height = height as i32;
+                size_hints.max_height = height as i32;
+
+                (d.lib.XSetWMNormalHints)(d.display, handle, &mut size_hints as *mut xlib::XSizeHints);
             }
 
             (d.lib.XClearWindow)(d.display, handle);
@@ -492,8 +515,8 @@ impl Window {
         true
     }
 
-    fn get_scale_factor(width: usize, height: usize, scale: Scale) -> i32 {
-        let factor: i32 = match scale {
+    fn get_scale_factor(width: usize, height: usize, scale: Scale) -> usize {
+        match scale {
             Scale::X1 => 1,
             Scale::X2 => 2,
             Scale::X4 => 4,
@@ -503,16 +526,16 @@ impl Window {
             Scale::FitScreen => {
 // !!                 let wh: u32 = mfb_get_screen_size();
                 let wh: u32 = unimplemented!();
-                let screen_x = (wh >> 16) as i32;
-                let screen_y = (wh & 0xffff) as i32;
+                let screen_x = (wh >> 16) as usize;
+                let screen_y = (wh & 0xffff) as usize;
 
                 println!("{} - {}", screen_x, screen_y);
 
-                let mut scale = 1i32;
+                let mut scale = 1;
 
                 loop {
-                    let w = width as i32 * (scale + 1);
-                    let h = height as i32 * (scale + 1);
+                    let w = width * (scale + 1);
+                    let h = height * (scale + 1);
 
                     if w >= screen_x || h >= screen_y {
                         break;
@@ -527,9 +550,7 @@ impl Window {
                 	scale
 				}
             }
-        };
-
-        return factor;
+        }
     }
 
     fn next_menu_handle(&mut self) -> MenuHandle {
