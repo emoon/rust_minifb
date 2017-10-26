@@ -124,7 +124,9 @@ impl DisplayInfo {
 
 impl Drop for DisplayInfo {
     fn drop(&mut self) {
-        // FIXME !!!
+        unsafe {
+            (self.lib.XCloseDisplay)(self.display);
+        }
     }
 }
 
