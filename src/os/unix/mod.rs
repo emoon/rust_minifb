@@ -449,13 +449,15 @@ impl Window {
 
     #[inline]
     pub fn get_window_handle(&self) -> *mut raw::c_void {
-// !!    	unsafe { mfb_get_window_handle(self.window_handle) as *mut raw::c_void }
         unsafe { mem::transmute(self.handle as usize) }
     }
 
     #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
-// !!        unsafe { mfb_set_position(self.window_handle, x as i32, y as i32) }
+        unsafe {
+            (self.d.lib.XMoveWindow)(self.d.display, self.handle, x as i32, y as i32);
+            (self.d.lib.XFlush)(self.d.display);
+        }
     }
 
     #[inline]
