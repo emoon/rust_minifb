@@ -130,7 +130,7 @@ impl Drop for DisplayInfo {
 
 
 pub struct Window {
-    display: DisplayInfo,
+    d: DisplayInfo,
 
     handle: xlib::Window,
     ximage: *mut xlib::XImage,
@@ -354,7 +354,7 @@ impl Window {
             }
 
             Ok(Window {
-                display: d,
+                d,
                 handle,
                 ximage,
                 width: width as u32,
@@ -373,14 +373,16 @@ impl Window {
     }
 
     pub fn set_title(&mut self, title: &str) {
-// !!        unsafe {
-// !!            let t = CString::new(title).unwrap();
-// !!            mfb_set_title(self.window_handle, t.as_ptr());
-// !!        }
+        match CString::new(title) {
+            Err(_) => {
+                println!("Unable to convert {} to c_string", title);
+                return;
+            }
 
-/*
-        WindowInfo* info = (WindowInfo*)window_info;
-        XStoreName(s_display, info->window, title);   */
+            Ok(t) => unsafe {
+                (self.d.lib.XStoreName)(self.d.display, self.handle, t.as_ptr());
+            }
+        };
     }
 
     pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
@@ -651,9 +653,8 @@ impl Menu {
 
 impl Drop for Window {
     fn drop(&mut self) {
-// !!        unsafe {
-// !!            mfb_close(self.window_handle);
-// !!        }
+// !! FIXME !!!
+// !! mfb_close(self.window_handle);
     }
 }
 
