@@ -291,7 +291,17 @@ impl Window {
 
         let d = DisplayInfo::new()?;
 
-        let scale = Self::get_scale_factor(width, height, opts.scale);
+        let scale: usize = match opts.scale {
+            Scale::X1 => 1,
+            Scale::X2 => 2,
+            Scale::X4 => 4,
+
+            Scale::FitScreen => Self::calc_fit_scale(width, height, d.screen_width as usize, d.screen_height as usize),
+
+            _ => {
+                return Err(Error::WindowCreate("Scaling value is too high".to_owned()));
+            }
+        };
 
         let width  = width  * scale;
         let height = height * scale;
@@ -588,11 +598,25 @@ impl Window {
                 }
 
                 if scale >= 32 {
-                	32
+                    32
                 } else {
-                	scale
-				}
+                    scale
+                }
             }
+        }
+    }
+
+    fn calc_fit_scale(width: usize, height: usize, screen_w: usize, screen_h: usize) -> usize {
+        // andrewj: assume some space is used for borders, window title, and a desktop panel
+        let screen_w = screen_w - 8;
+        let screen_h = screen_h - 64;
+
+        if width*4 <= screen_w && height*4 <= screen_h {
+            4
+        } else if width*2 <= screen_w && height*2 <= screen_h {
+            2
+        } else {
+            1
         }
     }
 
