@@ -657,7 +657,7 @@ impl Window {
     }
 
     unsafe fn scale_2x(&mut self, buffer: &[u32]) {
-        let total = buffer.len();
+        // TODO: optimise this code
 
         let w = self.width as usize;
 
@@ -670,16 +670,36 @@ impl Window {
             for x in 0..bw {
                 let c = buffer[x + y*bw];
 
-                dest[x*2 + (y*2)*w] = c;
-                dest[x*2 + (y*2)*w + 1] = c;
-                dest[x*2 + (y*2)*w + w] = c;
-                dest[x*2 + (y*2)*w + w + 1] = c;
+                for dx in 0..2 {
+                    for dy in 0..2 {
+                        dest[x*2 + dx + (y*2 + dy) * w] = c;
+                    }
+                }
             }
         }
     }
 
     unsafe fn scale_4x(&mut self, buffer: &[u32]) {
-        // FIXME
+        // TODO: optimise this code
+
+        let w = self.width as usize;
+
+        let bw = (self.width  as usize) / 4;
+        let bh = (self.height as usize) / 4;
+
+        let mut dest = &mut self.draw_buffer[..];
+
+        for y in 0..bh {
+            for x in 0..bw {
+                let c = buffer[x + y*bw];
+
+                for dx in 0..4 {
+                    for dy in 0..4 {
+                        dest[x*4 + dx + (y*4 + dy) * w] = c;
+                    }
+                }
+            }
+        }
     }
 
     unsafe fn raw_get_mouse_pos(&mut self) {
