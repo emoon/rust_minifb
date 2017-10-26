@@ -134,6 +134,7 @@ pub struct Window {
 
     handle: xlib::Window,
     ximage: *mut xlib::XImage,
+    draw_buffer: Vec<u32>,
 
     width:  u32,
     height: u32,
@@ -353,10 +354,18 @@ impl Window {
                 return Err(Error::WindowCreate("Unable to create pixel buffer".to_owned()));
             }
 
+            let mut draw_buffer: Vec<u32> = Vec::new();
+            draw_buffer.resize(width * height, 0);
+
+            unsafe {
+                (*ximage).data = draw_buffer[..].as_mut_ptr() as *mut i8;
+            }
+
             Ok(Window {
                 d,
                 handle,
                 ximage,
+                draw_buffer,
                 width: width as u32,
                 height: height as u32,
                 scale: scale as i32,
@@ -386,11 +395,19 @@ impl Window {
     }
 
     pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
-        self.key_handler.update();
+        let res = {
+            unsafe { self.raw_push_buffer(buffer) };
 
-         unsafe {
+            Ok(())
+        };
+
+        self.update();
+
+        res
+
+// !!         unsafe {
 // !!            Self::set_shared_data(self);
-         }
+// !!         }
 
 // !!        let check_res = buffer_helper::check_buffer_size(self.shared_data.width as usize,
 // !!                                                         self.shared_data.height as usize,
@@ -400,20 +417,25 @@ impl Window {
 // !!            return check_res;
 // !!        }
 
-        unsafe {
+// !!        unsafe {
 // !!            mfb_update_with_buffer(self.window_handle, buffer.as_ptr() as *const u8);
 // !!            mfb_set_key_callback(self.window_handle,
 // !!            					 mem::transmute(self),
 // !!            					 key_callback,
 // !!            					 char_callback);
-        }
-
-        Ok(())
     }
 
     pub fn update(&mut self) {
         self.key_handler.update();
 
+        // clear before processing new events
+        self.scroll_x = 0.0;
+        self.scroll_y = 0.0;
+
+        unsafe {
+            self.raw_get_mouse_pos();
+            self.raw_process_events();
+        }
 // !!        unsafe {
 // !!            Self::set_shared_data(self);
 // !!            mfb_update(self.window_handle);
@@ -593,6 +615,51 @@ impl Window {
 
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
         None
+    }
+
+    ////////////////////////////////////
+
+    unsafe fn raw_push_buffer(&mut self, buffer: &[u32]) {
+        let buffer = if buffer.len() != self.draw_buffer.len() {
+            &buffer[..self.draw_buffer.len()]
+        } else {
+            &buffer[..]
+        };
+
+        // FIXME
+        match self.scale {
+            1 => {
+                self.draw_buffer[..].copy_from_slice(buffer);
+            }
+/* TODO
+            case 2: {
+                scale_2x(info->draw_buffer, buffer, width, height, scale);
+                break;
+            }
+
+            case 4: {
+                scale_4x(info->draw_buffer, buffer, width, height, scale);
+                break;
+            }
+*/
+            _ => {
+                // FIXME
+                panic!("bad scale for raw_push_buffer()");
+            }
+        }
+
+        (self.d.lib.XPutImage)(self.d.display, self.handle, self.d.gc, self.ximage,
+                               0, 0, 0, 0,
+                               self.width, self.height);
+        (self.d.lib.XFlush)(self.d.display);
+    }
+
+    unsafe fn raw_get_mouse_pos(&mut self) {
+        // FIXME
+    }
+
+    unsafe fn raw_process_events(&mut self) {
+        // FIXME
     }
 }
 
