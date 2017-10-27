@@ -779,6 +779,22 @@ impl Window {
     }
 }
 
+impl Drop for Window {
+    fn drop(&mut self) {
+        unsafe {
+            (*self.ximage).data = ptr::null_mut();
+
+            // TODO  [ andrewj: right now DisplayInfo is not shared, so doing this is
+            //                  probably pointless ]
+            // XSaveContext(s_display, info->window, s_context, (XPointer)0);
+
+            (self.d.lib.XDestroyImage)(self.ximage);
+            (self.d.lib.XDestroyWindow)(self.d.display, self.handle);
+        }
+    }
+}
+
+
 pub struct Menu {
     pub internal: UnixMenu,
 }
@@ -830,22 +846,6 @@ impl Menu {
 
     pub fn remove_item(&mut self, handle: &MenuItemHandle) {
         self.internal.items.retain(|ref item| item.handle.0 != handle.0);
-    }
-}
-
-
-impl Drop for Window {
-    fn drop(&mut self) {
-        unsafe {
-            (*self.ximage).data = ptr::null_mut();
-
-            // TODO  [ andrewj: right now DisplayInfo is not shared, so doing this is
-            //                  probably pointless ]
-            // XSaveContext(s_display, info->window, s_context, (XPointer)0);
-
-            (self.d.lib.XDestroyImage)(self.ximage);
-            (self.d.lib.XDestroyWindow)(self.d.display, self.handle);
-        }
     }
 }
 
