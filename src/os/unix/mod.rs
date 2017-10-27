@@ -105,14 +105,28 @@ impl DisplayInfo {
         // FIXME
 
         // We only support 32-bit right now
-/*
-        if (convDepth != 32) {
-            printf("Unable to find 32-bit format for X11 display\n");
-            XCloseDisplay(s_display);
-            return 0;
-        } */
 
-        Ok(())
+        let mut conv_depth: i32 = -1;
+
+        unsafe {
+            let mut count: i32 = -1;
+
+            let formats = (self.lib.XListPixmapFormats)(self.display, &mut count);
+
+            for i in 0..count {
+                let pix_fmt = *formats.offset(i as isize);
+
+                if pix_fmt.depth == self.depth {
+                    conv_depth = pix_fmt.bits_per_pixel;
+                }
+            }
+        }
+
+        if (conv_depth != 32) {
+            Err(Error::WindowCreate("No 32-bit format available".to_owned()))
+        } else {
+            Ok(())
+        }
     }
 
     fn init_cursors(&mut self) -> Result<()> {
