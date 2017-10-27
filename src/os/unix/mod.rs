@@ -837,7 +837,7 @@ impl Window {
         }
     }
 
-    unsafe fn raw_process_one_event(&mut self, ev: xlib::XEvent) -> ProcessEventResult {
+    unsafe fn raw_process_one_event(&mut self, mut ev: xlib::XEvent) -> ProcessEventResult {
         // FIXME: we cannot handle multiple windows here!
         if ev.any.window != self.handle {
             return ProcessEventResult::Ok;
@@ -870,7 +870,59 @@ impl Window {
         ProcessEventResult::Ok
     }
 
-    fn process_key(&mut self, ev: xlib::XEvent, is_down: bool) {
+    fn process_key(&mut self, mut ev: xlib::XEvent, is_down: bool) {
+        // NOTE: need "mut" on ev due to dumbness in the X API
+
+        // handle special keys...
+
+        if self.d.keyb_ext {
+
+            let sym: xlib::KeySym = unsafe {
+                (self.d.lib.XkbKeycodeToKeysym)(self.d.display,
+                    ev.key.keycode as xlib::KeyCode,
+                    0 /* group */, 1 /* level */)
+            };
+
+            match sym as u32 {
+                XK_KP_0 |
+                XK_KP_1 |
+                XK_KP_2 |
+                XK_KP_3 |
+                XK_KP_4 |
+                XK_KP_5 |
+                XK_KP_6 |
+                XK_KP_7 |
+                XK_KP_8 |
+                XK_KP_9 |
+                XK_KP_Separator |
+                XK_KP_Decimal |
+                XK_KP_Equal |
+                XK_KP_Enter => {
+                    self.update_key_state(sym, is_down);
+                    return;
+                },
+
+                _ => {}
+            }
+        }
+
+        // normal keys...
+
+        let sym: xlib::KeySym = unsafe {
+            (self.d.lib.XLookupKeysym)(&mut ev.key, 0 /* index */)
+        };
+
+        if sym == xlib::NoSymbol as xlib::KeySym {
+            return;
+        }
+
+        self.update_key_state(sym, is_down);
+
+        // TODO : unicode chars
+    }
+
+    fn update_key_state(&mut self, sym: xlib::KeySym, is_down: bool) {
+        // TODO
     }
 }
 
