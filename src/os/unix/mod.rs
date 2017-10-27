@@ -170,6 +170,13 @@ impl Drop for DisplayInfo {
 }
 
 
+#[derive(Clone,Copy,Eq,PartialEq)]
+enum ProcessEventResult {
+    Ok,
+    Termination
+}
+
+
 pub struct Window {
     d: DisplayInfo,
 
@@ -775,7 +782,23 @@ impl Window {
     }
 
     unsafe fn raw_process_events(&mut self) {
-        // FIXME
+        let count = (self.d.lib.XPending)(self.d.display);
+
+        for _ in 0..count {
+            let mut event: xlib::XEvent = mem::zeroed();
+
+            (self.d.lib.XNextEvent)(self.d.display, &mut event);
+
+            // Don't process any more messages if we hit a termination event
+            if self.raw_process_an_event(event) == ProcessEventResult::Termination {
+                return;
+            }
+        }
+    }
+
+    fn raw_process_an_event(&mut self, event: xlib::XEvent) -> ProcessEventResult {
+        // TODO
+        ProcessEventResult::Ok
     }
 }
 
