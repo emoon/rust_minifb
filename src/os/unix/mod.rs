@@ -48,10 +48,10 @@ struct DisplayInfo {
 
 impl DisplayInfo {
     fn new() -> Result<DisplayInfo> {
-        let mut display = Self::setup()?;
+        let mut display = Self::setup() ?;
 
-        display.check_formats()?;
-        display.init_cursors()?;
+        display.check_formats() ?;
+        display.init_cursors()  ?;
 
         Ok(display)
     }
@@ -411,36 +411,16 @@ impl Window {
     }
 
     pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
-        // FIXME : check if buffer is the right size
+        buffer_helper::check_buffer_size(self.width  as usize,
+                                         self.height as usize,
+                                         self.scale  as usize,
+                                         buffer) ?;
 
-        let res = {
-            unsafe { self.raw_push_buffer(buffer) };
-
-            Ok(())
-        };
+        unsafe { self.raw_blit_buffer(buffer) };
 
         self.update();
 
         res
-
-// !!         unsafe {
-// !!            Self::set_shared_data(self);
-// !!         }
-
-// !!        let check_res = buffer_helper::check_buffer_size(self.shared_data.width as usize,
-// !!                                                         self.shared_data.height as usize,
-// !!                                                         self.shared_data.scale as usize,
-// !!                                                         buffer);
-// !!        if check_res.is_err() {
-// !!            return check_res;
-// !!        }
-
-// !!        unsafe {
-// !!            mfb_update_with_buffer(self.window_handle, buffer.as_ptr() as *const u8);
-// !!            mfb_set_key_callback(self.window_handle,
-// !!            					 mem::transmute(self),
-// !!            					 key_callback,
-// !!            					 char_callback);
     }
 
     pub fn update(&mut self) {
@@ -652,21 +632,13 @@ impl Window {
 
     ////////////////////////////////////
 
-    unsafe fn raw_push_buffer(&mut self, buffer: &[u32]) {
-
-/* FIXME
-
-        let buffer = if buffer.len() != self.draw_buffer.len() {
-            &buffer[..self.draw_buffer.len()]
-        } else {
-            &buffer[..]
-        };
-*/
-
-        // FIXME
+    unsafe fn raw_blit_buffer(&mut self, buffer: &[u32]) {
         match self.scale {
             1 => {
-                self.draw_buffer[..].copy_from_slice(buffer);
+                // input buffer may be larger than necessary, so get a slice of correct size
+                let src_buf = &buffer[0..self.draw_buffer.len()];
+
+                self.draw_buffer[..].copy_from_slice(src_buf);
             }
 
             2 => {
@@ -678,8 +650,7 @@ impl Window {
             }
 
             _ => {
-                // FIXME
-                panic!("bad scale for raw_push_buffer()");
+                panic!("bad scale for raw_blit_buffer()");
             }
         }
 
