@@ -13,6 +13,7 @@ use {MouseMode, MouseButton, Scale, Key, KeyRepeat, WindowOptions, InputCallback
 use key_handler::KeyHandler;
 use self::x11_dl::keysym::*;
 use self::x11_dl::xlib;
+use self::x11_dl::xcursor;
 
 use error::Error;
 use Result;
@@ -42,8 +43,8 @@ struct DisplayInfo {
     int s_keyb_ext = 0;
     Atom s_wm_delete_window;
 */
-
-// TODO cursors: [10]
+    cursor_lib: x11_dl::xcursor::Xcursor,
+    cursors: [xlib::Cursor ; 8],
 }
 
 impl DisplayInfo {
@@ -51,7 +52,7 @@ impl DisplayInfo {
         let mut display = Self::setup() ?;
 
         display.check_formats() ?;
-        display.init_cursors()  ?;
+        display.init_cursors();
 
         Ok(display)
     }
@@ -59,13 +60,19 @@ impl DisplayInfo {
     fn setup() -> Result<DisplayInfo> {
         unsafe {
             // load the Xlib library
-            let lib = xlib::Xlib::open();
+            let lib = match xlib::Xlib::open() {
+                Err(_) => {
+                    return Err(Error::WindowCreate("failed to load Xlib".to_owned()));
+                },
+                Ok(v) => v
+            };
 
-            if let Err(_) = lib {
-                return Err(Error::WindowCreate("failed to load Xlib".to_owned()));
-            }
-
-            let lib = lib.unwrap();
+            let cursor_lib = match xcursor::Xcursor::open() {
+                Err(_) => {
+                    return Err(Error::WindowCreate("failed to load Xcursor".to_owned()));
+                },
+                Ok(v) => v
+            };
 
             let display = (lib.XOpenDisplay)(ptr::null());
 
@@ -97,6 +104,8 @@ impl DisplayInfo {
                 screen_width,
                 screen_height,
                 context,
+                cursor_lib,
+                cursors: [0 as xlib::Cursor ; 8],  // loaded later
             })
         }
     }
@@ -129,10 +138,23 @@ impl DisplayInfo {
         }
     }
 
-    fn init_cursors(&mut self) -> Result<()> {
-        // FIXME
+    fn init_cursors(&mut self) {
+        self.cursors[0] = self.load_cursor("arrow");
+        self.cursors[1] = self.load_cursor("xterm");
+        self.cursors[2] = self.load_cursor("crosshair");
+        self.cursors[3] = self.load_cursor("hand2");
+        self.cursors[4] = self.load_cursor("hand2");
+        self.cursors[5] = self.load_cursor("sb_h_double_arrow");
+        self.cursors[6] = self.load_cursor("sb_v_double_arrow");
+        self.cursors[7] = self.load_cursor("diamond_cross");
+    }
 
-        Ok(())
+    fn load_cursor(&mut self, name: &'static str) -> xlib::Cursor {
+        unsafe {
+            let name = name.as_ptr() as *const i8;
+
+            (self.cursor_lib.XcursorLibraryLoadCursor)(self.display, name)
+        }
     }
 }
 
