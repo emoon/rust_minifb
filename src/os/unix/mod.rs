@@ -753,7 +753,25 @@ impl Window {
     }
 
     unsafe fn raw_get_mouse_pos(&mut self) {
-        // FIXME
+        let mut root: xlib::Window = 0;
+        let mut root_x: i32 = 0;
+        let mut root_y: i32 = 0;
+
+        let mut child: xlib::Window = 0;
+        let mut child_x: i32 = 0;
+        let mut child_y: i32 = 0;
+
+        let mut mask: u32 = 0;
+
+        if (self.d.lib.XQueryPointer)(self.d.display, self.handle,
+                &mut root, &mut child,
+                &mut root_x, &mut root_y,
+                &mut child_x, &mut child_y,
+                &mut mask) != xlib::False
+        {
+            self.mouse_x = child_x as f32;
+            self.mouse_y = child_y as f32;
+        }
     }
 
     unsafe fn raw_process_events(&mut self) {
