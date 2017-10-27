@@ -28,6 +28,9 @@ use mouse_handler;
 use buffer_helper;
 use window_flags;
 
+mod key_mapping;
+
+
 struct DisplayInfo {
     lib: x11_dl::xlib::Xlib,
     display: *mut xlib::Display,
@@ -40,9 +43,7 @@ struct DisplayInfo {
     context: xlib::XContext,
     cursor_lib: x11_dl::xcursor::Xcursor,
     cursors: [xlib::Cursor ; 8],
-/* TODO
-    keyb_ext: i32,
-*/
+    keyb_ext: bool,
     wm_delete_window: xlib::Atom,
 }
 
@@ -51,6 +52,7 @@ impl DisplayInfo {
         let mut display = Self::setup() ?;
 
         display.check_formats() ?;
+        display.check_extensions() ?;
         display.init_cursors();
         display.init_atoms();
 
@@ -92,8 +94,6 @@ impl DisplayInfo {
             // seems to be erroneously feature guarded in the x11_dl crate.
             let context = (lib.XrmUniqueQuark)();
 
-            // TODO keyb_ext
-
             Ok(DisplayInfo {
                 lib,
                 display,
@@ -105,8 +105,10 @@ impl DisplayInfo {
                 screen_height,
                 context,
                 cursor_lib,
-                cursors: [0 as xlib::Cursor ; 8],  // loaded later
-                wm_delete_window: 0,  // determined later
+                // the following are determined later...
+                cursors: [0 as xlib::Cursor ; 8],
+                keyb_ext: false,
+                wm_delete_window: 0,
             })
         }
     }
@@ -137,6 +139,28 @@ impl DisplayInfo {
         } else {
             Ok(())
         }
+    }
+
+    fn check_extensions(&mut self) -> Result<()>  {
+        // require version 1.0
+        let mut major: i32 = 1;
+        let mut minor: i32 = 0;
+
+        // these values are out-only, and are ignored
+        let mut opcode: i32 = 0;
+        let mut event:  i32 = 0;
+        let mut error:  i32 = 0;
+
+        unsafe {
+            if (self.lib.XkbQueryExtension)(self.display,
+                    &mut opcode, &mut event, &mut error,
+                    &mut major,  &mut minor) != xlib::False
+            {
+                self.keyb_ext = true;
+            }
+        }
+
+        Ok(())
     }
 
     fn init_cursors(&mut self) {
@@ -828,7 +852,15 @@ impl Window {
                     self.should_close = true;
                     return ProcessEventResult::Termination;
                 }
-            }
+            },
+
+            xlib::KeyPress => {
+                self.process_key(ev, true /* is_down */);
+            },
+
+            xlib::KeyRelease => {
+                self.process_key(ev, false /* is_down */);
+            },
 
             // TODO !!!
 
@@ -836,6 +868,9 @@ impl Window {
         }
 
         ProcessEventResult::Ok
+    }
+
+    fn process_key(&mut self, ev: xlib::XEvent, is_down: bool) {
     }
 }
 
