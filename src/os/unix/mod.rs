@@ -38,13 +38,12 @@ struct DisplayInfo {
     screen_width: i32,
     screen_height: i32,
     context: xlib::XContext,
-
-/* TODO
-    int s_keyb_ext = 0;
-    Atom s_wm_delete_window;
-*/
     cursor_lib: x11_dl::xcursor::Xcursor,
     cursors: [xlib::Cursor ; 8],
+/* TODO
+    keyb_ext: i32,
+*/
+    wm_delete_window: xlib::Atom,
 }
 
 impl DisplayInfo {
@@ -53,6 +52,7 @@ impl DisplayInfo {
 
         display.check_formats() ?;
         display.init_cursors();
+        display.init_atoms();
 
         Ok(display)
     }
@@ -106,6 +106,7 @@ impl DisplayInfo {
                 context,
                 cursor_lib,
                 cursors: [0 as xlib::Cursor ; 8],  // loaded later
+                wm_delete_window: 0,  // determined later
             })
         }
     }
@@ -157,6 +158,19 @@ impl DisplayInfo {
             let name = name.as_ptr() as *const i8;
 
             (self.cursor_lib.XcursorLibraryLoadCursor)(self.display, name)
+        }
+    }
+
+    fn init_atoms(&mut self) {
+        self.wm_delete_window = self.intern_atom("WM_DELETE_WINDOW", false);
+    }
+
+    fn intern_atom(&mut self, name: &'static str, only_if_exists: bool) -> xlib::Atom {
+        unsafe {
+            let name = name.as_ptr() as *const c_char;
+
+            (self.lib.XInternAtom)(self.display, name,
+                if only_if_exists { xlib::True } else { xlib::False })
         }
     }
 }
@@ -337,6 +351,9 @@ impl Window {
             }
             Ok(n) => n,
         };
+
+        // FIXME: this DisplayInfo should be a singleton, hence this code
+        // is probably no good when using multiple windows.
 
         let d = DisplayInfo::new()?;
 
@@ -790,14 +807,34 @@ impl Window {
             (self.d.lib.XNextEvent)(self.d.display, &mut event);
 
             // Don't process any more messages if we hit a termination event
-            if self.raw_process_an_event(event) == ProcessEventResult::Termination {
+            if self.raw_process_one_event(event) == ProcessEventResult::Termination {
                 return;
             }
         }
     }
 
-    fn raw_process_an_event(&mut self, event: xlib::XEvent) -> ProcessEventResult {
-        // TODO
+    unsafe fn raw_process_one_event(&mut self, ev: xlib::XEvent) -> ProcessEventResult {
+        // FIXME: we cannot handle multiple windows here!
+        if ev.any.window != self.handle {
+            return ProcessEventResult::Ok;
+        }
+
+        match ev.type_ {
+            xlib::ClientMessage => {
+                // TODO : check for message_type == wm_protocols, as per x11-rs example
+                if ev.client_message.format == 32 /* i.e. longs */ &&
+                   ev.client_message.data.get_long(0) as xlib::Atom == self.d.wm_delete_window
+                {
+                    self.should_close = true;
+                    return ProcessEventResult::Termination;
+                }
+            }
+
+            // TODO !!!
+
+            _ => {}
+        }
+
         ProcessEventResult::Ok
     }
 }
