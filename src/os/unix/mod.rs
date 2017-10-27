@@ -139,6 +139,9 @@ impl DisplayInfo {
     }
 
     fn init_cursors(&mut self) {
+        // TODO: consider using the XCreateFontCursor() API, since some
+        //       of these names are not working for me (they return zero).
+
         self.cursors[0] = self.load_cursor("arrow");
         self.cursors[1] = self.load_cursor("xterm");
         self.cursors[2] = self.load_cursor("crosshair");
@@ -184,6 +187,7 @@ pub struct Window {
     scroll_x: f32,
     scroll_y: f32,
     buttons: [u8; 3],
+    prev_cursor: CursorStyle,
 
     should_close: bool,   // received delete window message from X server
 
@@ -425,6 +429,7 @@ impl Window {
                 scroll_x: 0.0,
                 scroll_y: 0.0,
                 buttons: [0, 0, 0],
+                prev_cursor: CursorStyle::Arrow,
                 should_close: false,
                 key_handler: KeyHandler::new(),
                 menu_counter: MenuHandle(0),
@@ -532,9 +537,14 @@ impl Window {
 
     #[inline]
     pub fn set_cursor_style(&mut self, cursor: CursorStyle) {
-// !!        unsafe {
-// !!            mfb_set_cursor_style(self.window_handle, cursor as u32);
-// !!        }
+        if self.prev_cursor != cursor {
+            unsafe {
+                (self.d.lib.XDefineCursor)(self.d.display, self.handle,
+                    self.d.cursors[cursor as usize]);
+            }
+
+            self.prev_cursor = cursor;
+        }
     }
 
     #[inline]
