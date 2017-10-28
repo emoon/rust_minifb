@@ -896,8 +896,9 @@ pub fn test_it() {
     assert_eq!(keysym_to_unicode('1' as u32), Some('1' as u32));
     assert_eq!(keysym_to_unicode('a' as u32), Some('a' as u32));
 
-    assert_eq!(keysym_to_unicode(  127), None);
-    assert_eq!(keysym_to_unicode(0x123), None);
+    assert_eq!(keysym_to_unicode(   127), None);
+    assert_eq!(keysym_to_unicode( 0x123), None);
+    assert_eq!(keysym_to_unicode(0xfffe), None);
 
     // check table is sorted
     for k in 0..LENGTH-1 {
