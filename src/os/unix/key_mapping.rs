@@ -66,12 +66,11 @@
 //****                KeySym to Unicode mapping table                 ****
 //************************************************************************
 
-use std::cmp::Ordering;
-
 type CodePair = (u32 /* keysym */, u32 /* ucs */);
 
 const LENGTH: usize = 776;
 
+#[allow(non_upper_case_globals)]
 const keysymtab: [CodePair ; LENGTH] = [
     ( 0x01a1, 0x0104 ),
     ( 0x01a2, 0x02d8 ),
@@ -875,14 +874,14 @@ fn binary_search(value: u32, min: isize, max: isize) -> Option<u32> {
 
 pub fn keysym_to_unicode(keysym: u32) -> Option<u32> {
     // First check for Latin-1 characters (1:1 mapping)
-    if ((keysym >= 0x0020 && keysym <= 0x007e) ||
-        (keysym >= 0x00a0 && keysym <= 0x00ff))
+    if (keysym >= 0x0020 && keysym <= 0x007e) ||
+       (keysym >= 0x00a0 && keysym <= 0x00ff)
     {
         return Some(keysym);
     }
 
     // Also check for directly encoded 24-bit UCS characters
-    if ((keysym & 0xff000000) == 0x01000000) {
+    if (keysym & 0xff000000) == 0x01000000 {
         return Some(keysym & 0x00ffffff);
     }
 

@@ -4,8 +4,8 @@
     target_os="netbsd",
     target_os="openbsd"))]
 
-// FIXME
-#![allow(warnings)]
+// turn off a gazillion warnings about X keysym names
+#![allow(non_upper_case_globals)]
 
 extern crate x11_dl;
 
@@ -19,18 +19,18 @@ use error::Error;
 use Result;
 use {CursorStyle, MenuItem, MenuItemHandle, MenuHandle, UnixMenu, UnixMenuItem};
 
-use std::os::raw::{c_void, c_char, c_uchar, c_int, c_uint, c_long, c_ulong};
+use std::os::raw::{ c_void, c_char, c_uint };
 use std::ffi::{CString};
 use std::ptr;
 use std::mem;
 use std::os::raw;
+
 use mouse_handler;
 use buffer_helper;
-use window_flags;
 
 // NOTE: the x11-dl crate does not define Button6 or Button7
-const xlib_Button6: c_uint = xlib::Button5 + 1;
-const xlib_Button7: c_uint = xlib::Button5 + 2;
+const Button6: c_uint = xlib::Button5 + 1;
+const Button7: c_uint = xlib::Button5 + 2;
 
 mod key_mapping;
 
@@ -118,8 +118,6 @@ impl DisplayInfo {
     }
 
     fn check_formats(&mut self) -> Result<()> {
-        // FIXME
-
         // We only support 32-bit right now
 
         let mut conv_depth: i32 = -1;
@@ -138,7 +136,7 @@ impl DisplayInfo {
             }
         }
 
-        if (conv_depth != 32) {
+        if conv_depth != 32 {
             Err(Error::WindowCreate("No 32-bit format available".to_owned()))
         } else {
             Ok(())
@@ -168,8 +166,8 @@ impl DisplayInfo {
     }
 
     fn init_cursors(&mut self) {
-        // TODO: consider using the XCreateFontCursor() API, since some
-        //       of these names are not working for me (they return zero).
+        // andrewj: TODO: consider using the XCreateFontCursor() API, since
+        // some of these names are not working for me (they return zero).
 
         self.cursors[0] = self.load_cursor("arrow");
         self.cursors[1] = self.load_cursor("xterm");
@@ -326,11 +324,11 @@ impl Window {
 
             let bytes_per_line = (width as i32) * 4;
 
-            let mut ximage = (d.lib.XCreateImage)(d.display,
+            let ximage = (d.lib.XCreateImage)(d.display,
                                 d.visual /* TODO: this was CopyFromParent in the C code */,
                                 d.depth as u32, xlib::ZPixmap, 0, ptr::null_mut(),
                                 width as u32, height as u32,
-                                32, (width * 4) as i32);
+                                32, bytes_per_line);
 
             if ximage == ptr::null_mut() {
                 (d.lib.XDestroyWindow)(d.display, handle);
@@ -340,9 +338,7 @@ impl Window {
             let mut draw_buffer: Vec<u32> = Vec::new();
             draw_buffer.resize(width * height, 0);
 
-            unsafe {
-                (*ximage).data = draw_buffer[..].as_mut_ptr() as *mut i8;
-            }
+            (*ximage).data = draw_buffer[..].as_mut_ptr() as *mut i8;
 
             Ok(Window {
                 d,
@@ -634,7 +630,7 @@ impl Window {
         let bw = (self.width  as usize) / 2;
         let bh = (self.height as usize) / 2;
 
-        let mut dest = &mut self.draw_buffer[..];
+        let dest = &mut self.draw_buffer[..];
 
         for y in 0..bh {
             for x in 0..bw {
@@ -657,7 +653,7 @@ impl Window {
         let bw = (self.width  as usize) / 4;
         let bh = (self.height as usize) / 4;
 
-        let mut dest = &mut self.draw_buffer[..];
+        let dest = &mut self.draw_buffer[..];
 
         for y in 0..bh {
             for x in 0..bw {
@@ -709,7 +705,7 @@ impl Window {
         }
     }
 
-    unsafe fn raw_process_one_event(&mut self, mut ev: xlib::XEvent) -> ProcessEventResult {
+    unsafe fn raw_process_one_event(&mut self, ev: xlib::XEvent) -> ProcessEventResult {
         // FIXME: we cannot handle multiple windows here!
         if ev.any.window != self.handle {
             return ProcessEventResult::Ok;
@@ -819,7 +815,7 @@ impl Window {
         }
     }
 
-    unsafe fn process_button(&mut self, mut ev: xlib::XEvent, is_down: bool) {
+    unsafe fn process_button(&mut self, ev: xlib::XEvent, is_down: bool) {
         match ev.button.button {
             xlib::Button1 => {
                 self.buttons[0] = if is_down { 1 } else { 0 };
@@ -843,8 +839,8 @@ impl Window {
             xlib::Button4 => (0,  10),
             xlib::Button5 => (0, -10),
 
-            xlib_Button6 => ( 10, 0),
-            xlib_Button7 => (-10, 0),
+            Button6 => ( 10, 0),
+            Button7 => (-10, 0),
 
             _ => { return; }
         };
