@@ -19,7 +19,7 @@ use error::Error;
 use Result;
 use {CursorStyle, MenuItem, MenuItemHandle, MenuHandle, UnixMenu, UnixMenuItem};
 
-use std::os::raw::{c_void, c_char, c_uchar};
+use std::os::raw::{c_void, c_char, c_uchar, c_int, c_uint, c_long, c_ulong};
 use std::ffi::{CString};
 use std::ptr;
 use std::mem;
@@ -27,6 +27,10 @@ use std::os::raw;
 use mouse_handler;
 use buffer_helper;
 use window_flags;
+
+// NOTE: the x11-dl crate does not define Button6 or Button7
+const xlib_Button6: c_uint = xlib::Button5 + 1;
+const xlib_Button7: c_uint = xlib::Button5 + 2;
 
 mod key_mapping;
 
@@ -398,14 +402,6 @@ impl Window {
             self.raw_get_mouse_pos();
             self.raw_process_events();
         }
-// !!        unsafe {
-// !!            Self::set_shared_data(self);
-// !!            mfb_update(self.window_handle);
-// !!            mfb_set_key_callback(self.window_handle,
-// !!            					 mem::transmute(self),
-// !!            					 key_callback,
-// !!            					 char_callback);
-// !!        }
     }
 
     #[inline]
@@ -737,6 +733,14 @@ impl Window {
                 self.process_key(ev, false /* is_down */);
             },
 
+            xlib::ButtonPress => {
+                self.process_button(ev, false /* is_down */);
+            },
+
+            xlib::ButtonRelease => {
+                self.process_button(ev, false /* is_down */);
+            },
+
             // TODO !!!
 
             _ => {}
@@ -808,6 +812,40 @@ impl Window {
                 callback.add_char(code_point);
             }
         }
+    }
+
+    unsafe fn process_button(&mut self, mut ev: xlib::XEvent, is_down: bool) {
+        match ev.button.button {
+            xlib::Button1 => {
+                self.buttons[0] = if is_down { 1 } else { 0 };
+                return;
+            },
+            xlib::Button2 => {
+                self.buttons[1] = if is_down { 1 } else { 0 };
+                return;
+            },
+            xlib::Button3 => {
+                self.buttons[2] = if is_down { 1 } else { 0 };
+                return;
+            },
+
+            _ => {}
+        }
+
+        // in X, the mouse wheel is usually mapped to Button4/5
+
+        let scroll: (i32, i32) = match ev.button.button {
+            xlib::Button4 => (0,  10),
+            xlib::Button5 => (0, -10),
+
+            xlib_Button6 => ( 10, 0),
+            xlib_Button7 => (-10, 0),
+
+            _ => { return; }
+        };
+
+        self.scroll_x += scroll.0 as f32 * 0.1;
+        self.scroll_y += scroll.1 as f32 * 0.1;
     }
 
     fn update_key_state(&mut self, sym: xlib::KeySym, is_down: bool) {
