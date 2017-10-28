@@ -241,19 +241,6 @@ pub struct Window {
     menus: Vec<UnixMenu>,
 }
 
-unsafe extern "C" fn char_callback(window: *mut c_void, code_point: u32) {
-    let win: *mut Window = mem::transmute(window);
-
-    // Taken from GLFW
-    if code_point < 32 || (code_point > 126 && code_point < 160) {
-        return;
-    }
-
-    if let Some(ref mut callback) = (*win).key_handler.key_callback {
-        callback.add_char(code_point);
-    }
-}
-
 impl Window {
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
         let name = match CString::new(name) {
@@ -805,7 +792,22 @@ impl Window {
 
         self.update_key_state(sym, is_down);
 
-        // TODO : unicode chars
+        // unicode callback...
+
+        if ! is_down {
+            return;
+        }
+
+        if let Some(code_point) = key_mapping::keysym_to_unicode(sym as u32) {
+            // Taken from GLFW
+            if code_point < 32 || (code_point > 126 && code_point < 160) {
+                return;
+            }
+
+            if let Some(ref mut callback) = self.key_handler.key_callback {
+                callback.add_char(code_point);
+            }
+        }
     }
 
     fn update_key_state(&mut self, sym: xlib::KeySym, is_down: bool) {
