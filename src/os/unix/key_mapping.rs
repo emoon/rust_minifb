@@ -834,14 +834,12 @@ const keysymtab: [CodePair ; LENGTH] = [
 
     // Numeric keypad with numlock on
     ( 0xff80 /*XKB_KEY_KP_Space*/,     ' ' as u32 ),
-    ( 0xffbd /*XKB_KEY_KP_Equal*/,     '=' as u32 ),
     ( 0xffaa /*XKB_KEY_KP_Multiply*/,  '*' as u32 ),
     ( 0xffab /*XKB_KEY_KP_Add*/,       '+' as u32 ),
     ( 0xffac /*XKB_KEY_KP_Separator*/, ',' as u32 ),
     ( 0xffad /*XKB_KEY_KP_Subtract*/,  '-' as u32 ),
     ( 0xffae /*XKB_KEY_KP_Decimal*/,   '.' as u32 ),
     ( 0xffaf /*XKB_KEY_KP_Divide*/,    '/' as u32 ),
-
     ( 0xffb0 /*XKB_KEY_KP_0*/, 0x0030 ),
     ( 0xffb1 /*XKB_KEY_KP_1*/, 0x0031 ),
     ( 0xffb2 /*XKB_KEY_KP_2*/, 0x0032 ),
@@ -851,7 +849,8 @@ const keysymtab: [CodePair ; LENGTH] = [
     ( 0xffb6 /*XKB_KEY_KP_6*/, 0x0036 ),
     ( 0xffb7 /*XKB_KEY_KP_7*/, 0x0037 ),
     ( 0xffb8 /*XKB_KEY_KP_8*/, 0x0038 ),
-    ( 0xffb9 /*XKB_KEY_KP_9*/, 0x0039 )
+    ( 0xffb9 /*XKB_KEY_KP_9*/, 0x0039 ),
+    ( 0xffbd /*XKB_KEY_KP_Equal*/,     '=' as u32 ),
 ];
 
 
@@ -889,5 +888,27 @@ pub fn keysym_to_unicode(keysym: u32) -> Option<u32> {
 
     // Binary search in table
     binary_search(keysym, 0, (LENGTH - 1) as isize)
+}
+
+
+#[allow(dead_code)]
+pub fn test_it() {
+    assert_eq!(keysym_to_unicode('1' as u32), Some('1' as u32));
+    assert_eq!(keysym_to_unicode('a' as u32), Some('a' as u32));
+
+    assert_eq!(keysym_to_unicode(  127), None);
+    assert_eq!(keysym_to_unicode(0x123), None);
+
+    // check table is sorted
+    for k in 0..LENGTH-1 {
+        assert!(keysymtab[k+1].0 > keysymtab[k].0);
+    }
+
+    // check ability to find every value in the table
+    for i in 0..LENGTH {
+        let p = keysymtab[i];
+
+        assert_eq!(keysym_to_unicode(p.0), Some(p.1));
+    }
 }
 
