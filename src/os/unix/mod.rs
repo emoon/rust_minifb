@@ -303,7 +303,8 @@ impl Window {
 
             (d.lib.XSelectInput)(d.display, handle,
                 xlib::StructureNotifyMask |
-                xlib::ButtonPressMask | xlib::KeyPressMask | xlib::KeyReleaseMask | xlib::ButtonReleaseMask);
+                xlib::KeyPressMask | xlib::KeyReleaseMask |
+                xlib::ButtonPressMask | xlib::ButtonReleaseMask);
 
             if opts.resize {
                 let mut size_hints: xlib::XSizeHints = mem::zeroed();
@@ -741,7 +742,11 @@ impl Window {
                 self.process_button(ev, false /* is_down */);
             },
 
-            // TODO !!!
+            xlib::ConfigureNotify => {
+                // TODO : pass this onto the application
+                self.width  = ev.configure.width  as u32;
+                self.height = ev.configure.height as u32;
+            },
 
             _ => {}
         }
