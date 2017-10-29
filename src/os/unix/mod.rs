@@ -731,7 +731,7 @@ impl Window {
             },
 
             xlib::ButtonPress => {
-                self.process_button(ev, false /* is_down */);
+                self.process_button(ev, true /* is_down */);
             },
 
             xlib::ButtonRelease => {
