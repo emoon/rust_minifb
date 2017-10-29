@@ -623,46 +623,42 @@ impl Window {
     }
 
     unsafe fn scale_2x(&mut self, buffer: &[u32]) {
-        // TODO: optimise this code
-
         let w = self.width as usize;
 
         let bw = (self.width  as usize) / 2;
         let bh = (self.height as usize) / 2;
 
-        let dest = &mut self.draw_buffer[..];
-
         for y in 0..bh {
-            for x in 0..bw {
-                let c = buffer[x + y*bw];
+            let src = &buffer[y*bw .. y*bw+bw];
 
-                for dx in 0..2 {
-                    for dy in 0..2 {
-                        dest[x*2 + dx + (y*2 + dy) * w] = c;
-                    }
+            for dy in 0..2 {
+                let dest = &mut self.draw_buffer[(y*2+dy)*w .. (y*2+dy)*w + w];
+
+                for x in 0..bw {
+                    dest[x*2]   = src[x];
+                    dest[x*2+1] = src[x];
                 }
             }
         }
     }
 
     unsafe fn scale_4x(&mut self, buffer: &[u32]) {
-        // TODO: optimise this code
-
         let w = self.width as usize;
 
         let bw = (self.width  as usize) / 4;
         let bh = (self.height as usize) / 4;
 
-        let dest = &mut self.draw_buffer[..];
-
         for y in 0..bh {
-            for x in 0..bw {
-                let c = buffer[x + y*bw];
+            let src = &buffer[y*bw .. y*bw+bw];
 
-                for dx in 0..4 {
-                    for dy in 0..4 {
-                        dest[x*4 + dx + (y*4 + dy) * w] = c;
-                    }
+            for dy in 0..4 {
+                let dest = &mut self.draw_buffer[(y*4+dy)*w .. (y*4+dy)*w + w];
+
+                for x in 0..bw {
+                    dest[x*4]   = src[x];
+                    dest[x*4+1] = src[x];
+                    dest[x*4+2] = src[x];
+                    dest[x*4+3] = src[x];
                 }
             }
         }
