@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.10.4 (2018-01-08)
+
+- [fixed] Bumped kernel32 to 0.2.2 due to compile errors on Windows. Thanks to Thomas Versteeg for this fix.
+
 ### v0.10.1 (2017-08-15)
 
 - [fixed] Typo in the Redox implementation was fixed after changes in 0.10.0
