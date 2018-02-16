@@ -7,7 +7,6 @@ description = "Cross-platform window setup with optional bitmap rendering"
 keywords = ["windowing", "window", "framebuffer"]
 categories = ["rendering"]
 repository = "https://github.com/emoon/rust_minifb"
-homepage = "https://github.com/emoon/rust_minifb"
 documentation = "https://docs.rs/minifb/0.10.1/minifb"
 build = "build.rs"
 readme = "README.md"
