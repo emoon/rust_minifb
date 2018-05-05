@@ -2,6 +2,11 @@
 
 This project follows semantic versioning.
 
+### v0.10.5 (2018-05-05)
+
+- [added] Scale x8 added for Unix
+- [fixed] Auto scaling now works correct if scale up is >= screen size
+
 ### v0.10.4 (2018-01-08)
 
 - [fixed] Bumped kernel32 to 0.2.2 due to compile errors on Windows. Thanks to Thomas Versteeg for this fix.
