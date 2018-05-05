@@ -374,6 +374,7 @@ impl Window {
             Scale::X1 => 1,
             Scale::X2 => 2,
             Scale::X4 => 4,
+            Scale::X8 => 8,
             Scale::FitScreen => {
                 let wh: u32 = mfb_get_screen_size();
                 let screen_x = (wh >> 16) as i32;
@@ -387,15 +388,15 @@ impl Window {
                     let w = width as i32 * (scale + 1);
                     let h = height as i32 * (scale + 1);
 
-                    if w > screen_x || h > screen_y {
+                    if w >= screen_x || h >= screen_y {
                         break;
                     }
 
                     scale *= 2;
                 }
 
-                if scale >= 4 {
-                	4
+                if scale >= 8 {
+                	8
                 } else {
                 	scale
 				}

@@ -515,6 +515,41 @@ static void scale_4x(unsigned int* dest, unsigned int* source, int width, int he
     }
 }
 
+
+#define write_8(offset) \
+    dest[(width * offset) + 0] = t; \
+    dest[(width * offset) + 1] = t; \
+    dest[(width * offset) + 2] = t; \
+    dest[(width * offset) + 3] = t; \
+    dest[(width * offset) + 4] = t; \
+    dest[(width * offset) + 5] = t; \
+    dest[(width * offset) + 6] = t; \
+    dest[(width * offset) + 7] = t;
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static void scale_8x(unsigned int* dest, unsigned int* source, int width, int height, int scale) {
+    int x, y;
+    for (y = 0; y < height; y += scale) {
+        for (x = 0; x < width; x += scale) {
+            const unsigned int t = *source++;
+
+            write_8(0);
+            write_8(1);
+            write_8(2);
+            write_8(3);
+            write_8(4);
+            write_8(5);
+            write_8(6);
+            write_8(7);
+
+            dest += scale;
+        }
+
+        dest += width * (scale - 1);
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void mfb_update_with_buffer(void* window_info, void* buffer)
@@ -537,6 +572,11 @@ void mfb_update_with_buffer(void* window_info, void* buffer)
 
             case 4: {
                 scale_4x(info->draw_buffer, buffer, width, height, scale); 
+                break;
+            }
+
+            case 8: {
+                scale_8x(info->draw_buffer, buffer, width, height, scale); 
                 break;
             }
         }
