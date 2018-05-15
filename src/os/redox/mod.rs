@@ -59,18 +59,20 @@ impl Window {
 
         let window_width = width as u32 * window_scale as u32;
         let window_height = height as u32 * window_scale as u32;
-        let window_name = if opts.title { name } else { "" };
 
         let mut window_flags = vec![orbclient::WindowFlag::Async];
         if opts.resize {
             window_flags.push(orbclient::WindowFlag::Resizable);
+        }
+        if !opts.title {
+            window_flags.push(orbclient::WindowFlag::Borderless);
         }
 
         let window_opt = orbclient::Window::new_flags(-1,
                                                       -1,
                                                       window_width,
                                                       window_height,
-                                                      window_name,
+                                                      name,
                                                       &window_flags);
         match window_opt {
             Some(window) => {
