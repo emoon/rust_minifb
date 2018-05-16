@@ -64,4 +64,4 @@ x11-dl = "~2.14"
 x11-dl = "~2.14"
 
 [target.x86_64-unknown-redox.dependencies]
-orbclient = "0.3.4"
+orbclient = "0.3.14"
