@@ -375,6 +375,8 @@ impl Window {
             Scale::X2 => 2,
             Scale::X4 => 4,
             Scale::X8 => 8,
+            Scale::X16 => 16,
+            Scale::X32 => 32,
             Scale::FitScreen => {
                 let wh: u32 = mfb_get_screen_size();
                 let screen_x = (wh >> 16) as i32;
@@ -395,16 +397,11 @@ impl Window {
                     scale *= 2;
                 }
 
-                if scale >= 8 {
-                	8
+                if scale >= 32 {
+                	32
                 } else {
                 	scale
 				}
-            }
-
-            _ => {
-            	println!("Scale above 4 not support currently, defaults to 4");
-            	4
             }
         };
 
