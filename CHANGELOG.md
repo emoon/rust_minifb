@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.10.6 (2018-05-18)
+
+- [added] Scale x16 and x32 added for Unix
+
 ### v0.10.5 (2018-05-05)
 
 - [added] Scale x8 added for Unix
