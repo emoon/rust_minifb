@@ -1,14 +1,17 @@
 use std::env;
-extern crate gcc;
+extern crate cc;
 
 fn main() {
     let env = env::var("TARGET").unwrap();
     if env.contains("darwin") {
-        gcc::compile_library("libminifb_native.a",
-                             &["src/native/macosx/MacMiniFB.m",
-                               "src/native/macosx/OSXWindow.m",
-                               "src/native/macosx/OSXWindowFrameView.m"]);   // MacOS
+        cc::Build::new()
+            .file("src/native/macosx/MacMiniFB.m")
+            .file("src/native/macosx/OSXWindow.m")
+            .file("src/native/macosx/OSXWindowFrameView.m")
+            .compile("libminifb_native.a");
     } else if env.contains("linux") {
-        gcc::compile_library("libminifb_native.a", &["src/native/x11/X11MiniFB.c"]);   // Unix
+        cc::Build::new()
+            .file("src/native/x11/X11MiniFB.c")
+            .compile("libminifb_native.a");
     }
 }
