@@ -2,6 +2,8 @@
 //! open windows (usually native to the running operating system) and can optionally show a 32-bit
 //! buffer. minifb also support keyboard, mouse input and menus on selected operating systems.
 //!
+#![deny(missing_debug_implementations)]
+
 use std::fmt;
 use std::os::raw;
 
