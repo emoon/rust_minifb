@@ -2,12 +2,13 @@
 //! open windows (usually native to the running operating system) and can optionally show a 32-bit
 //! buffer. minifb also support keyboard, mouse input and menus on selected operating systems.
 //!
+use std::fmt;
 use std::os::raw;
 
 /// Scale will scale the frame buffer and the window that is being sent in when calling the update
 /// function. This is useful if you for example want to display a 320 x 256 window on a screen with
 /// much higher resolution which would result in that the window is very small.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum Scale {
     /// This mode checks your current screen resolution and will caluclate the largest window size
     /// that can be used within that limit and resize it. Useful if you have a small buffer to
@@ -28,7 +29,7 @@ pub enum Scale {
 }
 
 /// Used for is_key_pressed and get_keys_pressed() to indicated if repeat of presses is wanted
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum KeyRepeat {
     /// Use repeat
     Yes,
@@ -37,9 +38,8 @@ pub enum KeyRepeat {
 }
 
 /// The various mouse buttons that are availible
-#[derive(PartialEq, Clone, Copy)]
-pub enum MouseButton
-{
+#[derive(PartialEq, Clone, Copy, Debug)]
+pub enum MouseButton {
     /// Left mouse button
     Left,
     /// Middle mouse button
@@ -50,7 +50,7 @@ pub enum MouseButton
 
 
 /// The diffrent modes that can be used to decide how mouse coordinates should be handled
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum MouseMode {
     /// Return mouse coords from outside of the window (may be negative)
     Pass,
@@ -61,7 +61,7 @@ pub enum MouseMode {
 }
 
 /// Different style of cursors that can be used
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum CursorStyle {
     /// Regular arrow style (this is what the cursor normal looks like)
     Arrow,
@@ -130,10 +130,19 @@ use self::os::redox as imp;
 ///
 pub struct Window(imp::Window);
 
+impl fmt::Debug for Window {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_tuple("Window")
+            .field(&format_args!(".."))
+            .finish()
+    }
+}
+
 ///
 /// WindowOptions is creation settings for the window. By default the settings are defined for
 /// displayng a 32-bit buffer (no scaling of window is possible)
 ///
+#[derive(Clone, Copy, Debug)]
 pub struct WindowOptions {
     /// If the window should be borderless (default: false)
     pub borderless: bool,
@@ -142,7 +151,7 @@ pub struct WindowOptions {
     /// If it should be possible to resize the window (default: false)
     pub resize: bool,
     /// Scale of the window that used in conjunction with update_with_buffer (default: X1)
-    pub scale: Scale
+    pub scale: Scale,
 }
 
 impl Window {
@@ -625,6 +634,14 @@ pub struct MenuHandle(pub u64);
 ///
 pub struct Menu(imp::Menu);
 
+impl fmt::Debug for Menu {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_tuple("Menu")
+            .field(&format_args!(".."))
+            .finish()
+    }
+}
+
 impl Menu {
     /// Create a new menu. Returns error if failed
     pub fn new(name: &str) -> Result<Menu> {
@@ -680,6 +697,7 @@ impl Menu {
 ///
 /// Holds info about each item in a menu
 ///
+#[derive(Debug)]
 pub struct MenuItem<'a> {
     pub id: usize,
     pub label: String,
@@ -800,5 +818,3 @@ impl Default for WindowOptions {
         }
     }
 }
-
-
