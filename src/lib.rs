@@ -87,18 +87,13 @@ pub trait InputCallback {
     fn add_char(&mut self, uni_char: u32);
 }
 
-#[doc(hidden)]
 mod error;
 pub use self::error::Error;
-#[doc(hidden)]
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[doc(hidden)]
-pub mod key;
-#[doc(hidden)]
+mod key;
 pub use key::Key as Key;
-#[doc(hidden)]
-pub mod os;
+mod os;
 mod mouse_handler;
 mod buffer_helper;
 mod key_handler;
@@ -807,7 +802,6 @@ impl<'a> MenuItem<'a> {
 
 // Impl for WindowOptions
 
-#[doc(hidden)]
 impl Default for WindowOptions {
     fn default() -> WindowOptions {
         WindowOptions {
