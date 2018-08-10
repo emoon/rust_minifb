@@ -2,6 +2,13 @@
 
 This project follows semantic versioning.
 
+### v0.10.7 (2018-08-10)
+
+Thanks to Lukas Kalbertodt for these changes!
+
+- [added] Debug impls for public types
+- [fixed] Removed several `doc(hidden)`
+
 ### v0.10.6 (2018-05-18)
 
 - [added] Scale x16 and x32 added for Unix
