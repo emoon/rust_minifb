@@ -63,16 +63,16 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 		s_init = true;
 	}
 
-	uint32_t styles = NSClosableWindowMask | NSMiniaturizableWindowMask;
+	NSWindowStyleMask styles = NSWindowStyleMaskClosable | NSWindowStyleMaskResizable; 
 
 	if (flags & WINDOW_BORDERLESS)
-		styles |= NSBorderlessWindowMask;
+		styles |= NSWindowStyleMaskBorderless;
 
 	if (flags & WINDOW_RESIZE)
-		styles |= NSResizableWindowMask;
+		styles |= NSWindowStyleMaskResizable;
 
 	if (flags & WINDOW_TITLE)
-		styles |= NSTitledWindowMask;
+		styles |= NSWindowStyleMaskTitled;
 
 	NSRect rectangle = NSMakeRect(0, 0, width * scale, (height * scale));
 
@@ -184,7 +184,7 @@ static void create_standard_menu(void)
     [[appMenu addItemWithTitle:@"Hide Others"
                        action:@selector(hideOtherApplications:)
                 keyEquivalent:@"h"]
-        setKeyEquivalentModifierMask:NSAlternateKeyMask | NSCommandKeyMask];
+        setKeyEquivalentModifierMask:NSEventModifierFlagOption | NSEventModifierFlagCommand];
     [appMenu addItemWithTitle:@"Show All"
                        action:@selector(unhideAllApplications:)
                 keyEquivalent:@""];
@@ -257,7 +257,7 @@ static int update_events()
 
     do
     {
-        event = [NSApp nextEventMatchingMask:NSAnyEventMask untilDate:[NSDate distantPast] inMode:NSDefaultRunLoopMode dequeue:YES];
+        event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:[NSDate distantPast] inMode:NSDefaultRunLoopMode dequeue:YES];
 
         if (event) {
             [NSApp sendEvent:event];
@@ -285,7 +285,7 @@ static int generic_update(OSXWindow* win)
     if (win->shared_data) {
 		NSPoint p = [win mouseLocationOutsideOfEventStream];
 		NSRect originalFrame = [win frame];
-		NSRect contentRect = [NSWindow contentRectForFrameRect: originalFrame styleMask: NSTitledWindowMask];
+		NSRect contentRect = [NSWindow contentRectForFrameRect: originalFrame styleMask: NSWindowStyleMaskTitled];
 		win->shared_data->mouse_x = p.x;
 		win->shared_data->mouse_y = contentRect.size.height - p.y;
 	}
@@ -297,6 +297,7 @@ static int generic_update(OSXWindow* win)
 
 int mfb_update(void* window, void* buffer)
 {
+	(void)buffer;
 	OSXWindow* win = (OSXWindow*)window;
 	return generic_update(win);
 }
@@ -405,7 +406,7 @@ void mfb_remove_menu(void* window, const char* name)
 {
 	OSXWindow* win = (OSXWindow*)window;
 
-	NSString* ns_name = [NSString stringWithUTF8String: name];
+	//NSString* ns_name = [NSString stringWithUTF8String: name];
  	NSMenu* main_menu = [NSApp mainMenu];
 
  	int len = win->menu_data->menu_count;
@@ -538,17 +539,17 @@ uint64_t mfb_add_menu_item(
 		//
 
 		if ((modfier & MENU_KEY_CTRL)) {
-			mask |= NSCommandKeyMask;
+			mask |= NSEventModifierFlagCommand;
 		}
 		if ((modfier & MENU_KEY_CTRL) &&
 		    (modfier & MENU_KEY_COMMAND)) {
-			mask |= NSControlKeyMask;
+			mask |= NSEventModifierFlagControl;
 		}
 		if (modfier & MENU_KEY_SHIFT) {
-			mask |= NSShiftKeyMask;
+			mask |= NSEventModifierFlagShift;
 		}
 		if (modfier & MENU_KEY_ALT) {
-			mask |= NSAlternateKeyMask;
+			mask |= NSEventModifierFlagOption;
 		}
 
 		switch (key) {
@@ -615,6 +616,7 @@ void* mfb_create_menu(const char* name) {
 
 void mfb_destroy_menu(void* menu_item, const char* name)
 {
+	(void)name;
 	NSMenuItem* item = (NSMenuItem*)menu_item;
  	NSMenu* main_menu = [NSApp mainMenu];
 	[main_menu removeItem:item];
@@ -632,7 +634,10 @@ void mfb_remove_menu_item(void* parent, uint64_t menu_item) {
 
 uint64_t mfb_add_menu(void* window, void* m)
 {
-	OSXWindow* win = (OSXWindow*)window;
+	(void)m;
+	(void)window;
+
+	//OSXWindow* win = (OSXWindow*)window;
 	NSMenu* menu = (NSMenu*)m;
 
  	NSMenu* main_menu = [NSApp mainMenu];

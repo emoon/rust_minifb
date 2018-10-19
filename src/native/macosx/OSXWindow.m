@@ -105,6 +105,7 @@
 
 - (void)windowWillClose:(NSNotification *)notification
 {
+	(void)notification;
 	should_close = true;
 }
 
@@ -112,6 +113,7 @@
 
 - (BOOL)windowShouldClose:(id)sender
 {
+	(void)sender;
 	should_close = true;
 	return TRUE;
 }
@@ -152,7 +154,7 @@
 	if (childContentView)
 		[childContentView removeFromSuperview];
 
-	NSRect t = [self contentRectForFrameRect:bounds];
+	//NSRect t = [self contentRectForFrameRect:bounds];
 
 	childContentView = aView;
 	[childContentView setFrame:[self contentRectForFrameRect:bounds]];
