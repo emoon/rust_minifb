@@ -24,9 +24,10 @@
 
 - (void)drawRect:(NSRect)rect
 {
-	(void)rect;
+    (void)rect;
     CGContextRef context = [[NSGraphicsContext currentContext] CGContext];
-    //CGContextRef context = [[NSGraphicsContext currentContext]];
+
+    printf("drawRect\n");
 
     CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
     CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, draw_buffer, width * height * 4, NULL);
@@ -44,34 +45,52 @@
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/*
 - (BOOL)wantsUpdateLayer
 {
-	return TRUE;
+    printf("wantsUpdateLayer\n");
+    return TRUE;
 }
-*/
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/*
 -(void)updateLayer
 {
-	// Force the graphics context to clear to black so we don't get a flash of
-	// white until the app is ready to draw. In practice on modern macOS, this
-	// only gets called for window creation and other extraordinary events.
-	self.layer.backgroundColor = NSColor.blackColor.CGColor;
-	ScheduleContextUpdates((SDL_WindowData *) _sdlWindow->driverdata);
-	SDL_SendWindowEvent(_sdlWindow, SDL_WINDOWEVENT_EXPOSED, 0, 0);
+    printf("update layer\n");
+    // Force the graphics context to clear to black so we don't get a flash of
+    // white until the app is ready to draw. In practice on modern macOS, this
+    // only gets called for window creation and other extraordinary events.
+    self.layer.backgroundColor = NSColor.blackColor.CGColor;
+    //NSGraphicsContext* context = [NSGraphicsContext currentContext];
+    //[context scheduleUpdate];
+    
+    //(void)rect;
+    CGContextRef context = [[NSGraphicsContext currentContext] CGContext];
 
-	[context scheduleUpdate];
+    //printf("drawRect\n");
+
+    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+    CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, draw_buffer, width * height * 4, NULL);
+
+    CGImageRef img = CGImageCreate(width, height, 8, 32, width * 4, space, kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Little,
+                                   provider, NULL, false, kCGRenderingIntentDefault);
+
+    CGColorSpaceRelease(space);
+    CGDataProviderRelease(provider);
+
+    CGContextDrawImage(context, CGRectMake(0, 0, width * scale, height * scale), img);
+
+    CGImageRelease(img);
+
+    //ScheduleContextUpdates((SDL_WindowData *) _sdlWindow->driverdata);
+    //SDL_SendWindowEvent(_sdlWindow, SDL_WINDOWEVENT_EXPOSED, 0, 0);
+    //[context scheduleUpdate];
 }
-*/
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 - (void)mouseDown:(NSEvent*)event
 {
-	(void)event;
+    (void)event;
     OSXWindow* window = (OSXWindow*)[self window];
     window->shared_data->mouse_state[0] = 1;
 }
@@ -80,7 +99,7 @@
 
 - (void)mouseUp:(NSEvent*)event
 {
-	(void)event;
+    (void)event;
     OSXWindow* window = (OSXWindow*)[self window];
     window->shared_data->mouse_state[0] = 0;
 }
@@ -89,7 +108,7 @@
 
 - (void)rightMouseDown:(NSEvent*)event
 {
-	(void)event;
+    (void)event;
     OSXWindow* window = (OSXWindow*)[self window];
     window->shared_data->mouse_state[2] = 1;
 }
@@ -98,7 +117,7 @@
 
 - (void)rightMouseUp:(NSEvent*)event
 {
-	(void)event;
+    (void)event;
     OSXWindow* window = (OSXWindow*)[self window];
     window->shared_data->mouse_state[2] = 0;
 }
@@ -157,7 +176,7 @@
 
 - (void)windowResized:(NSNotification *)notification
 {
-	(void)notification;
+    (void)notification;
     NSSize size = [self bounds].size;
     OSXWindow* window = (OSXWindow*)[self window];
 
