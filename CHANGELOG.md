@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.11 (2018-10-23)
+
+- [changed] macOS now uses Metal for rendering the buffer.
+
 ### v0.10.7 (2018-08-10)
 
 Thanks to Lukas Kalbertodt for these changes!

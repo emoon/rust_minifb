@@ -2,7 +2,55 @@
 #include "OSXWindowFrameView.h"
 #include <Cocoa/Cocoa.h>
 #include <Carbon/Carbon.h>
+#include <MetalKit/MetalKit.h>
 #include <unistd.h>
+
+extern id<MTLDevice> g_metal_device;
+extern id<MTLCommandQueue> g_command_queue;
+extern id<MTLLibrary> g_library;
+extern id<MTLRenderPipelineState> g_pipeline_state; 
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+NSString* g_shadersSrc = @
+"	#include <metal_stdlib>\n"  
+	"using namespace metal;\n"
+
+	"struct VertexOutput {\n"
+		"float4 pos [[position]];\n"
+		"float2 texcoord;\n"
+	"};\n"
+
+	"vertex VertexOutput vertFunc(\n"
+		"unsigned int vID[[vertex_id]])\n"
+	"{\n"
+		"VertexOutput out;\n"
+
+		"out.pos.x = (float)(vID / 2) * 4.0 - 1.0;\n"
+		"out.pos.y = (float)(vID % 2) * 4.0 - 1.0;\n"
+		"out.pos.z = 0.0;\n"
+		"out.pos.w = 1.0;\n"
+
+		"out.texcoord.x = (float)(vID / 2) * 2.0;\n"
+		"out.texcoord.y = 1.0 - (float)(vID % 2) * 2.0;\n"
+
+		"return out;\n"
+	"}\n"
+
+	"fragment float4 fragFunc(VertexOutput input [[stage_in]],\n"
+			"texture2d<half> colorTexture [[ texture(0) ]])\n"
+	"{\n"
+	    "constexpr sampler textureSampler(mag_filter::nearest, min_filter::nearest);\n"
+
+		// Sample the texture to obtain a color
+		"const half4 colorSample = colorTexture.sample(textureSampler, input.texcoord);\n"
+
+    	// We return the color of the texture
+    	"return float4(colorSample);\n"
+		//"return half4(input.texcoord.x, input.texcoord.y, 0.0, 1.0);\n"
+	"}\n";
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 static bool s_init = false;
 
@@ -49,6 +97,57 @@ void cursor_init() {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+static bool create_shaders() {
+	// Error
+	NSError* nsError = NULL;
+	NSError** nsErrorPtr = &nsError;
+
+	id<MTLLibrary> library = [g_metal_device newLibraryWithSource:g_shadersSrc
+		options:[[MTLCompileOptions alloc] init]
+		error:nsErrorPtr];
+
+	// Error update
+	if (nsError || !library) {
+		NSLog(@"Unable to create shaders %@", nsError); 
+		return false;
+	}                            
+
+	NSLog(@"Names %@", [g_library functionNames]);
+
+	g_library = library;
+
+	id<MTLFunction> vertex_shader_func = [g_library newFunctionWithName:@"vertFunc"];
+	id<MTLFunction> fragment_shader_func = [g_library newFunctionWithName:@"fragFunc"];
+
+	if (!vertex_shader_func) {
+		printf("Unable to get vertFunc!\n");
+		return false;
+	}
+
+	if (!fragment_shader_func) {
+		printf("Unable to get fragFunc!\n");
+		return false;
+	}
+
+    // Create a reusable pipeline state
+    MTLRenderPipelineDescriptor *pipelineStateDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
+    pipelineStateDescriptor.label = @"MyPipeline";
+    pipelineStateDescriptor.vertexFunction = vertex_shader_func;
+    pipelineStateDescriptor.fragmentFunction = fragment_shader_func;
+    pipelineStateDescriptor.colorAttachments[0].pixelFormat = 80; //bgra8Unorm;
+
+    NSError *error = NULL;
+    g_pipeline_state = [g_metal_device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor error:&error];
+    if (!g_pipeline_state)
+    {
+        NSLog(@"Failed to created pipeline state, error %@", error);
+    }
+
+	return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void* mfb_open(const char* name, int width, int height, uint32_t flags, int scale)
 {
 	bool prev_init = s_init;
@@ -60,6 +159,17 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 		[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 		create_standard_menu();
 		cursor_init();
+		g_metal_device = MTLCreateSystemDefaultDevice();
+
+		if (!g_metal_device) {
+			printf("Your device/OS doesn't support Metal.");
+			return 0;
+		}
+
+		if (!create_shaders()) {
+			return 0;
+		}
+
 		s_init = true;
 	}
 
@@ -85,6 +195,40 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 
 	if (!window->draw_buffer)
 		return 0;
+
+	// Setup command queue
+	g_command_queue = [g_metal_device newCommandQueue];
+
+
+    WindowViewController* viewController = [WindowViewController new];
+
+	MTLTextureDescriptor* textureDescriptor = [[MTLTextureDescriptor alloc] init];
+
+	// Indicate that each pixel has a blue, green, red, and alpha channel, where each channel is
+	// an 8-bit unsigned normalized value (i.e. 0 maps to 0.0 and 255 maps to 1.0)
+	textureDescriptor.pixelFormat = MTLPixelFormatBGRA8Unorm;
+
+	// Set the pixel dimensions of the texture
+	textureDescriptor.width = width;
+	textureDescriptor.height = height;
+
+	// Create the texture from the device by using the descriptor
+	
+	for (int i = 0; i < MaxBuffersInFlight; ++i) {
+		viewController->m_texture_buffers[i] = [g_metal_device newTextureWithDescriptor:textureDescriptor];
+	}
+
+	// Used for syncing the CPU and GPU
+	viewController->m_semaphore = dispatch_semaphore_create(MaxBuffersInFlight);
+    viewController->m_draw_buffer = window->draw_buffer;
+    viewController->m_width = width;
+    viewController->m_height = height;
+
+    MTKView* view = [[MTKView alloc] initWithFrame:rectangle];
+    view.device = g_metal_device; 
+    view.delegate = viewController;
+    view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    [window.contentView addSubview:view];
 
 	window->width = width;
 	window->height = height;

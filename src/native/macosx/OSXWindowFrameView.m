@@ -1,5 +1,85 @@
 #import "OSXWindowFrameView.h"
 #import "OSXWindow.h"
+#import <MetalKit/MetalKit.h>
+
+id<MTLDevice> g_metal_device;
+id<MTLCommandQueue> g_command_queue;
+id<MTLLibrary> g_library;
+id<MTLRenderPipelineState> g_pipeline_state;
+
+@implementation WindowViewController
+-(void)mtkView:(nonnull MTKView *)view drawableSizeWillChange:(CGSize)size
+{
+	(void)view;
+	(void)size;
+    // resize
+}
+
+-(void)drawInMTKView:(nonnull MTKView *)view
+{
+    // Wait to ensure only MaxBuffersInFlight number of frames are getting proccessed
+    //   by any stage in the Metal pipeline (App, Metal, Drivers, GPU, etc)
+    dispatch_semaphore_wait(m_semaphore, DISPATCH_TIME_FOREVER);
+
+    // Iterate through our Metal buffers, and cycle back to the first when we've written to MaxBuffersInFlight
+    m_current_buffer = (m_current_buffer + 1) % MaxBuffersInFlight;
+
+    // Calculate the number of bytes per row of our image.
+    NSUInteger bytesPerRow = 4 * m_width;
+    MTLRegion region = { { 0, 0, 0 }, { m_width, m_height, 1 } };
+
+    // Copy the bytes from our data object into the texture
+    [m_texture_buffers[m_current_buffer] replaceRegion:region
+                mipmapLevel:0 withBytes:m_draw_buffer bytesPerRow:bytesPerRow];
+
+    // Create a new command buffer for each render pass to the current drawable
+    id<MTLCommandBuffer> commandBuffer = [g_command_queue commandBuffer];
+    commandBuffer.label = @"minifb_command_buffer";
+
+    // Add completion hander which signals _inFlightSemaphore when Metal and the GPU has fully
+    //   finished processing the commands we're encoding this frame.  This indicates when the
+    //   dynamic buffers filled with our vertices, that we're writing to this frame, will no longer
+    //   be needed by Metal and the GPU, meaning we can overwrite the buffer contents without
+    //   corrupting the rendering.
+    __block dispatch_semaphore_t block_sema = m_semaphore;
+    [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer)
+    {
+    	(void)buffer;
+        dispatch_semaphore_signal(block_sema);
+    }];
+
+    MTLRenderPassDescriptor* renderPassDescriptor = view.currentRenderPassDescriptor;
+
+    if (renderPassDescriptor != nil)
+    {
+		renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(1.0, 0.0, 0.0, 1.0);
+
+        // Create a render command encoder so we can render into something
+        id<MTLRenderCommandEncoder> renderEncoder =
+        [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
+        renderEncoder.label = @"minifb_command_encoder";
+
+        // Set render command encoder state
+        [renderEncoder setRenderPipelineState:g_pipeline_state];
+
+        [renderEncoder setFragmentTexture:m_texture_buffers[m_current_buffer] atIndex:0];
+
+        // Draw the vertices of our quads
+        [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle
+                          vertexStart:0
+                          vertexCount:3];
+
+        // We're done encoding commands
+        [renderEncoder endEncoding];
+
+        // Schedule a present once the framebuffer is complete using the current drawable
+        [commandBuffer presentDrawable:view.currentDrawable];
+    }
+
+    // Finalize rendering here & push the command buffer to the GPU
+    [commandBuffer commit];
+}
+@end
 
 @implementation OSXWindowFrameView
 
@@ -19,73 +99,6 @@
                                             userInfo:nil];
     [self addTrackingArea:trackingArea];
 }
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-- (void)drawRect:(NSRect)rect
-{
-    (void)rect;
-    CGContextRef context = [[NSGraphicsContext currentContext] CGContext];
-
-    printf("drawRect\n");
-
-    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
-    CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, draw_buffer, width * height * 4, NULL);
-
-    CGImageRef img = CGImageCreate(width, height, 8, 32, width * 4, space, kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Little,
-                                   provider, NULL, false, kCGRenderingIntentDefault);
-
-    CGColorSpaceRelease(space);
-    CGDataProviderRelease(provider);
-
-    CGContextDrawImage(context, CGRectMake(0, 0, width * scale, height * scale), img);
-
-    CGImageRelease(img);
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/*
-- (BOOL)wantsUpdateLayer
-{
-    return TRUE;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
--(void)updateLayer
-{
-    printf("update layer\n");
-    // Force the graphics context to clear to black so we don't get a flash of
-    // white until the app is ready to draw. In practice on modern macOS, this
-    // only gets called for window creation and other extraordinary events.
-    self.layer.backgroundColor = NSColor.blackColor.CGColor;
-    //NSGraphicsContext* context = [NSGraphicsContext currentContext];
-    //[context scheduleUpdate];
-    
-    //(void)rect;
-    CGContextRef context = [[NSGraphicsContext currentContext] CGContext];
-
-    //printf("drawRect\n");
-
-    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
-    CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, draw_buffer, width * height * 4, NULL);
-
-    CGImageRef img = CGImageCreate(width, height, 8, 32, width * 4, space, kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Little,
-                                   provider, NULL, false, kCGRenderingIntentDefault);
-
-    CGColorSpaceRelease(space);
-    CGDataProviderRelease(provider);
-
-    CGContextDrawImage(context, CGRectMake(0, 0, width * scale, height * scale), img);
-
-    CGImageRelease(img);
-
-    //ScheduleContextUpdates((SDL_WindowData *) _sdlWindow->driverdata);
-    //SDL_SendWindowEvent(_sdlWindow, SDL_WINDOWEVENT_EXPOSED, 0, 0);
-    //[context scheduleUpdate];
-}
-*/
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

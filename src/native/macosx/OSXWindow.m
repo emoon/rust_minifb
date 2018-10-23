@@ -144,10 +144,6 @@
 			object:self];
 
 		frameView = [[[OSXWindowFrameView alloc] initWithFrame:bounds] autorelease];
-		frameView->width = width;
-		frameView->height = height;
-		frameView->draw_buffer = draw_buffer;
-		frameView->scale = scale;
 		[super setContentView:frameView];
 	}
 
@@ -195,14 +191,6 @@
 
 - (void)updateSize
 {
-	OSXWindowFrameView* frameView = [super contentView];
-	if (frameView)
-	{
-		frameView->width = width;
-		frameView->height = height;
-		frameView->draw_buffer = draw_buffer;
-		frameView->scale = scale;
-	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
