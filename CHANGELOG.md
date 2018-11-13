@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.11.1 (2018-11-13)
+
+- [fixed] Fixed bad window size in menu example
+
 ### v0.11 (2018-10-23)
 
 - [changed] macOS now uses Metal for rendering the buffer.

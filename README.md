@@ -14,7 +14,7 @@ Usage
 ```toml
 # Cargo.toml
 [dependencies]
-minifb = "0.11"
+minifb = "0.11.1"
 ```
 
 Example
@@ -62,7 +62,7 @@ cargo build
 cargo run --example noise
 ```
 
-This will run the [noise example](https://github.com/emoon/rust_minifb/blob/master/examples/noise.rs) 
+This will run the [noise example](https://github.com/emoon/rust_minifb/blob/master/examples/noise.rs)
 
 ## License
 
