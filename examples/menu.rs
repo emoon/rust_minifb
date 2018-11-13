@@ -26,7 +26,7 @@ fn main() {
 
     let mut window = Window::new("Menu Test - Press ESC to exit",
                                  WIDTH,
-                                 HEIGHT + 2,
+                                 HEIGHT,
                                  WindowOptions {
                                      resize: true,
                                      scale: Scale::X2,
