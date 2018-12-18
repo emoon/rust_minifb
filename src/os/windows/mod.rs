@@ -596,6 +596,11 @@ impl Window {
     }
 
     #[inline]
+    pub fn is_key_released(&self, key: Key) -> bool {
+        self.key_handler.is_key_released(key)
+    }
+
+    #[inline]
     pub fn is_open(&self) -> bool {
         return self.is_open
     }

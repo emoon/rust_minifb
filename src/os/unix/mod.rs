@@ -354,6 +354,11 @@ impl Window {
     }
 
     #[inline]
+    pub fn is_key_released(&self, key: Key) -> bool {
+        self.key_handler.is_key_released(key)
+    }
+
+    #[inline]
     pub fn set_input_callback(&mut self, callback: Box<InputCallback>)  {
         self.key_handler.set_input_callback(callback)
     }

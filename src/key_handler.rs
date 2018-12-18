@@ -8,6 +8,7 @@ pub struct KeyHandler {
     prev_time: f64,
     delta_time: f32,
     keys: [bool; 512],
+    keys_prev: [bool; 512],
     keys_down_duration: [f32; 512],
     key_repeat_delay: f32,
     key_repeat_rate: f32,
@@ -18,6 +19,7 @@ impl KeyHandler {
         KeyHandler {
             key_callback: None,
             keys: [false; 512],
+            keys_prev: [false; 512],
             keys_down_duration: [-1.0; 512],
             prev_time: time::precise_time_s(),
             delta_time: 0.0,
@@ -64,6 +66,7 @@ impl KeyHandler {
             } else {
                 self.keys_down_duration[i] = -1.0;
             }
+            self.keys_prev[i] = self.keys[i];
         }
     }
 
@@ -123,7 +126,14 @@ impl KeyHandler {
         return false;
     }
 
+    #[inline]
     pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
         return Self::key_pressed(self, key as usize, repeat);
+    }
+
+    #[inline]
+    pub fn is_key_released(&self, key: Key) -> bool {
+        let idx = key as usize;
+        return self.keys_prev[idx] && !self.keys[idx];
     }
 }

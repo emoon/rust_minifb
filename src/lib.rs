@@ -463,6 +463,14 @@ impl Window {
     }
 
     ///
+    /// Check if a single key was released since last call to update.
+    /// 
+    #[inline]
+    pub fn is_key_released(&self, key: Key) -> bool {
+        self.0.is_key_released(key)
+    }
+
+    ///
     /// Sets the delay for when a key is being held before it starts being repeated the default
     /// value is 0.25 sec
     ///
