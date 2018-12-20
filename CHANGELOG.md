@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.11.2 (2018-12-19)
+
+- [added] Window.is_key_released
+
 ### v0.11.1 (2018-11-13)
 
 - [fixed] Fixed bad window size in menu example
