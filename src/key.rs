@@ -1,5 +1,5 @@
 /// Key is used by the get key functions to check if some keys on the keyboard has been pressed
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 pub enum Key {
     Key0 = 0,
     Key1 = 1,
