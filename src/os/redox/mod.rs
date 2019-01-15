@@ -244,12 +244,6 @@ impl Window {
                         self.mouse_pos = None;
                     }
                 },
-                orbclient::EventOption::Resize(_) => {
-                    // The window must be redrawn with an opaque color (black)
-                    // because Orbital uses the transparent color for the new areas
-                    // appearing after resizing
-                    self.window.set(orbclient::Color::rgb(0, 0, 0));
-                },
                 orbclient::EventOption::Scroll(scroll_event) => {
                     self.mouse_pos = Some((scroll_event.x, scroll_event.y));
                 },
@@ -352,17 +346,17 @@ impl Window {
         let render_height = cmp::min(self.buffer_height * self.window_scale,
                                      self.window.height() as usize);
 
+        let window_width = self.window.width() as usize;
+        let window_buffer = self.window.data_mut();
+
         for y in 0..render_height {
             for x in 0..render_width {
                 let buffer_x = x / self.window_scale;
                 let buffer_y = y / self.window_scale;
 
-                // The pixel format of MiniFB and Orbital are the same (0xAARRGGBB),
-                // however Orbital expects opaque colors where the alpha is 0xFF
-                let data = buffer[buffer_y * self.buffer_width + buffer_x];
-                let color = orbclient::Color { data: data | 0xFF000000 };
-
-                self.window.pixel(x as i32, y as i32, color);
+                window_buffer[y * window_width + x] = orbclient::Color {
+                    data: buffer[buffer_y * self.buffer_width + buffer_x],
+                };
             }
         }
     }
