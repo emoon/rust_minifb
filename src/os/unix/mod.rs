@@ -385,7 +385,7 @@ impl Window {
 
         self.update();
 
-        res
+        Ok(())
     }
 
     pub fn update(&mut self) {
