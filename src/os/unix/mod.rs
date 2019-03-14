@@ -236,6 +236,10 @@ impl Window {
     pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
         self.key_handler.update();
 
+        unsafe {
+            Self::set_shared_data(self);
+        }
+
         let check_res = buffer_helper::check_buffer_size(self.shared_data.width as usize,
                                                          self.shared_data.height as usize,
                                                          self.shared_data.scale as usize,
@@ -245,7 +249,6 @@ impl Window {
         }
 
         unsafe {
-            Self::set_shared_data(self);
             mfb_update_with_buffer(self.window_handle, buffer.as_ptr() as *const u8);
             mfb_set_key_callback(self.window_handle,
             					 mem::transmute(self),
