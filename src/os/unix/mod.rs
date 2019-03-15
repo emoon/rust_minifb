@@ -185,10 +185,10 @@ impl DisplayInfo {
     }
 
     fn load_cursor(&mut self, name: &'static str) -> xlib::Cursor {
-        unsafe {
-            let name = name.as_ptr() as *const i8;
+        let name = CString::new(name).expect("static data");
 
-            (self.cursor_lib.XcursorLibraryLoadCursor)(self.display, name)
+        unsafe {
+            (self.cursor_lib.XcursorLibraryLoadCursor)(self.display, name.as_ptr())
         }
     }
 
@@ -197,12 +197,12 @@ impl DisplayInfo {
     }
 
     fn intern_atom(&mut self, name: &'static str, only_if_exists: bool) -> xlib::Atom {
-        unsafe {
-            let name = name.as_ptr() as *const c_char;
+        let name = CString::new(name).expect("static data");
 
+        unsafe {
             (self.lib.XInternAtom)(
                 self.display,
-                name,
+                name.as_ptr(),
                 if only_if_exists {
                     xlib::True
                 } else {
@@ -379,7 +379,7 @@ impl Window {
             let mut draw_buffer: Vec<u32> = Vec::new();
             draw_buffer.resize(width * height, 0);
 
-            (*ximage).data = draw_buffer[..].as_mut_ptr() as *mut i8;
+            (*ximage).data = draw_buffer[..].as_mut_ptr() as *mut c_char;
 
             Ok(Window {
                 d,
