@@ -1,39 +1,39 @@
-#![cfg(any(target_os="linux",
-    target_os="freebsd",
-    target_os="dragonfly",
-    target_os="netbsd",
-    target_os="openbsd"))]
-
+#![cfg(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "dragonfly",
+    target_os = "netbsd",
+    target_os = "openbsd"
+))]
 // turn off a gazillion warnings about X keysym names
 #![allow(non_upper_case_globals)]
 
 extern crate x11_dl;
 
-use {MouseMode, MouseButton, Scale, Key, KeyRepeat, WindowOptions, InputCallback};
-use key_handler::KeyHandler;
 use self::x11_dl::keysym::*;
-use self::x11_dl::xlib;
 use self::x11_dl::xcursor;
+use self::x11_dl::xlib;
+use key_handler::KeyHandler;
+use {InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, WindowOptions};
 
 use error::Error;
 use Result;
-use {CursorStyle, MenuItem, MenuItemHandle, MenuHandle, UnixMenu, UnixMenuItem};
+use {CursorStyle, MenuHandle, MenuItem, MenuItemHandle, UnixMenu, UnixMenuItem};
 
-use std::os::raw::{ c_void, c_char, c_uint };
-use std::ffi::{CString};
-use std::ptr;
+use std::ffi::CString;
 use std::mem;
 use std::os::raw;
+use std::os::raw::{c_char, c_uint, c_void};
+use std::ptr;
 
-use mouse_handler;
 use buffer_helper;
+use mouse_handler;
 
 // NOTE: the x11-dl crate does not define Button6 or Button7
 const Button6: c_uint = xlib::Button5 + 1;
 const Button7: c_uint = xlib::Button5 + 2;
 
 mod key_mapping;
-
 
 struct DisplayInfo {
     lib: x11_dl::xlib::Xlib,
@@ -46,17 +46,17 @@ struct DisplayInfo {
     screen_height: i32,
     context: xlib::XContext,
     cursor_lib: x11_dl::xcursor::Xcursor,
-    cursors: [xlib::Cursor ; 8],
+    cursors: [xlib::Cursor; 8],
     keyb_ext: bool,
     wm_delete_window: xlib::Atom,
 }
 
 impl DisplayInfo {
     fn new() -> Result<DisplayInfo> {
-        let mut display = Self::setup() ?;
+        let mut display = Self::setup()?;
 
-        display.check_formats() ?;
-        display.check_extensions() ?;
+        display.check_formats()?;
+        display.check_extensions()?;
         display.init_cursors();
         display.init_atoms();
 
@@ -69,15 +69,15 @@ impl DisplayInfo {
             let lib = match xlib::Xlib::open() {
                 Err(_) => {
                     return Err(Error::WindowCreate("failed to load Xlib".to_owned()));
-                },
-                Ok(v) => v
+                }
+                Ok(v) => v,
             };
 
             let cursor_lib = match xcursor::Xcursor::open() {
                 Err(_) => {
                     return Err(Error::WindowCreate("failed to load Xcursor".to_owned()));
-                },
-                Ok(v) => v
+                }
+                Ok(v) => v,
             };
 
             let display = (lib.XOpenDisplay)(ptr::null());
@@ -88,10 +88,10 @@ impl DisplayInfo {
 
             let screen = (lib.XDefaultScreen)(display);
             let visual = (lib.XDefaultVisual)(display, screen);
-            let gc     = (lib.XDefaultGC)    (display, screen);
-            let depth  = (lib.XDefaultDepth) (display, screen);
+            let gc = (lib.XDefaultGC)(display, screen);
+            let depth = (lib.XDefaultDepth)(display, screen);
 
-            let screen_width  = (lib.XDisplayWidth) (display, screen);
+            let screen_width = (lib.XDisplayWidth)(display, screen);
             let screen_height = (lib.XDisplayHeight)(display, screen);
 
             // andrewj: using this instead of XUniqueContext(), as the latter
@@ -110,7 +110,7 @@ impl DisplayInfo {
                 context,
                 cursor_lib,
                 // the following are determined later...
-                cursors: [0 as xlib::Cursor ; 8],
+                cursors: [0 as xlib::Cursor; 8],
                 keyb_ext: false,
                 wm_delete_window: 0,
             })
@@ -143,20 +143,25 @@ impl DisplayInfo {
         }
     }
 
-    fn check_extensions(&mut self) -> Result<()>  {
+    fn check_extensions(&mut self) -> Result<()> {
         // require version 1.0
         let mut major: i32 = 1;
         let mut minor: i32 = 0;
 
         // these values are out-only, and are ignored
         let mut opcode: i32 = 0;
-        let mut event:  i32 = 0;
-        let mut error:  i32 = 0;
+        let mut event: i32 = 0;
+        let mut error: i32 = 0;
 
         unsafe {
-            if (self.lib.XkbQueryExtension)(self.display,
-                    &mut opcode, &mut event, &mut error,
-                    &mut major,  &mut minor) != xlib::False
+            if (self.lib.XkbQueryExtension)(
+                self.display,
+                &mut opcode,
+                &mut event,
+                &mut error,
+                &mut major,
+                &mut minor,
+            ) != xlib::False
             {
                 self.keyb_ext = true;
             }
@@ -195,8 +200,15 @@ impl DisplayInfo {
         unsafe {
             let name = name.as_ptr() as *const c_char;
 
-            (self.lib.XInternAtom)(self.display, name,
-                if only_if_exists { xlib::True } else { xlib::False })
+            (self.lib.XInternAtom)(
+                self.display,
+                name,
+                if only_if_exists {
+                    xlib::True
+                } else {
+                    xlib::False
+                },
+            )
         }
     }
 }
@@ -209,13 +221,11 @@ impl Drop for DisplayInfo {
     }
 }
 
-
-#[derive(Clone,Copy,Eq,PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 enum ProcessEventResult {
     Ok,
-    Termination
+    Termination,
 }
-
 
 pub struct Window {
     d: DisplayInfo,
@@ -224,10 +234,10 @@ pub struct Window {
     ximage: *mut xlib::XImage,
     draw_buffer: Vec<u32>,
 
-    width:  u32,    // this is the *scaled* size
-    height: u32,    //
+    width: u32,  // this is the *scaled* size
+    height: u32, //
 
-    scale:  i32,
+    scale: i32,
 
     mouse_x: f32,
     mouse_y: f32,
@@ -236,7 +246,7 @@ pub struct Window {
     buttons: [u8; 3],
     prev_cursor: CursorStyle,
 
-    should_close: bool,   // received delete window message from X server
+    should_close: bool, // received delete window message from X server
 
     key_handler: KeyHandler,
     menu_counter: MenuHandle,
@@ -263,14 +273,19 @@ impl Window {
             Scale::X2 => 2,
             Scale::X4 => 4,
 
-            Scale::FitScreen => Self::calc_fit_scale(width, height, d.screen_width as usize, d.screen_height as usize),
+            Scale::FitScreen => Self::calc_fit_scale(
+                width,
+                height,
+                d.screen_width as usize,
+                d.screen_height as usize,
+            ),
 
             _ => {
                 return Err(Error::WindowCreate("Scaling value is too high".to_owned()));
             }
         };
 
-        let width  = width  * scale;
+        let width = width * scale;
         let height = height * scale;
 
         unsafe {
@@ -283,15 +298,23 @@ impl Window {
 
             attributes.backing_store = xlib::NotUseful;
 
-            let x = (d.screen_width  - width  as i32) / 2;
+            let x = (d.screen_width - width as i32) / 2;
             let y = (d.screen_height - height as i32) / 2;
 
-            let handle = (d.lib.XCreateWindow)(d.display, root,
-                            x, y, width as u32, height as u32,
-                            0 /* border_width */, d.depth,
-                            xlib::InputOutput as u32 /* class */, d.visual,
-                            xlib::CWBackingStore | xlib::CWBackPixel | xlib::CWBorderPixel,
-                            &mut attributes);
+            let handle = (d.lib.XCreateWindow)(
+                d.display,
+                root,
+                x,
+                y,
+                width as u32,
+                height as u32,
+                0, /* border_width */
+                d.depth,
+                xlib::InputOutput as u32, /* class */
+                d.visual,
+                xlib::CWBackingStore | xlib::CWBackPixel | xlib::CWBorderPixel,
+                &mut attributes,
+            );
 
             if handle == 0 {
                 return Err(Error::WindowCreate("Unable to open Window".to_owned()));
@@ -299,10 +322,15 @@ impl Window {
 
             (d.lib.XStoreName)(d.display, handle, name.as_ptr());
 
-            (d.lib.XSelectInput)(d.display, handle,
-                xlib::StructureNotifyMask |
-                xlib::KeyPressMask | xlib::KeyReleaseMask |
-                xlib::ButtonPressMask | xlib::ButtonReleaseMask);
+            (d.lib.XSelectInput)(
+                d.display,
+                handle,
+                xlib::StructureNotifyMask
+                    | xlib::KeyPressMask
+                    | xlib::KeyReleaseMask
+                    | xlib::ButtonPressMask
+                    | xlib::ButtonReleaseMask,
+            );
 
             if opts.resize {
                 let mut size_hints: xlib::XSizeHints = mem::zeroed();
@@ -310,12 +338,16 @@ impl Window {
                 size_hints.flags = xlib::PPosition | xlib::PMinSize | xlib::PMaxSize;
                 size_hints.x = 0;
                 size_hints.y = 0;
-                size_hints.min_width  = width  as i32;
-                size_hints.max_width  = width  as i32;
+                size_hints.min_width = width as i32;
+                size_hints.max_width = width as i32;
                 size_hints.min_height = height as i32;
                 size_hints.max_height = height as i32;
 
-                (d.lib.XSetWMNormalHints)(d.display, handle, &mut size_hints as *mut xlib::XSizeHints);
+                (d.lib.XSetWMNormalHints)(
+                    d.display,
+                    handle,
+                    &mut size_hints as *mut xlib::XSizeHints,
+                );
             }
 
             (d.lib.XClearWindow)(d.display, handle);
@@ -324,15 +356,24 @@ impl Window {
 
             let bytes_per_line = (width as i32) * 4;
 
-            let ximage = (d.lib.XCreateImage)(d.display,
-                                d.visual /* TODO: this was CopyFromParent in the C code */,
-                                d.depth as u32, xlib::ZPixmap, 0, ptr::null_mut(),
-                                width as u32, height as u32,
-                                32, bytes_per_line);
+            let ximage = (d.lib.XCreateImage)(
+                d.display,
+                d.visual, /* TODO: this was CopyFromParent in the C code */
+                d.depth as u32,
+                xlib::ZPixmap,
+                0,
+                ptr::null_mut(),
+                width as u32,
+                height as u32,
+                32,
+                bytes_per_line,
+            );
 
             if ximage == ptr::null_mut() {
                 (d.lib.XDestroyWindow)(d.display, handle);
-                return Err(Error::WindowCreate("Unable to create pixel buffer".to_owned()));
+                return Err(Error::WindowCreate(
+                    "Unable to create pixel buffer".to_owned(),
+                ));
             }
 
             let mut draw_buffer: Vec<u32> = Vec::new();
@@ -371,15 +412,17 @@ impl Window {
 
             Ok(t) => unsafe {
                 (self.d.lib.XStoreName)(self.d.display, self.handle, t.as_ptr());
-            }
+            },
         };
     }
 
     pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
-        buffer_helper::check_buffer_size(self.width  as usize,
-                                         self.height as usize,
-                                         self.scale  as usize,
-                                         buffer) ?;
+        buffer_helper::check_buffer_size(
+            self.width as usize,
+            self.height as usize,
+            self.scale as usize,
+            buffer,
+        )?;
 
         unsafe { self.raw_blit_buffer(buffer) };
 
@@ -420,15 +463,15 @@ impl Window {
     }
 
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
-        let s = self.scale  as f32;
-        let w = self.width  as f32;
+        let s = self.scale as f32;
+        let w = self.width as f32;
         let h = self.height as f32;
 
         mouse_handler::get_pos(mode, self.mouse_x, self.mouse_y, s, w, h)
     }
 
     pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
-        let w = self.width  as f32;
+        let w = self.width as f32;
         let h = self.height as f32;
 
         mouse_handler::get_pos(mode, self.mouse_x, self.mouse_y, 1.0, w, h)
@@ -436,15 +479,14 @@ impl Window {
 
     pub fn get_mouse_down(&self, button: MouseButton) -> bool {
         match button {
-            MouseButton::Left   => self.buttons[0] > 0,
+            MouseButton::Left => self.buttons[0] > 0,
             MouseButton::Middle => self.buttons[1] > 0,
-            MouseButton::Right  => self.buttons[2] > 0,
+            MouseButton::Right => self.buttons[2] > 0,
         }
     }
 
     pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
-        if self.scroll_x.abs() > 0.0 ||
-           self.scroll_y.abs() > 0.0 {
+        if self.scroll_x.abs() > 0.0 || self.scroll_y.abs() > 0.0 {
             Some((self.scroll_x, self.scroll_y))
         } else {
             None
@@ -455,8 +497,11 @@ impl Window {
     pub fn set_cursor_style(&mut self, cursor: CursorStyle) {
         if self.prev_cursor != cursor {
             unsafe {
-                (self.d.lib.XDefineCursor)(self.d.display, self.handle,
-                    self.d.cursors[cursor as usize]);
+                (self.d.lib.XDefineCursor)(
+                    self.d.display,
+                    self.handle,
+                    self.d.cursors[cursor as usize],
+                );
             }
 
             self.prev_cursor = cursor;
@@ -499,7 +544,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_input_callback(&mut self, callback: Box<InputCallback>)  {
+    pub fn set_input_callback(&mut self, callback: Box<InputCallback>) {
         self.key_handler.set_input_callback(callback)
     }
 
@@ -523,7 +568,7 @@ impl Window {
             Scale::X16 => 16,
             Scale::X32 => 32,
             Scale::FitScreen => {
-// !!                 let wh: u32 = mfb_get_screen_size();
+                // !!                 let wh: u32 = mfb_get_screen_size();
                 let wh: u32 = unimplemented!();
                 let screen_x = (wh >> 16) as usize;
                 let screen_y = (wh & 0xffff) as usize;
@@ -557,9 +602,9 @@ impl Window {
         let screen_w = screen_w - 8;
         let screen_h = screen_h - 64;
 
-        if width*4 <= screen_w && height*4 <= screen_h {
+        if width * 4 <= screen_w && height * 4 <= screen_h {
             4
-        } else if width*2 <= screen_w && height*2 <= screen_h {
+        } else if width * 2 <= screen_w && height * 2 <= screen_h {
             2
         } else {
             1
@@ -616,27 +661,36 @@ impl Window {
             }
         }
 
-        (self.d.lib.XPutImage)(self.d.display, self.handle, self.d.gc, self.ximage,
-                               0, 0, 0, 0,
-                               self.width, self.height);
+        (self.d.lib.XPutImage)(
+            self.d.display,
+            self.handle,
+            self.d.gc,
+            self.ximage,
+            0,
+            0,
+            0,
+            0,
+            self.width,
+            self.height,
+        );
         (self.d.lib.XFlush)(self.d.display);
     }
 
     unsafe fn scale_2x(&mut self, buffer: &[u32]) {
         let w = self.width as usize;
 
-        let bw = (self.width  as usize) / 2;
+        let bw = (self.width as usize) / 2;
         let bh = (self.height as usize) / 2;
 
         for y in 0..bh {
-            let src = &buffer[y*bw .. y*bw+bw];
+            let src = &buffer[y * bw..y * bw + bw];
 
             for dy in 0..2 {
-                let dest = &mut self.draw_buffer[(y*2+dy)*w .. (y*2+dy)*w + w];
+                let dest = &mut self.draw_buffer[(y * 2 + dy) * w..(y * 2 + dy) * w + w];
 
                 for x in 0..bw {
-                    dest[x*2]   = src[x];
-                    dest[x*2+1] = src[x];
+                    dest[x * 2] = src[x];
+                    dest[x * 2 + 1] = src[x];
                 }
             }
         }
@@ -645,20 +699,20 @@ impl Window {
     unsafe fn scale_4x(&mut self, buffer: &[u32]) {
         let w = self.width as usize;
 
-        let bw = (self.width  as usize) / 4;
+        let bw = (self.width as usize) / 4;
         let bh = (self.height as usize) / 4;
 
         for y in 0..bh {
-            let src = &buffer[y*bw .. y*bw+bw];
+            let src = &buffer[y * bw..y * bw + bw];
 
             for dy in 0..4 {
-                let dest = &mut self.draw_buffer[(y*4+dy)*w .. (y*4+dy)*w + w];
+                let dest = &mut self.draw_buffer[(y * 4 + dy) * w..(y * 4 + dy) * w + w];
 
                 for x in 0..bw {
-                    dest[x*4]   = src[x];
-                    dest[x*4+1] = src[x];
-                    dest[x*4+2] = src[x];
-                    dest[x*4+3] = src[x];
+                    dest[x * 4] = src[x];
+                    dest[x * 4 + 1] = src[x];
+                    dest[x * 4 + 2] = src[x];
+                    dest[x * 4 + 3] = src[x];
                 }
             }
         }
@@ -675,11 +729,17 @@ impl Window {
 
         let mut mask: u32 = 0;
 
-        if (self.d.lib.XQueryPointer)(self.d.display, self.handle,
-                &mut root, &mut child,
-                &mut root_x, &mut root_y,
-                &mut child_x, &mut child_y,
-                &mut mask) != xlib::False
+        if (self.d.lib.XQueryPointer)(
+            self.d.display,
+            self.handle,
+            &mut root,
+            &mut child,
+            &mut root_x,
+            &mut root_y,
+            &mut child_x,
+            &mut child_y,
+            &mut mask,
+        ) != xlib::False
         {
             self.mouse_x = child_x as f32;
             self.mouse_y = child_y as f32;
@@ -716,29 +776,29 @@ impl Window {
                     self.should_close = true;
                     return ProcessEventResult::Termination;
                 }
-            },
+            }
 
             xlib::KeyPress => {
                 self.process_key(ev, true /* is_down */);
-            },
+            }
 
             xlib::KeyRelease => {
                 self.process_key(ev, false /* is_down */);
-            },
+            }
 
             xlib::ButtonPress => {
                 self.process_button(ev, true /* is_down */);
-            },
+            }
 
             xlib::ButtonRelease => {
                 self.process_button(ev, false /* is_down */);
-            },
+            }
 
             xlib::ConfigureNotify => {
                 // TODO : pass this onto the application
-                self.width  = ev.configure.width  as u32;
+                self.width = ev.configure.width as u32;
                 self.height = ev.configure.height as u32;
-            },
+            }
 
             _ => {}
         }
@@ -753,29 +813,21 @@ impl Window {
 
         if self.d.keyb_ext {
             let sym: xlib::KeySym = unsafe {
-                (self.d.lib.XkbKeycodeToKeysym)(self.d.display,
+                (self.d.lib.XkbKeycodeToKeysym)(
+                    self.d.display,
                     ev.key.keycode as xlib::KeyCode,
-                    0 /* group */, 1 /* level */)
+                    0, /* group */
+                    1, /* level */
+                )
             };
 
             match sym as u32 {
-                XK_KP_0 |
-                XK_KP_1 |
-                XK_KP_2 |
-                XK_KP_3 |
-                XK_KP_4 |
-                XK_KP_5 |
-                XK_KP_6 |
-                XK_KP_7 |
-                XK_KP_8 |
-                XK_KP_9 |
-                XK_KP_Separator |
-                XK_KP_Decimal |
-                XK_KP_Equal |
-                XK_KP_Enter => {
+                XK_KP_0 | XK_KP_1 | XK_KP_2 | XK_KP_3 | XK_KP_4 | XK_KP_5 | XK_KP_6 | XK_KP_7
+                | XK_KP_8 | XK_KP_9 | XK_KP_Separator | XK_KP_Decimal | XK_KP_Equal
+                | XK_KP_Enter => {
                     self.update_key_state(sym, is_down);
                     return;
-                },
+                }
 
                 _ => {}
             }
@@ -795,7 +847,7 @@ impl Window {
 
         // unicode callback...
 
-        if ! is_down {
+        if !is_down {
             return;
         }
 
@@ -816,15 +868,15 @@ impl Window {
             xlib::Button1 => {
                 self.buttons[0] = if is_down { 1 } else { 0 };
                 return;
-            },
+            }
             xlib::Button2 => {
                 self.buttons[1] = if is_down { 1 } else { 0 };
                 return;
-            },
+            }
             xlib::Button3 => {
                 self.buttons[2] = if is_down { 1 } else { 0 };
                 return;
-            },
+            }
 
             _ => {}
         }
@@ -832,13 +884,15 @@ impl Window {
         // in X, the mouse wheel is usually mapped to Button4/5
 
         let scroll: (i32, i32) = match ev.button.button {
-            xlib::Button4 => (0,  10),
+            xlib::Button4 => (0, 10),
             xlib::Button5 => (0, -10),
 
-            Button6 => ( 10, 0),
+            Button6 => (10, 0),
             Button7 => (-10, 0),
 
-            _ => { return; }
+            _ => {
+                return;
+            }
         };
 
         self.scroll_x += scroll.0 as f32 * 0.1;
@@ -902,15 +956,15 @@ impl Window {
             XK_slash => Key::Slash,
             XK_space => Key::Space,
 
-            XK_F1  => Key::F1,
-            XK_F2  => Key::F2,
-            XK_F3  => Key::F3,
-            XK_F4  => Key::F4,
-            XK_F5  => Key::F5,
-            XK_F6  => Key::F6,
-            XK_F7  => Key::F7,
-            XK_F8  => Key::F8,
-            XK_F9  => Key::F9,
+            XK_F1 => Key::F1,
+            XK_F2 => Key::F2,
+            XK_F3 => Key::F3,
+            XK_F4 => Key::F4,
+            XK_F5 => Key::F5,
+            XK_F6 => Key::F6,
+            XK_F7 => Key::F7,
+            XK_F8 => Key::F8,
+            XK_F9 => Key::F9,
             XK_F10 => Key::F10,
             XK_F11 => Key::F11,
             XK_F12 => Key::F12,
@@ -983,58 +1037,58 @@ impl Drop for Window {
     }
 }
 
-
 pub struct Menu {
     pub internal: UnixMenu,
 }
 
 impl Menu {
     pub fn new(name: &str) -> Result<Menu> {
-    	Ok(Menu {
-    		internal: UnixMenu {
-				handle: MenuHandle(0),
-				item_counter: MenuItemHandle(0),
-				name: name.to_owned(),
-				items: Vec::new(),
-    		}
-    	})
+        Ok(Menu {
+            internal: UnixMenu {
+                handle: MenuHandle(0),
+                item_counter: MenuItemHandle(0),
+                name: name.to_owned(),
+                items: Vec::new(),
+            },
+        })
     }
 
     pub fn add_sub_menu(&mut self, name: &str, sub_menu: &Menu) {
-    	let handle = self.next_item_handle();
-    	self.internal.items.push(UnixMenuItem {
-    	    label: name.to_owned(),
-    	    handle: handle,
-    	    sub_menu: Some(Box::new(sub_menu.internal.clone())),
-			id: 0,
-			enabled: true,
-			key: Key::Unknown,
-			modifier: 0,
+        let handle = self.next_item_handle();
+        self.internal.items.push(UnixMenuItem {
+            label: name.to_owned(),
+            handle: handle,
+            sub_menu: Some(Box::new(sub_menu.internal.clone())),
+            id: 0,
+            enabled: true,
+            key: Key::Unknown,
+            modifier: 0,
         });
     }
 
     fn next_item_handle(&mut self) -> MenuItemHandle {
-    	let handle = self.internal.item_counter;
-    	self.internal.item_counter.0 += 1;
-    	handle
+        let handle = self.internal.item_counter;
+        self.internal.item_counter.0 += 1;
+        handle
     }
 
     pub fn add_menu_item(&mut self, item: &MenuItem) -> MenuItemHandle {
-    	let item_handle = self.next_item_handle();
-    	self.internal.items.push(UnixMenuItem {
-			sub_menu: None,
-			handle: self.internal.item_counter,
-			id: item.id,
-			label: item.label.clone(),
-			enabled: item.enabled,
-			key: item.key,
-			modifier: item.modifier,
-    	});
-    	item_handle
+        let item_handle = self.next_item_handle();
+        self.internal.items.push(UnixMenuItem {
+            sub_menu: None,
+            handle: self.internal.item_counter,
+            id: item.id,
+            label: item.label.clone(),
+            enabled: item.enabled,
+            key: item.key,
+            modifier: item.modifier,
+        });
+        item_handle
     }
 
     pub fn remove_item(&mut self, handle: &MenuItemHandle) {
-        self.internal.items.retain(|ref item| item.handle.0 != handle.0);
+        self.internal
+            .items
+            .retain(|ref item| item.handle.0 != handle.0);
     }
 }
-
