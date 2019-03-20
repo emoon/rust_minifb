@@ -23,28 +23,18 @@ use std::os::raw;
 use mouse_handler;
 use buffer_helper;
 
-//use self::winapi::windef::HWND;
-//use self::winapi::windef::HDC;
-//use self::winapi::windef::HMENU;
-//use self::winapi::wingdi::BITMAPINFOHEADER;
-//use self::winapi::wingdi::RGBQUAD;
-//use self::winapi::winuser::WNDCLASSW;
-//use self::winapi::winuser::ACCEL;
-//use self::winapi::basetsd::UINT_PTR;
-use self::winapi::*;
 use self::winapi::shared::basetsd::*;
 use self::winapi::um::winuser;
 use self::winapi::shared::minwindef::*;
 use self::winapi::shared::windef::{self, *};
 use self::winapi::um::wingdi;
 use self::winapi::shared::ntdef;
-//use self::winapi::winmindefs::BYTE;
 
 // Wrap this so we can have a proper numbef of bmiColors to write in
 #[repr(C)]
 struct BitmapInfo {
-    pub bmi_header: BITMAPINFOHEADER,
-    pub bmi_colors: [RGBQUAD; 3],
+    pub bmi_header: wingdi::BITMAPINFOHEADER,
+    pub bmi_colors: [wingdi::RGBQUAD; 3],
 }
 
 fn update_key_state(window: &mut Window, wparam: u32, state: bool) {
@@ -159,30 +149,30 @@ fn char_down(window: &mut Window, code_point: u32) {
 }
 
 #[cfg(target_arch = "x86_64")]
-unsafe fn set_window_long(window: winapi::HWND, data: winapi::LONG_PTR) -> winapi::LONG_PTR {
+unsafe fn set_window_long(window: windef::HWND, data: LONG_PTR) -> LONG_PTR {
     winuser::SetWindowLongPtrW(window, winuser::GWLP_USERDATA, data)
 }
 
 #[cfg(target_arch = "x86_64")]
-unsafe fn get_window_long(window: winapi::HWND) -> winapi::LONG_PTR {
+unsafe fn get_window_long(window: windef::HWND) -> LONG_PTR {
     winuser::GetWindowLongPtrW(window, winuser::GWLP_USERDATA)
 }
 
 #[cfg(target_arch = "x86")]
-unsafe fn set_window_long(window: winapi::HWND, data: ntdef::LONG) -> ntdef::LONG {
+unsafe fn set_window_long(window: windef::HWND, data: ntdef::LONG) -> ntdef::LONG {
     winuser::SetWindowLongW(window, winuser::GWLP_USERDATA, data)
 }
 
 #[cfg(target_arch = "x86")]
-unsafe fn get_window_long(window: winapi::HWND) -> ntdef::LONG {
+unsafe fn get_window_long(window: windef::HWND) -> ntdef::LONG {
     winuser::GetWindowLongW(window, winuser::GWLP_USERDATA)
 }
 
-unsafe extern "system" fn wnd_proc(window: winapi::HWND,
-                                   msg: winapi::UINT,
-                                   wparam: winapi::WPARAM,
-                                   lparam: winapi::LPARAM)
-                                   -> winapi::LRESULT {
+unsafe extern "system" fn wnd_proc(window: windef::HWND,
+                                   msg: UINT,
+                                   wparam: WPARAM,
+                                   lparam: LPARAM)
+                                   -> LRESULT {
     // This make sure we actually don't do anything before the user data has been setup for the
     // window
 
@@ -278,7 +268,7 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
 
             let mut bitmap_info: BitmapInfo = mem::zeroed();
 
-            bitmap_info.bmi_header.biSize = mem::size_of::<BITMAPINFOHEADER>() as u32;
+            bitmap_info.bmi_header.biSize = mem::size_of::<wingdi::BITMAPINFOHEADER>() as u32;
             bitmap_info.bmi_header.biPlanes = 1;
             bitmap_info.bmi_header.biBitCount = 32;
             bitmap_info.bmi_header.biCompression = wingdi::BI_BITFIELDS;
@@ -352,7 +342,7 @@ pub struct Window {
     accel_table: HACCEL,
     accel_key: usize,
     prev_cursor: CursorStyle,
-    cursors: [winapi::HCURSOR; 8],
+    cursors: [windef::HCURSOR; 8],
 }
 
 // TranslateAccelerator is currently missing in win-rs
@@ -367,8 +357,8 @@ impl Window {
     fn open_window(name: &str, width: usize, height: usize, opts: WindowOptions, scale_factor: i32) -> Option<HWND> {
         unsafe {
             let class_name = to_wstring("minifb_window");
-            let class = WNDCLASSW {
-                style: winapi::CS_HREDRAW | winapi::CS_VREDRAW | winapi::CS_OWNDC,
+            let class = winuser::WNDCLASSW {
+                style: winuser::CS_HREDRAW | winuser::CS_VREDRAW | winuser::CS_OWNDC,
                 lpfnWndProc: Some(wnd_proc),
                 cbClsExtra: 0,
                 cbWndExtra: 0,
@@ -391,7 +381,7 @@ impl Window {
             let new_width = width * scale_factor as usize;
             let new_height = height * scale_factor as usize;
 
-            let mut rect = winapi::RECT {
+            let mut rect = windef::RECT {
                 left: 0,
                 right: new_width as ntdef::LONG,
                 top: 0,
