@@ -1,9 +1,6 @@
 #![cfg(target_os = "windows")]
 
-//extern crate user32;
-extern crate kernel32;
 extern crate winapi;
-extern crate gdi32;
 extern crate time;
 
 const INVALID_ACCEL: usize = 0xffffffff;
@@ -29,6 +26,8 @@ use self::winapi::shared::minwindef::*;
 use self::winapi::shared::windef::{self, *};
 use self::winapi::um::wingdi;
 use self::winapi::shared::ntdef;
+use self::winapi::um::libloaderapi;
+use self::winapi::um::errhandlingapi;
 
 // Wrap this so we can have a proper numbef of bmiColors to write in
 #[repr(C)]
@@ -278,7 +277,7 @@ unsafe extern "system" fn wnd_proc(window: windef::HWND,
             bitmap_info.bmi_colors[1].rgbGreen = 0xff;
             bitmap_info.bmi_colors[2].rgbBlue = 0xff;
 
-            gdi32::StretchDIBits(wnd.dc.unwrap(),
+            wingdi::StretchDIBits(wnd.dc.unwrap(),
                                  0,
                                  0,
                                  wnd.width * wnd.scale_factor,
@@ -362,7 +361,7 @@ impl Window {
                 lpfnWndProc: Some(wnd_proc),
                 cbClsExtra: 0,
                 cbWndExtra: 0,
-                hInstance: kernel32::GetModuleHandleA(ptr::null()),
+                hInstance: libloaderapi::GetModuleHandleA(ptr::null()),
                 hIcon: ptr::null_mut(),
                 hCursor: ptr::null_mut(),
                 hbrBackground: ptr::null_mut(),
@@ -372,8 +371,8 @@ impl Window {
 
             if winuser::RegisterClassW(&class) == 0 {
                 // ignore the "Class already exists" error for multiple windows
-                if kernel32::GetLastError() as u32 != 1410 {
-                    println!("Unable to register class, error {}", kernel32::GetLastError() as u32);
+                if errhandlingapi::GetLastError() as u32 != 1410 {
+                    println!("Unable to register class, error {}", errhandlingapi::GetLastError() as u32);
                     return None;
                 }
             }
@@ -428,7 +427,7 @@ impl Window {
                                                  ptr::null_mut(),
                                                  ptr::null_mut());
             if handle.is_null() {
-                println!("Unable to create window, error {}", kernel32::GetLastError() as u32);
+                println!("Unable to create window, error {}", errhandlingapi::GetLastError() as u32);
                 return None;
             }
 

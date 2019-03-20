@@ -22,14 +22,7 @@ cc = "1.0"
 time = "0.1.34"
 
 [target.'cfg(windows)'.dependencies]
-user32-sys = "0.1.3"
-#winapi = "0.3.6"
-kernel32-sys = "0.2.2"
-gdi32-sys = "0.1.2"
-
-[target.'cfg(windows)'.dependencies.winapi]
-version = "0.3"
-features = ["everything"]
+winapi = { version = "0.3.6", features = ["everything"]}
 
 [target.i686-unknown-linux-gnu.dependencies]
 x11-dl = "~2.14"
