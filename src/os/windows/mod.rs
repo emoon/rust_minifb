@@ -1,6 +1,6 @@
 #![cfg(target_os = "windows")]
 
-extern crate user32;
+//extern crate user32;
 extern crate kernel32;
 extern crate winapi;
 extern crate gdi32;
@@ -32,6 +32,10 @@ use buffer_helper;
 //use self::winapi::winuser::ACCEL;
 //use self::winapi::basetsd::UINT_PTR;
 use self::winapi::*;
+use self::winapi::shared::basetsd::*;
+use self::winapi::um::winuser::{self, ACCEL};
+use self::winapi::shared::minwindef::*;
+use self::winapi::shared::windef::*;
 //use self::winapi::winmindefs::BYTE;
 
 // Wrap this so we can have a proper numbef of bmiColors to write in
@@ -154,22 +158,22 @@ fn char_down(window: &mut Window, code_point: u32) {
 
 #[cfg(target_arch = "x86_64")]
 unsafe fn set_window_long(window: winapi::HWND, data: winapi::LONG_PTR) -> winapi::LONG_PTR {
-    user32::SetWindowLongPtrW(window, winapi::winuser::GWLP_USERDATA, data)
+    winuser::SetWindowLongPtrW(window, winapi::winuser::GWLP_USERDATA, data)
 }
 
 #[cfg(target_arch = "x86_64")]
 unsafe fn get_window_long(window: winapi::HWND) -> winapi::LONG_PTR {
-    user32::GetWindowLongPtrW(window, winapi::winuser::GWLP_USERDATA)
+    winuser::GetWindowLongPtrW(window, winapi::winuser::GWLP_USERDATA)
 }
 
 #[cfg(target_arch = "x86")]
 unsafe fn set_window_long(window: winapi::HWND, data: winapi::LONG) -> winapi::LONG {
-    user32::SetWindowLongW(window, winapi::winuser::GWLP_USERDATA, data)
+    winuser::SetWindowLongW(window, winapi::winuser::GWLP_USERDATA, data)
 }
 
 #[cfg(target_arch = "x86")]
 unsafe fn get_window_long(window: winapi::HWND) -> winapi::LONG {
-    user32::GetWindowLongW(window, winapi::winuser::GWLP_USERDATA)
+    winuser::GetWindowLongW(window, winapi::winuser::GWLP_USERDATA)
 }
 
 unsafe extern "system" fn wnd_proc(window: winapi::HWND,
@@ -183,7 +187,7 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
     let user_data = get_window_long(window);
 
     if user_data == 0 {
-        return user32::DefWindowProcW(window, msg, wparam, lparam);
+        return winuser::DefWindowProcW(window, msg, wparam, lparam);
     }
 
     let mut wnd: &mut Window = mem::transmute(user_data);
@@ -267,7 +271,7 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
 
             // if we have nothing to draw here we return the default function
             if wnd.buffer.len() == 0 {
-                return user32::DefWindowProcW(window, msg, wparam, lparam);
+                return winuser::DefWindowProcW(window, msg, wparam, lparam);
             }
 
             let mut bitmap_info: BitmapInfo = mem::zeroed();
@@ -296,7 +300,7 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
                                  winapi::wingdi::DIB_RGB_COLORS,
                                  winapi::wingdi::SRCCOPY);
 
-            user32::ValidateRect(window, ptr::null_mut());
+            winuser::ValidateRect(window, ptr::null_mut());
 
             return 0;
         }
@@ -304,7 +308,7 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
         _ => (),
     }
 
-    return user32::DefWindowProcW(window, msg, wparam, lparam);
+    return winuser::DefWindowProcW(window, msg, wparam, lparam);
 }
 
 pub enum MinifbError {
@@ -350,13 +354,12 @@ pub struct Window {
 }
 
 // TranslateAccelerator is currently missing in win-rs
-#[cfg(target_family = "windows")]
-#[link(name = "user32")]
-#[allow(non_snake_case)]
-extern "system" {
-    fn TranslateAcceleratorW(hWnd: HWND, accel: *const ACCEL, pmsg: *const MSG) -> INT;
-    fn RemoveMenu(menu: HMENU, pos: UINT, flags: UINT) -> BOOL;
-}
+// #[cfg(target_family = "windows")]
+// #[link(name = "user32")]
+// #[allow(non_snake_case)]
+// extern "system" {
+//     fn RemoveMenu(menu: HMENU, pos: UINT, flags: UINT) -> BOOL;
+// }
 
 impl Window {
     fn open_window(name: &str, width: usize, height: usize, opts: WindowOptions, scale_factor: i32) -> Option<HWND> {
@@ -375,7 +378,7 @@ impl Window {
                 lpszClassName: class_name.as_ptr(),
             };
 
-            if user32::RegisterClassW(&class) == 0 {
+            if winuser::RegisterClassW(&class) == 0 {
                 // ignore the "Class already exists" error for multiple windows
                 if kernel32::GetLastError() as u32 != 1410 {
                     println!("Unable to register class, error {}", kernel32::GetLastError() as u32);
@@ -393,7 +396,7 @@ impl Window {
                 bottom: new_height as winapi::LONG,
             };
 
-            user32::AdjustWindowRect(&mut rect,
+            winuser::AdjustWindowRect(&mut rect,
                                      winapi::WS_POPUP | winapi::WS_SYSMENU | winapi::WS_CAPTION,
                                      0);
 
@@ -420,7 +423,7 @@ impl Window {
                 flags &= !winapi::WS_THICKFRAME;
             }
 
-            let handle = user32::CreateWindowExW(0,
+            let handle = winuser::CreateWindowExW(0,
                                                  class_name.as_ptr(),
                                                  window_name.as_ptr(),
                                                  flags,
@@ -437,7 +440,7 @@ impl Window {
                 return None;
             }
 
-            user32::ShowWindow(handle, winapi::SW_NORMAL);
+            winuser::ShowWindow(handle, winapi::SW_NORMAL);
 
             return Some(handle);
         }
@@ -459,7 +462,7 @@ impl Window {
 
             let window = Window {
                 mouse: MouseData::default(),
-                dc: Some(user32::GetDC(handle.unwrap())),
+                dc: Some(winuser::GetDC(handle.unwrap())),
                 window: Some(handle.unwrap()),
                 buffer: Vec::new(),
                 key_handler: KeyHandler::new(),
@@ -472,14 +475,14 @@ impl Window {
                 accel_key: INVALID_ACCEL,
                 prev_cursor: CursorStyle::Arrow,
                 cursors: [
-                    user32::LoadCursorW(ptr::null_mut(), winuser::IDC_ARROW),
-                    user32::LoadCursorW(ptr::null_mut(), winuser::IDC_IBEAM),
-                    user32::LoadCursorW(ptr::null_mut(), winuser::IDC_CROSS),
-                    user32::LoadCursorW(ptr::null_mut(), winuser::IDC_HAND),
-                    user32::LoadCursorW(ptr::null_mut(), winuser::IDC_HAND),
-                    user32::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZEWE),
-                    user32::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZENS),
-                    user32::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZEALL),
+                    winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_ARROW),
+                    winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_IBEAM),
+                    winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_CROSS),
+                    winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_HAND),
+                    winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_HAND),
+                    winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZEWE),
+                    winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZENS),
+                    winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZEALL),
                 ],
             };
 
@@ -491,7 +494,7 @@ impl Window {
     pub fn set_title(&mut self, title: &str) {
         unsafe {
             let title_name = to_wstring(title);
-            user32::SetWindowTextW(self.window.unwrap(), title_name.as_ptr());
+            winuser::SetWindowTextW(self.window.unwrap(), title_name.as_ptr());
         }
     }
 
@@ -503,7 +506,7 @@ impl Window {
     #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
         unsafe {
-            user32::SetWindowPos(self.window.unwrap(), ptr::null_mut(), x as i32, y as i32,
+            winuser::SetWindowPos(self.window.unwrap(), ptr::null_mut(), x as i32, y as i32,
                                  0, 0, winapi::SWP_SHOWWINDOW | winapi::SWP_NOSIZE);
         }
     }
@@ -554,7 +557,7 @@ impl Window {
                 return;
             }
 
-            user32::SetCursor(self.cursors[cursor as usize]);
+            winuser::SetCursor(self.cursors[cursor as usize]);
 
             self.prev_cursor = cursor;
         }
@@ -608,8 +611,8 @@ impl Window {
     fn generic_update(&mut self, window: HWND) {
         unsafe {
             let mut point: winapi::POINT = mem::uninitialized();
-            user32::GetCursorPos(&mut point);
-            user32::ScreenToClient(window, &mut point);
+            winuser::GetCursorPos(&mut point);
+            winuser::ScreenToClient(window, &mut point);
 
             self.mouse.x = point.x as f32;
             self.mouse.y = point.y as f32;
@@ -625,15 +628,15 @@ impl Window {
         unsafe {
             let mut msg = mem::uninitialized();
 
-            while user32::PeekMessageW(&mut msg, window, 0, 0, winapi::winuser::PM_REMOVE) != 0 {
+            while winuser::PeekMessageW(&mut msg, window, 0, 0, winapi::winuser::PM_REMOVE) != 0 {
                 // Make this code a bit nicer
                 if self.accel_table == ptr::null_mut() {
-                    user32::TranslateMessage(&mut msg);
-                    user32::DispatchMessageW(&mut msg);
+                    winuser::TranslateMessage(&mut msg);
+                    winuser::DispatchMessageW(&mut msg);
                 } else {
-                    if TranslateAcceleratorW(msg.hwnd, mem::transmute(self.accel_table), &mut msg) == 0 {
-                        user32::TranslateMessage(&mut msg);
-                        user32::DispatchMessageW(&mut msg);
+                    if winuser::TranslateAcceleratorW(msg.hwnd, mem::transmute(self.accel_table), &mut msg) == 0 {
+                        winuser::TranslateMessage(&mut msg);
+                        winuser::DispatchMessageW(&mut msg);
                     }
                 }
             }
@@ -655,7 +658,7 @@ impl Window {
 
         self.buffer = buffer.to_vec();
         unsafe {
-            user32::InvalidateRect(window, ptr::null_mut(), winapi::TRUE);
+            winuser::InvalidateRect(window, ptr::null_mut(), winapi::TRUE);
         }
 
         Self::message_loop(self, window);
@@ -685,8 +688,8 @@ impl Window {
             Scale::X16 => 16,
             Scale::X32 => 32,
             Scale::FitScreen => {
-                let screen_x = user32::GetSystemMetrics(winapi::winuser::SM_CXSCREEN) as i32;
-                let screen_y = user32::GetSystemMetrics(winapi::winuser::SM_CYSCREEN) as i32;
+                let screen_x = winuser::GetSystemMetrics(winapi::winuser::SM_CXSCREEN) as i32;
+                let screen_y = winuser::GetSystemMetrics(winapi::winuser::SM_CYSCREEN) as i32;
 
                 let mut scale = 1i32;
 
@@ -715,10 +718,10 @@ impl Window {
     unsafe fn adjust_window_size_for_menu(handle: HWND) {
         let mut rect: winapi::RECT = mem::uninitialized();
 
-        let menu_height = user32::GetSystemMetrics(winapi::winuser::SM_CYMENU);
+        let menu_height = winuser::GetSystemMetrics(winapi::winuser::SM_CYMENU);
 
-        user32::GetWindowRect(handle, &mut rect);
-        user32::MoveWindow(handle,
+        winuser::GetWindowRect(handle, &mut rect);
+        winuser::MoveWindow(handle,
                            rect.left,
                            rect.top,
                            rect.right - rect.left,
@@ -737,10 +740,10 @@ impl Window {
         }
 
         if self.accel_table != ptr::null_mut() {
-            user32::DestroyAcceleratorTable(self.accel_table);
+            winuser::DestroyAcceleratorTable(self.accel_table);
         }
 
-        self.accel_table = user32::CreateAcceleratorTableW(temp_accel_table.as_mut_ptr(),
+        self.accel_table = winuser::CreateAcceleratorTableW(temp_accel_table.as_mut_ptr(),
                                                            temp_accel_table.len() as i32);
 
         println!("accel {:?}", self.accel_table);
@@ -750,15 +753,15 @@ impl Window {
     pub fn add_menu(&mut self, menu: &Menu) -> MenuHandle {
         unsafe {
             let window = self.window.unwrap();
-            let mut main_menu = user32::GetMenu(window);
+            let mut main_menu = winuser::GetMenu(window);
 
             if main_menu == ptr::null_mut() {
-                main_menu = user32::CreateMenu();
-                user32::SetMenu(window, main_menu);
+                main_menu = winuser::CreateMenu();
+                winuser::SetMenu(window, main_menu);
                 Self::adjust_window_size_for_menu(window);
             }
 
-            user32::AppendMenuW(main_menu,
+            winuser::AppendMenuW(main_menu,
                                 0x10,
                                 menu.menu_handle as UINT_PTR,
                                 menu.name.as_ptr());
@@ -769,7 +772,7 @@ impl Window {
             //Self::add_menu_store(self, main_menu, menu_name, menu);
             self.set_accel_table();
 
-            user32::DrawMenuBar(window);
+            winuser::DrawMenuBar(window);
         }
 
         // TODO: Proper handle
@@ -779,13 +782,13 @@ impl Window {
 
     pub fn remove_menu(&mut self, handle: MenuHandle) {
         let window = self.window.unwrap();
-        let main_menu = unsafe { user32::GetMenu(window) };
+        let main_menu = unsafe { winuser::GetMenu(window) };
         for i in 0..self.menus.len() {
             if self.menus[i].menu_handle == handle.0 as HMENU {
                 unsafe {
                     println!("Removed menu at {}", i);
-                    let _t = RemoveMenu(main_menu, i as UINT, 0);
-                    user32::DrawMenuBar(self.window.unwrap());
+                    let _t = winuser::RemoveMenu(main_menu, i as UINT, 0);
+                    winuser::DrawMenuBar(self.window.unwrap());
                 }
                 self.menus.swap_remove(i);
                 return;
@@ -815,7 +818,7 @@ impl Menu {
     pub fn new(name: &str) -> Result<Menu> {
         unsafe {
             Ok(Menu {
-                menu_handle: user32::CreatePopupMenu(),
+                menu_handle: winuser::CreatePopupMenu(),
                 name: to_wstring(name),
                 accel_table: Vec::new(),
             })
@@ -938,7 +941,7 @@ impl Menu {
     pub fn add_sub_menu(&mut self, name: &str, menu: &Menu) {
         unsafe {
             let menu_name = to_wstring(name);
-            user32::AppendMenuW(self.menu_handle,
+            winuser::AppendMenuW(self.menu_handle,
                                 0x10,
                                 menu.menu_handle as UINT_PTR,
                                 menu_name.as_ptr());
@@ -1022,12 +1025,12 @@ impl Menu {
             match vk_accel.0 {
                 0 => {
                     let item_name = to_wstring(&menu_item.label);
-                    user32::AppendMenuW(self.menu_handle, 0x10, menu_item.id as UINT_PTR, item_name.as_ptr());
+                    winuser::AppendMenuW(self.menu_handle, 0x10, menu_item.id as UINT_PTR, item_name.as_ptr());
                 },
                 _ => {
                     let menu_name = Self::format_name(menu_item, vk_accel.1);
                     let w_name = to_wstring(&menu_name);
-                    user32::AppendMenuW(self.menu_handle, 0x10, menu_item.id as UINT_PTR, w_name.as_ptr());
+                    winuser::AppendMenuW(self.menu_handle, 0x10, menu_item.id as UINT_PTR, w_name.as_ptr());
                     self.add_accel(vk_accel.0, menu_item);
                 }
             }
@@ -1050,11 +1053,11 @@ impl Drop for Window {
     fn drop(&mut self) {
         unsafe {
             if self.dc.is_some() {
-                user32::ReleaseDC(self.window.unwrap(), self.dc.unwrap());
+                winuser::ReleaseDC(self.window.unwrap(), self.dc.unwrap());
             }
 
             if self.window.is_some() {
-                user32::CloseWindow(self.window.unwrap());
+                winuser::CloseWindow(self.window.unwrap());
             }
         }
     }
