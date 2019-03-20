@@ -20,10 +20,10 @@ use std::os::raw;
 use mouse_handler;
 use buffer_helper;
 
-use self::winapi::shared::basetsd::*;
+use self::winapi::shared::basetsd;
 use self::winapi::um::winuser;
-use self::winapi::shared::minwindef::*;
-use self::winapi::shared::windef::{self, *};
+use self::winapi::shared::minwindef;
+use self::winapi::shared::windef;
 use self::winapi::um::wingdi;
 use self::winapi::shared::ntdef;
 use self::winapi::um::libloaderapi;
@@ -148,12 +148,12 @@ fn char_down(window: &mut Window, code_point: u32) {
 }
 
 #[cfg(target_arch = "x86_64")]
-unsafe fn set_window_long(window: windef::HWND, data: LONG_PTR) -> LONG_PTR {
+unsafe fn set_window_long(window: windef::HWND, data: basetsd::LONG_PTR) -> basetsd::LONG_PTR {
     winuser::SetWindowLongPtrW(window, winuser::GWLP_USERDATA, data)
 }
 
 #[cfg(target_arch = "x86_64")]
-unsafe fn get_window_long(window: windef::HWND) -> LONG_PTR {
+unsafe fn get_window_long(window: windef::HWND) -> basetsd::LONG_PTR {
     winuser::GetWindowLongPtrW(window, winuser::GWLP_USERDATA)
 }
 
@@ -168,10 +168,10 @@ unsafe fn get_window_long(window: windef::HWND) -> ntdef::LONG {
 }
 
 unsafe extern "system" fn wnd_proc(window: windef::HWND,
-                                   msg: UINT,
-                                   wparam: WPARAM,
-                                   lparam: LPARAM)
-                                   -> LRESULT {
+                                   msg: minwindef::UINT,
+                                   wparam: minwindef::WPARAM,
+                                   lparam: minwindef::LPARAM)
+                                   -> minwindef::LRESULT {
     // This make sure we actually don't do anything before the user data has been setup for the
     // window
 
@@ -329,8 +329,8 @@ struct MenuStore {
 
 pub struct Window {
     mouse: MouseData,
-    dc: Option<HDC>,
-    window: Option<HWND>,
+    dc: Option<windef::HDC>,
+    window: Option<windef::HWND>,
     buffer: Vec<u32>,
     is_open : bool,
     scale_factor: i32,
@@ -338,7 +338,7 @@ pub struct Window {
     height: i32,
     menus: Vec<Menu>,
     key_handler: KeyHandler,
-    accel_table: HACCEL,
+    accel_table: windef::HACCEL,
     accel_key: usize,
     prev_cursor: CursorStyle,
     cursors: [windef::HCURSOR; 8],
@@ -353,7 +353,7 @@ pub struct Window {
 // }
 
 impl Window {
-    fn open_window(name: &str, width: usize, height: usize, opts: WindowOptions, scale_factor: i32) -> Option<HWND> {
+    fn open_window(name: &str, width: usize, height: usize, opts: WindowOptions, scale_factor: i32) -> Option<windef::HWND> {
         unsafe {
             let class_name = to_wstring("minifb_window");
             let class = winuser::WNDCLASSW {
@@ -599,9 +599,9 @@ impl Window {
         return self.is_open
     }
 
-    fn generic_update(&mut self, window: HWND) {
+    fn generic_update(&mut self, window: windef::HWND) {
         unsafe {
-            let mut point: POINT = mem::uninitialized();
+            let mut point: windef::POINT = mem::uninitialized();
             winuser::GetCursorPos(&mut point);
             winuser::ScreenToClient(window, &mut point);
 
@@ -615,7 +615,7 @@ impl Window {
         }
     }
 
-    fn message_loop(&self, window: HWND) {
+    fn message_loop(&self, window: windef::HWND) {
         unsafe {
             let mut msg = mem::uninitialized();
 
@@ -649,7 +649,7 @@ impl Window {
 
         self.buffer = buffer.to_vec();
         unsafe {
-            winuser::InvalidateRect(window, ptr::null_mut(), TRUE);
+            winuser::InvalidateRect(window, ptr::null_mut(), minwindef::TRUE);
         }
 
         Self::message_loop(self, window);
@@ -706,8 +706,8 @@ impl Window {
     // When attaching a menu to the window we need to resize it so
     // the current client size is preserved and still show all pixels
     //
-    unsafe fn adjust_window_size_for_menu(handle: HWND) {
-        let mut rect: RECT = mem::uninitialized();
+    unsafe fn adjust_window_size_for_menu(handle: windef::HWND) {
+        let mut rect: windef::RECT = mem::uninitialized();
 
         let menu_height = winuser::GetSystemMetrics(winuser::SM_CYMENU);
 
@@ -754,7 +754,7 @@ impl Window {
 
             winuser::AppendMenuW(main_menu,
                                 0x10,
-                                menu.menu_handle as UINT_PTR,
+                                menu.menu_handle as basetsd::UINT_PTR,
                                 menu.name.as_ptr());
 
             self.menus.push(menu.clone());
@@ -775,10 +775,10 @@ impl Window {
         let window = self.window.unwrap();
         let main_menu = unsafe { winuser::GetMenu(window) };
         for i in 0..self.menus.len() {
-            if self.menus[i].menu_handle == handle.0 as HMENU {
+            if self.menus[i].menu_handle == handle.0 as windef::HMENU {
                 unsafe {
                     println!("Removed menu at {}", i);
-                    let _t = winuser::RemoveMenu(main_menu, i as UINT, 0);
+                    let _t = winuser::RemoveMenu(main_menu, i as minwindef::UINT, 0);
                     winuser::DrawMenuBar(self.window.unwrap());
                 }
                 self.menus.swap_remove(i);
@@ -800,7 +800,7 @@ impl Window {
 
 #[derive(Clone)]
 pub struct Menu {
-    menu_handle: HMENU,
+    menu_handle: windef::HMENU,
     name: Vec<u16>,
     accel_table: Vec<winuser::ACCEL>,
 }
@@ -934,7 +934,7 @@ impl Menu {
             let menu_name = to_wstring(name);
             winuser::AppendMenuW(self.menu_handle,
                                 0x10,
-                                menu.menu_handle as UINT_PTR,
+                                menu.menu_handle as basetsd::UINT_PTR,
                                 menu_name.as_ptr());
             self.accel_table.extend_from_slice(menu.accel_table.as_slice());
         }
@@ -1002,9 +1002,9 @@ impl Menu {
         let vk_accel = Self::map_key_to_vk_accel(menu_item.key);
         let virt = Self::get_virt_key(menu_item, vk);
         let accel = winuser::ACCEL {
-            fVirt: virt as BYTE,
-            cmd: menu_item.id as WORD,
-            key: vk_accel.0 as WORD };
+            fVirt: virt as minwindef::BYTE,
+            cmd: menu_item.id as minwindef::WORD,
+            key: vk_accel.0 as minwindef::WORD };
 
         self.accel_table.push(accel);
     }
@@ -1016,12 +1016,12 @@ impl Menu {
             match vk_accel.0 {
                 0 => {
                     let item_name = to_wstring(&menu_item.label);
-                    winuser::AppendMenuW(self.menu_handle, 0x10, menu_item.id as UINT_PTR, item_name.as_ptr());
+                    winuser::AppendMenuW(self.menu_handle, 0x10, menu_item.id as basetsd::UINT_PTR, item_name.as_ptr());
                 },
                 _ => {
                     let menu_name = Self::format_name(menu_item, vk_accel.1);
                     let w_name = to_wstring(&menu_name);
-                    winuser::AppendMenuW(self.menu_handle, 0x10, menu_item.id as UINT_PTR, w_name.as_ptr());
+                    winuser::AppendMenuW(self.menu_handle, 0x10, menu_item.id as basetsd::UINT_PTR, w_name.as_ptr());
                     self.add_accel(vk_accel.0, menu_item);
                 }
             }
