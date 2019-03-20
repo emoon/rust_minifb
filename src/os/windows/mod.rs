@@ -33,9 +33,11 @@ use buffer_helper;
 //use self::winapi::basetsd::UINT_PTR;
 use self::winapi::*;
 use self::winapi::shared::basetsd::*;
-use self::winapi::um::winuser::{self, ACCEL};
+use self::winapi::um::winuser;
 use self::winapi::shared::minwindef::*;
-use self::winapi::shared::windef::*;
+use self::winapi::shared::windef::{self, *};
+use self::winapi::um::wingdi;
+use self::winapi::shared::ntdef;
 //use self::winapi::winmindefs::BYTE;
 
 // Wrap this so we can have a proper numbef of bmiColors to write in
@@ -158,22 +160,22 @@ fn char_down(window: &mut Window, code_point: u32) {
 
 #[cfg(target_arch = "x86_64")]
 unsafe fn set_window_long(window: winapi::HWND, data: winapi::LONG_PTR) -> winapi::LONG_PTR {
-    winuser::SetWindowLongPtrW(window, winapi::winuser::GWLP_USERDATA, data)
+    winuser::SetWindowLongPtrW(window, winuser::GWLP_USERDATA, data)
 }
 
 #[cfg(target_arch = "x86_64")]
 unsafe fn get_window_long(window: winapi::HWND) -> winapi::LONG_PTR {
-    winuser::GetWindowLongPtrW(window, winapi::winuser::GWLP_USERDATA)
+    winuser::GetWindowLongPtrW(window, winuser::GWLP_USERDATA)
 }
 
 #[cfg(target_arch = "x86")]
-unsafe fn set_window_long(window: winapi::HWND, data: winapi::LONG) -> winapi::LONG {
-    winuser::SetWindowLongW(window, winapi::winuser::GWLP_USERDATA, data)
+unsafe fn set_window_long(window: winapi::HWND, data: ntdef::LONG) -> ntdef::LONG {
+    winuser::SetWindowLongW(window, winuser::GWLP_USERDATA, data)
 }
 
 #[cfg(target_arch = "x86")]
-unsafe fn get_window_long(window: winapi::HWND) -> winapi::LONG {
-    winuser::GetWindowLongW(window, winapi::winuser::GWLP_USERDATA)
+unsafe fn get_window_long(window: winapi::HWND) -> ntdef::LONG {
+    winuser::GetWindowLongW(window, winuser::GWLP_USERDATA)
 }
 
 unsafe extern "system" fn wnd_proc(window: winapi::HWND,
@@ -194,7 +196,7 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
 
     match msg {
         /*
-        winapi::winuser::WM_MOUSEMOVE => {
+        winuser::WM_MOUSEMOVE => {
             let mouse_coords = lparam as u32;
             let scale = user_data.scale as f32;
             user_data.mouse.local_x = (((mouse_coords >> 16) & 0xffff) as f32) / scale;
@@ -203,71 +205,71 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
             return 0;
         }
         */
-        winapi::winuser::WM_MOUSEWHEEL => {
+        winuser::WM_MOUSEWHEEL => {
             let scroll = ((((wparam as u32) >> 16) & 0xffff) as i16) as f32 * 0.1;
             wnd.mouse.scroll = scroll;
         }
 
-        winapi::winuser::WM_KEYDOWN => {
+        winuser::WM_KEYDOWN => {
             update_key_state(wnd, (lparam as u32) >> 16, true);
             return 0;
         }
 
-        winapi::winuser::WM_CHAR => {
+        winuser::WM_CHAR => {
             char_down(wnd, wparam as u32);
         }
 
-        winapi::winuser::WM_SYSCHAR => {
+        winuser::WM_SYSCHAR => {
             char_down(wnd, wparam as u32);
         }
 
-        winapi::winuser::WM_LBUTTONDOWN => {
+        winuser::WM_LBUTTONDOWN => {
             wnd.mouse.state[0] = true
         }
 
-        winapi::winuser::WM_LBUTTONUP => {
+        winuser::WM_LBUTTONUP => {
             wnd.mouse.state[0] = false
         }
 
-        winapi::winuser::WM_MBUTTONDOWN => {
+        winuser::WM_MBUTTONDOWN => {
             wnd.mouse.state[1] = true
         }
 
-        winapi::winuser::WM_MBUTTONUP => {
+        winuser::WM_MBUTTONUP => {
             wnd.mouse.state[1] = false
         }
 
-        winapi::winuser::WM_RBUTTONDOWN => {
+        winuser::WM_RBUTTONDOWN => {
             wnd.mouse.state[2] = true
         }
 
-        winapi::winuser::WM_RBUTTONUP => {
+        winuser::WM_RBUTTONUP => {
             wnd.mouse.state[2] = false
         }
 
-        winapi::winuser::WM_CLOSE => {
+        winuser::WM_CLOSE => {
             wnd.is_open = false;
         }
 
-        winapi::winuser::WM_KEYUP => {
+        winuser::WM_KEYUP => {
             update_key_state(wnd, (lparam as u32) >> 16, false);
             return 0;
         }
 
-        winapi::winuser::WM_COMMAND => {
+        winuser::WM_COMMAND => {
             if lparam == 0 {
                 wnd.accel_key = (wparam & 0xffff) as usize;
             }
         }
 
-        winapi::winuser::WM_SIZE => {
+        winuser::WM_SIZE => {
             let width = (lparam as u32) & 0xffff;
             let height = ((lparam as u32) >> 16) & 0xffff;
             wnd.width = width as i32;
             wnd.height = height as i32;
         }
 
-        winapi::winuser::WM_PAINT => {
+        winuser::WM_PAINT => {
 
             // if we have nothing to draw here we return the default function
             if wnd.buffer.len() == 0 {
@@ -279,7 +281,7 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
             bitmap_info.bmi_header.biSize = mem::size_of::<BITMAPINFOHEADER>() as u32;
             bitmap_info.bmi_header.biPlanes = 1;
             bitmap_info.bmi_header.biBitCount = 32;
-            bitmap_info.bmi_header.biCompression = winapi::wingdi::BI_BITFIELDS;
+            bitmap_info.bmi_header.biCompression = wingdi::BI_BITFIELDS;
             bitmap_info.bmi_header.biWidth = wnd.width;
             bitmap_info.bmi_header.biHeight = -wnd.height;
             bitmap_info.bmi_colors[0].rgbRed = 0xff;
@@ -297,8 +299,8 @@ unsafe extern "system" fn wnd_proc(window: winapi::HWND,
                                  wnd.height,
                                  mem::transmute(wnd.buffer.as_ptr()),
                                  mem::transmute(&bitmap_info),
-                                 winapi::wingdi::DIB_RGB_COLORS,
-                                 winapi::wingdi::SRCCOPY);
+                                 wingdi::DIB_RGB_COLORS,
+                                 wingdi::SRCCOPY);
 
             winuser::ValidateRect(window, ptr::null_mut());
 
@@ -391,13 +393,13 @@ impl Window {
 
             let mut rect = winapi::RECT {
                 left: 0,
-                right: new_width as winapi::LONG,
+                right: new_width as ntdef::LONG,
                 top: 0,
-                bottom: new_height as winapi::LONG,
+                bottom: new_height as ntdef::LONG,
             };
 
             winuser::AdjustWindowRect(&mut rect,
-                                     winapi::WS_POPUP | winapi::WS_SYSMENU | winapi::WS_CAPTION,
+                                     winuser::WS_POPUP | winuser::WS_SYSMENU | winuser::WS_CAPTION,
                                      0);
 
             rect.right -= rect.left;
@@ -408,27 +410,27 @@ impl Window {
             let mut flags = 0;
 
             if opts.title {
-                flags |= winapi::WS_OVERLAPPEDWINDOW as u32;
+                flags |= winuser::WS_OVERLAPPEDWINDOW as u32;
             }
 
             if opts.resize {
-                flags |= winapi::WS_THICKFRAME as u32 | winapi::WS_MAXIMIZEBOX as u32 ;
+                flags |= winuser::WS_THICKFRAME as u32 | winuser::WS_MAXIMIZEBOX as u32 ;
 
             } else {
-                flags &= !winapi::WS_MAXIMIZEBOX;
-                flags &= !winapi::WS_THICKFRAME;
+                flags &= !winuser::WS_MAXIMIZEBOX;
+                flags &= !winuser::WS_THICKFRAME;
             }
 
             if opts.borderless {
-                flags &= !winapi::WS_THICKFRAME;
+                flags &= !winuser::WS_THICKFRAME;
             }
 
             let handle = winuser::CreateWindowExW(0,
                                                  class_name.as_ptr(),
                                                  window_name.as_ptr(),
                                                  flags,
-                                                 winapi::CW_USEDEFAULT,
-                                                 winapi::CW_USEDEFAULT,
+                                                 winuser::CW_USEDEFAULT,
+                                                 winuser::CW_USEDEFAULT,
                                                  rect.right,
                                                  rect.bottom,
                                                  ptr::null_mut(),
@@ -440,7 +442,7 @@ impl Window {
                 return None;
             }
 
-            winuser::ShowWindow(handle, winapi::SW_NORMAL);
+            winuser::ShowWindow(handle, winuser::SW_NORMAL);
 
             return Some(handle);
         }
@@ -507,7 +509,7 @@ impl Window {
     pub fn set_position(&mut self, x: isize, y: isize) {
         unsafe {
             winuser::SetWindowPos(self.window.unwrap(), ptr::null_mut(), x as i32, y as i32,
-                                 0, 0, winapi::SWP_SHOWWINDOW | winapi::SWP_NOSIZE);
+                                 0, 0, winuser::SWP_SHOWWINDOW | winuser::SWP_NOSIZE);
         }
     }
 
@@ -610,7 +612,7 @@ impl Window {
 
     fn generic_update(&mut self, window: HWND) {
         unsafe {
-            let mut point: winapi::POINT = mem::uninitialized();
+            let mut point: POINT = mem::uninitialized();
             winuser::GetCursorPos(&mut point);
             winuser::ScreenToClient(window, &mut point);
 
@@ -628,7 +630,7 @@ impl Window {
         unsafe {
             let mut msg = mem::uninitialized();
 
-            while winuser::PeekMessageW(&mut msg, window, 0, 0, winapi::winuser::PM_REMOVE) != 0 {
+            while winuser::PeekMessageW(&mut msg, window, 0, 0, winuser::PM_REMOVE) != 0 {
                 // Make this code a bit nicer
                 if self.accel_table == ptr::null_mut() {
                     winuser::TranslateMessage(&mut msg);
@@ -658,7 +660,7 @@ impl Window {
 
         self.buffer = buffer.to_vec();
         unsafe {
-            winuser::InvalidateRect(window, ptr::null_mut(), winapi::TRUE);
+            winuser::InvalidateRect(window, ptr::null_mut(), TRUE);
         }
 
         Self::message_loop(self, window);
@@ -688,8 +690,8 @@ impl Window {
             Scale::X16 => 16,
             Scale::X32 => 32,
             Scale::FitScreen => {
-                let screen_x = winuser::GetSystemMetrics(winapi::winuser::SM_CXSCREEN) as i32;
-                let screen_y = winuser::GetSystemMetrics(winapi::winuser::SM_CYSCREEN) as i32;
+                let screen_x = winuser::GetSystemMetrics(winuser::SM_CXSCREEN) as i32;
+                let screen_y = winuser::GetSystemMetrics(winuser::SM_CYSCREEN) as i32;
 
                 let mut scale = 1i32;
 
@@ -716,9 +718,9 @@ impl Window {
     // the current client size is preserved and still show all pixels
     //
     unsafe fn adjust_window_size_for_menu(handle: HWND) {
-        let mut rect: winapi::RECT = mem::uninitialized();
+        let mut rect: RECT = mem::uninitialized();
 
-        let menu_height = winuser::GetSystemMetrics(winapi::winuser::SM_CYMENU);
+        let menu_height = winuser::GetSystemMetrics(winuser::SM_CYMENU);
 
         winuser::GetWindowRect(handle, &mut rect);
         winuser::MoveWindow(handle,
@@ -730,7 +732,7 @@ impl Window {
     }
 
     unsafe fn set_accel_table(&mut self) {
-        let mut temp_accel_table = Vec::<ACCEL>::new();
+        let mut temp_accel_table = Vec::<winuser::ACCEL>::new();
 
         for menu in self.menus.iter() {
             for item in menu.accel_table.iter() {
@@ -811,7 +813,7 @@ impl Window {
 pub struct Menu {
     menu_handle: HMENU,
     name: Vec<u16>,
-    accel_table: Vec<ACCEL>,
+    accel_table: Vec<winuser::ACCEL>,
 }
 
 impl Menu {
@@ -865,74 +867,74 @@ impl Menu {
             Key::Y => (0x59, "y"),
             Key::Z => (0x5a, "z"),
 
-            Key::F1 => (winapi::winuser::VK_F1, "F1"),
-            Key::F2 => (winapi::winuser::VK_F2, "F2"),
-            Key::F3 => (winapi::winuser::VK_F3, "F3"),
-            Key::F4 => (winapi::winuser::VK_F4, "F4"),
-            Key::F5 => (winapi::winuser::VK_F5, "F5"),
-            Key::F6 => (winapi::winuser::VK_F6, "F6"),
-            Key::F7 => (winapi::winuser::VK_F7, "F7"),
-            Key::F8 => (winapi::winuser::VK_F8, "F8"),
-            Key::F9 => (winapi::winuser::VK_F9, "F9"),
-            Key::F10 => (winapi::winuser::VK_F10, "F10"),
-            Key::F11 => (winapi::winuser::VK_F11, "F11"),
-            Key::F12 => (winapi::winuser::VK_F12, "F12"),
-            Key::F13 => (winapi::winuser::VK_F13, "F14"),
-            Key::F14 => (winapi::winuser::VK_F14, "F14"),
-            Key::F15 => (winapi::winuser::VK_F15, "F15"),
+            Key::F1 => (winuser::VK_F1, "F1"),
+            Key::F2 => (winuser::VK_F2, "F2"),
+            Key::F3 => (winuser::VK_F3, "F3"),
+            Key::F4 => (winuser::VK_F4, "F4"),
+            Key::F5 => (winuser::VK_F5, "F5"),
+            Key::F6 => (winuser::VK_F6, "F6"),
+            Key::F7 => (winuser::VK_F7, "F7"),
+            Key::F8 => (winuser::VK_F8, "F8"),
+            Key::F9 => (winuser::VK_F9, "F9"),
+            Key::F10 => (winuser::VK_F10, "F10"),
+            Key::F11 => (winuser::VK_F11, "F11"),
+            Key::F12 => (winuser::VK_F12, "F12"),
+            Key::F13 => (winuser::VK_F13, "F14"),
+            Key::F14 => (winuser::VK_F14, "F14"),
+            Key::F15 => (winuser::VK_F15, "F15"),
 
-            Key::Down => (winapi::winuser::VK_DOWN, "Down"),
-            Key::Left => (winapi::winuser::VK_LEFT, "Left"),
-            Key::Right => (winapi::winuser::VK_RIGHT, "Right"),
-            Key::Up => (winapi::winuser::VK_UP, "Up"),
+            Key::Down => (winuser::VK_DOWN, "Down"),
+            Key::Left => (winuser::VK_LEFT, "Left"),
+            Key::Right => (winuser::VK_RIGHT, "Right"),
+            Key::Up => (winuser::VK_UP, "Up"),
 
-            Key::Backslash => (winapi::winuser::VK_OEM_102, "Backslash"),
-            Key::Comma => (winapi::winuser::VK_OEM_COMMA, ","),
-            Key::Minus => (winapi::winuser::VK_OEM_MINUS, "-"),
-            Key::Period => (winapi::winuser::VK_OEM_PERIOD, "."),
+            Key::Backslash => (winuser::VK_OEM_102, "Backslash"),
+            Key::Comma => (winuser::VK_OEM_COMMA, ","),
+            Key::Minus => (winuser::VK_OEM_MINUS, "-"),
+            Key::Period => (winuser::VK_OEM_PERIOD, "."),
 
-            Key::Backspace => (winapi::winuser::VK_BACK, "Back"),
-            Key::Delete => (winapi::winuser::VK_DELETE, "Delete"),
-            Key::End => (winapi::winuser::VK_END, "End"),
-            Key::Enter => (winapi::winuser::VK_RETURN, "Enter"),
+            Key::Backspace => (winuser::VK_BACK, "Back"),
+            Key::Delete => (winuser::VK_DELETE, "Delete"),
+            Key::End => (winuser::VK_END, "End"),
+            Key::Enter => (winuser::VK_RETURN, "Enter"),
 
-            Key::Escape => (winapi::winuser::VK_ESCAPE, "Esc"),
+            Key::Escape => (winuser::VK_ESCAPE, "Esc"),
 
-            Key::Home => (winapi::winuser::VK_HOME, "Home"),
-            Key::Insert => (winapi::winuser::VK_INSERT, "Insert"),
-            Key::Menu => (winapi::winuser::VK_MENU, "Menu"),
+            Key::Home => (winuser::VK_HOME, "Home"),
+            Key::Insert => (winuser::VK_INSERT, "Insert"),
+            Key::Menu => (winuser::VK_MENU, "Menu"),
 
-            Key::PageDown => (winapi::winuser::VK_NEXT, "PageDown"),
-            Key::PageUp => (winapi::winuser::VK_PRIOR, "PageUp"),
+            Key::PageDown => (winuser::VK_NEXT, "PageDown"),
+            Key::PageUp => (winuser::VK_PRIOR, "PageUp"),
 
-            Key::Pause => (winapi::winuser::VK_PAUSE, "Pause"),
-            Key::Space => (winapi::winuser::VK_SPACE, "Space"),
-            Key::Tab => (winapi::winuser::VK_TAB, "Tab"),
-            Key::NumLock => (winapi::winuser::VK_NUMLOCK, "NumLock"),
-            Key::CapsLock => (winapi::winuser::VK_CAPITAL, "CapsLock"),
-            Key::ScrollLock => (winapi::winuser::VK_SCROLL, "Scroll"),
+            Key::Pause => (winuser::VK_PAUSE, "Pause"),
+            Key::Space => (winuser::VK_SPACE, "Space"),
+            Key::Tab => (winuser::VK_TAB, "Tab"),
+            Key::NumLock => (winuser::VK_NUMLOCK, "NumLock"),
+            Key::CapsLock => (winuser::VK_CAPITAL, "CapsLock"),
+            Key::ScrollLock => (winuser::VK_SCROLL, "Scroll"),
 
-            Key::LeftShift => (winapi::winuser::VK_LSHIFT, "LeftShift"),
-            Key::RightShift => (winapi::winuser::VK_RSHIFT, "RightShift"),
-            Key::LeftCtrl => (winapi::winuser::VK_CONTROL, "Ctrl"),
-            Key::RightCtrl => (winapi::winuser::VK_CONTROL, "Ctrl"),
+            Key::LeftShift => (winuser::VK_LSHIFT, "LeftShift"),
+            Key::RightShift => (winuser::VK_RSHIFT, "RightShift"),
+            Key::LeftCtrl => (winuser::VK_CONTROL, "Ctrl"),
+            Key::RightCtrl => (winuser::VK_CONTROL, "Ctrl"),
 
-            Key::NumPad0 => (winapi::winuser::VK_NUMPAD0, "NumPad0"),
-            Key::NumPad1 => (winapi::winuser::VK_NUMPAD1, "NumPad1"),
-            Key::NumPad2 => (winapi::winuser::VK_NUMPAD2, "NumPad2"),
-            Key::NumPad3 => (winapi::winuser::VK_NUMPAD3, "NumPad3"),
-            Key::NumPad4 => (winapi::winuser::VK_NUMPAD4, "NumPad4"),
-            Key::NumPad5 => (winapi::winuser::VK_NUMPAD5, "NumPad5"),
-            Key::NumPad6 => (winapi::winuser::VK_NUMPAD6, "NumPad6"),
-            Key::NumPad7 => (winapi::winuser::VK_NUMPAD7, "NumPad7"),
-            Key::NumPad8 => (winapi::winuser::VK_NUMPAD8, "NumPad8"),
-            Key::NumPad9 => (winapi::winuser::VK_NUMPAD9, "NumPad9"),
+            Key::NumPad0 => (winuser::VK_NUMPAD0, "NumPad0"),
+            Key::NumPad1 => (winuser::VK_NUMPAD1, "NumPad1"),
+            Key::NumPad2 => (winuser::VK_NUMPAD2, "NumPad2"),
+            Key::NumPad3 => (winuser::VK_NUMPAD3, "NumPad3"),
+            Key::NumPad4 => (winuser::VK_NUMPAD4, "NumPad4"),
+            Key::NumPad5 => (winuser::VK_NUMPAD5, "NumPad5"),
+            Key::NumPad6 => (winuser::VK_NUMPAD6, "NumPad6"),
+            Key::NumPad7 => (winuser::VK_NUMPAD7, "NumPad7"),
+            Key::NumPad8 => (winuser::VK_NUMPAD8, "NumPad8"),
+            Key::NumPad9 => (winuser::VK_NUMPAD9, "NumPad9"),
 
-            Key::LeftAlt => (winapi::winuser::VK_MENU, "Alt"),
-            Key::RightAlt => (winapi::winuser::VK_MENU, "Alt"),
+            Key::LeftAlt => (winuser::VK_MENU, "Alt"),
+            Key::RightAlt => (winuser::VK_MENU, "Alt"),
 
-            Key::LeftSuper => (winapi::winuser::VK_LWIN, "LeftWin"),
-            Key::RightSuper => (winapi::winuser::VK_RWIN, "RightWin"),
+            Key::LeftSuper => (winuser::VK_LWIN, "LeftWin"),
+            Key::RightSuper => (winuser::VK_RWIN, "RightWin"),
 
             _ => (0, "Unsupported"),
         }
