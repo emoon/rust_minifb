@@ -8,6 +8,7 @@
 // turn off a gazillion warnings about X keysym names
 #![allow(non_upper_case_globals)]
 
+extern crate cast;
 extern crate x11_dl;
 
 use self::x11_dl::keysym::*;
@@ -23,7 +24,7 @@ use {CursorStyle, MenuHandle, MenuItem, MenuItemHandle, UnixMenu, UnixMenuItem};
 use std::ffi::CString;
 use std::mem;
 use std::os::raw;
-use std::os::raw::{c_char, c_uint, c_void};
+use std::os::raw::{c_char, c_uint};
 use std::ptr;
 
 use buffer_helper;
@@ -42,8 +43,8 @@ struct DisplayInfo {
     visual: *mut xlib::Visual,
     gc: xlib::GC,
     depth: i32,
-    screen_width: i32,
-    screen_height: i32,
+    screen_width: usize,
+    screen_height: usize,
     context: xlib::XContext,
     cursor_lib: x11_dl::xcursor::Xcursor,
     cursors: [xlib::Cursor; 8],
@@ -91,8 +92,10 @@ impl DisplayInfo {
             let gc = (lib.XDefaultGC)(display, screen);
             let depth = (lib.XDefaultDepth)(display, screen);
 
-            let screen_width = (lib.XDisplayWidth)(display, screen);
-            let screen_height = (lib.XDisplayHeight)(display, screen);
+            let screen_width = cast::usize((lib.XDisplayWidth)(display, screen))
+                .map_err(|e| Error::WindowCreate(format!("illegal width: {}", e)))?;
+            let screen_height = cast::usize((lib.XDisplayHeight)(display, screen))
+                .map_err(|e| Error::WindowCreate(format!("illegal height: {}", e)))?;
 
             // andrewj: using this instead of XUniqueContext(), as the latter
             // seems to be erroneously feature guarded in the x11_dl crate.
@@ -268,22 +271,7 @@ impl Window {
 
         let d = DisplayInfo::new()?;
 
-        let scale: usize = match opts.scale {
-            Scale::X1 => 1,
-            Scale::X2 => 2,
-            Scale::X4 => 4,
-
-            Scale::FitScreen => Self::calc_fit_scale(
-                width,
-                height,
-                d.screen_width as usize,
-                d.screen_height as usize,
-            ),
-
-            _ => {
-                return Err(Error::WindowCreate("Scaling value is too high".to_owned()));
-            }
-        };
+        let scale = Self::get_scale_factor(width, height, d.screen_width, d.screen_height, opts.scale);
 
         let width = width * scale;
         let height = height * scale;
@@ -298,14 +286,14 @@ impl Window {
 
             attributes.backing_store = xlib::NotUseful;
 
-            let x = (d.screen_width - width as i32) / 2;
-            let y = (d.screen_height - height as i32) / 2;
+            let x = (d.screen_width - width) / 2;
+            let y = (d.screen_height - height) / 2;
 
             let handle = (d.lib.XCreateWindow)(
                 d.display,
                 root,
-                x,
-                y,
+                x as i32,
+                y as i32,
                 width as u32,
                 height as u32,
                 0, /* border_width */
@@ -559,7 +547,7 @@ impl Window {
         true
     }
 
-    fn get_scale_factor(width: usize, height: usize, scale: Scale) -> usize {
+    fn get_scale_factor(width: usize, height: usize, screen_width: usize, screen_height: usize, scale: Scale) -> usize {
         match scale {
             Scale::X1 => 1,
             Scale::X2 => 2,
@@ -568,20 +556,13 @@ impl Window {
             Scale::X16 => 16,
             Scale::X32 => 32,
             Scale::FitScreen => {
-                // !!                 let wh: u32 = mfb_get_screen_size();
-                let wh: u32 = unimplemented!();
-                let screen_x = (wh >> 16) as usize;
-                let screen_y = (wh & 0xffff) as usize;
-
-                println!("{} - {}", screen_x, screen_y);
-
                 let mut scale = 1;
 
                 loop {
                     let w = width * (scale + 1);
                     let h = height * (scale + 1);
 
-                    if w >= screen_x || h >= screen_y {
+                    if w >= screen_width || h >= screen_height {
                         break;
                     }
 
@@ -594,20 +575,6 @@ impl Window {
                     scale
                 }
             }
-        }
-    }
-
-    fn calc_fit_scale(width: usize, height: usize, screen_w: usize, screen_h: usize) -> usize {
-        // andrewj: assume some space is used for borders, window title, and a desktop panel
-        let screen_w = screen_w - 8;
-        let screen_h = screen_h - 64;
-
-        if width * 4 <= screen_w && height * 4 <= screen_h {
-            4
-        } else if width * 2 <= screen_w && height * 2 <= screen_h {
-            2
-        } else {
-            1
         }
     }
 
