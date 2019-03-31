@@ -308,7 +308,7 @@ impl Window {
                     | xlib::ButtonReleaseMask,
             );
 
-            if opts.resize {
+            if !opts.resize {
                 let mut size_hints: xlib::XSizeHints = mem::zeroed();
 
                 size_hints.flags = xlib::PMinSize | xlib::PMaxSize;
