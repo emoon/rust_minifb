@@ -311,9 +311,7 @@ impl Window {
             if opts.resize {
                 let mut size_hints: xlib::XSizeHints = mem::zeroed();
 
-                size_hints.flags = xlib::PPosition | xlib::PMinSize | xlib::PMaxSize;
-                size_hints.x = 0;
-                size_hints.y = 0;
+                size_hints.flags = xlib::PMinSize | xlib::PMaxSize;
                 size_hints.min_width = width as i32;
                 size_hints.max_width = width as i32;
                 size_hints.min_height = height as i32;
