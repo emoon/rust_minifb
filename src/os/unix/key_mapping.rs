@@ -881,8 +881,8 @@ pub fn keysym_to_unicode(keysym: u32) -> Option<u32> {
     }
 
     // Also check for directly encoded 24-bit UCS characters
-    if (keysym & 0xff000000) == 0x01000000 {
-        return Some(keysym & 0x00ffffff);
+    if (keysym & 0xff00_0000) == 0x0100_0000 {
+        return Some(keysym & 0x00ff_ffff);
     }
 
     // Binary search in table
@@ -905,9 +905,7 @@ pub fn test_it() {
     }
 
     // check ability to find every value in the table
-    for i in 0..LENGTH {
-        let p = keysymtab[i];
-
+    for p in keysymtab.iter() {
         assert_eq!(keysym_to_unicode(p.0), Some(p.1));
     }
 }

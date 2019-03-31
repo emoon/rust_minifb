@@ -45,7 +45,7 @@ struct DisplayInfo {
     depth: i32,
     screen_width: usize,
     screen_height: usize,
-    context: xlib::XContext,
+    _context: xlib::XContext,
     cursor_lib: x11_dl::xcursor::Xcursor,
     cursors: [xlib::Cursor; 8],
     keyb_ext: bool,
@@ -66,20 +66,11 @@ impl DisplayInfo {
 
     fn setup() -> Result<DisplayInfo> {
         unsafe {
-            // load the Xlib library
-            let lib = match xlib::Xlib::open() {
-                Err(_) => {
-                    return Err(Error::WindowCreate("failed to load Xlib".to_owned()));
-                }
-                Ok(v) => v,
-            };
+            let lib = xlib::Xlib::open()
+                .map_err(|e| Error::WindowCreate(format!("failed to load Xlib: {:?}", e)))?;
 
-            let cursor_lib = match xcursor::Xcursor::open() {
-                Err(_) => {
-                    return Err(Error::WindowCreate("failed to load Xcursor".to_owned()));
-                }
-                Ok(v) => v,
-            };
+            let cursor_lib = xcursor::Xcursor::open()
+                .map_err(|e| Error::WindowCreate(format!("failed to load XCursor: {:?}", e)))?;
 
             let display = (lib.XOpenDisplay)(ptr::null());
 
@@ -110,7 +101,7 @@ impl DisplayInfo {
                 depth,
                 screen_width,
                 screen_height,
-                context,
+                _context: context,
                 cursor_lib,
                 // the following are determined later...
                 cursors: [0 as xlib::Cursor; 8],
@@ -174,9 +165,6 @@ impl DisplayInfo {
     }
 
     fn init_cursors(&mut self) {
-        // andrewj: TODO: consider using the XCreateFontCursor() API, since
-        // some of these names are not working for me (they return zero).
-
         self.cursors[0] = self.load_cursor("arrow");
         self.cursors[1] = self.load_cursor("xterm");
         self.cursors[2] = self.load_cursor("crosshair");
@@ -357,7 +345,7 @@ impl Window {
                 bytes_per_line,
             );
 
-            if ximage == ptr::null_mut() {
+            if ximage.is_null() {
                 (d.lib.XDestroyWindow)(d.display, handle);
                 return Err(Error::WindowCreate(
                     "Unable to create pixel buffer".to_owned(),
@@ -434,7 +422,7 @@ impl Window {
 
     #[inline]
     pub fn get_window_handle(&self) -> *mut raw::c_void {
-        unsafe { mem::transmute(self.handle as usize) }
+        self.handle as *mut raw::c_void
     }
 
     #[inline]
@@ -1024,7 +1012,7 @@ impl Menu {
         let handle = self.next_item_handle();
         self.internal.items.push(UnixMenuItem {
             label: name.to_owned(),
-            handle: handle,
+            handle,
             sub_menu: Some(Box::new(sub_menu.internal.clone())),
             id: 0,
             enabled: true,
