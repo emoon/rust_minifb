@@ -10,6 +10,7 @@ fn main() {
 
     let mut window = match Window::new("Mouse Draw - Press ESC to exit", WIDTH, HEIGHT,
                                        WindowOptions {
+                                           resize: true,
                                            scale: Scale::X2,
                                            ..WindowOptions::default()
                                        }) {
@@ -20,9 +21,29 @@ fn main() {
         }
     };
 
+    let (mut width, mut height) = (WIDTH, HEIGHT);
+
     while window.is_open() && !window.is_key_down(Key::Escape) {
-        window.get_mouse_pos(MouseMode::Discard).map(|mouse| {
-            let screen_pos = ((mouse.1 as usize) * WIDTH) + mouse.0 as usize;
+        {
+            let (new_width, new_height) = window.get_size();
+            if new_width != width || new_height != height {
+
+                // copy valid bits of old buffer to new buffer
+                let mut new_buffer = vec![0; new_width * new_height / 2 / 2];
+                for y in 0..(height / 2).min(new_height / 2) {
+                    for x in 0..(width / 2).min(new_width / 2) {
+                        new_buffer[y * (new_width / 2) + x] = buffer[y * (width / 2) + x];
+                    }
+                }
+                buffer = new_buffer;
+                width = new_width;
+                height = new_height;
+
+            }
+        }
+
+        window.get_mouse_pos(MouseMode::Discard).map(|(x, y)| {
+            let screen_pos = ((y as usize) * width / 2) + x as usize;
             println!("{:?}", window.get_unscaled_mouse_pos(MouseMode::Discard).unwrap());
 
             if window.get_mouse_down(MouseButton::Left) {

@@ -328,32 +328,17 @@ impl Window {
             (d.lib.XMapRaised)(d.display, handle);
             (d.lib.XFlush)(d.display);
 
-            let bytes_per_line = (width as i32) * 4;
-
-            let ximage = (d.lib.XCreateImage)(
-                d.display,
-                d.visual, /* TODO: this was CopyFromParent in the C code */
-                d.depth as u32,
-                xlib::ZPixmap,
-                0,
-                ptr::null_mut(),
-                width as u32,
-                height as u32,
-                32,
-                bytes_per_line,
-            );
-
-            if ximage.is_null() {
-                (d.lib.XDestroyWindow)(d.display, handle);
-                return Err(Error::WindowCreate(
-                    "Unable to create pixel buffer".to_owned(),
-                ));
-            }
-
             let mut draw_buffer: Vec<u32> = Vec::new();
-            draw_buffer.resize(width * height, 0);
 
-            (*ximage).data = draw_buffer[..].as_mut_ptr() as *mut c_char;
+            let ximage = match Self::alloc_image(&d, width, height, &mut draw_buffer) {
+                Some(ximage) => ximage,
+                None => {
+                    (d.lib.XDestroyWindow)(d.display, handle);
+                    return Err(Error::WindowCreate(
+                        "Unable to create pixel buffer".to_owned(),
+                    ));
+                }
+            };
 
             Ok(Window {
                 d,
@@ -375,6 +360,37 @@ impl Window {
                 menus: Vec::new(),
             })
         }
+    }
+
+    unsafe fn alloc_image(d: &DisplayInfo, width: usize, height: usize, draw_buffer: &mut Vec<u32>) -> Option<*mut xlib::XImage> {
+        let bytes_per_line = (width as i32) * 4;
+
+        draw_buffer.resize(width * height, 0);
+
+        let image = (d.lib.XCreateImage)(
+            d.display,
+            d.visual, /* TODO: this was CopyFromParent in the C code */
+            d.depth as u32,
+            xlib::ZPixmap,
+            0,
+            draw_buffer[..].as_mut_ptr() as *mut c_char,
+            width as u32,
+            height as u32,
+            32,
+            bytes_per_line,
+        );
+
+        if image.is_null() {
+            None
+        } else {
+            Some(image)
+        }
+    }
+
+    unsafe fn free_image(&mut self) {
+        (*self.ximage).data = ptr::null_mut();
+        (self.d.lib.XDestroyImage)(self.ximage);
+        self.ximage = ptr::null_mut();
     }
 
     pub fn set_title(&mut self, title: &str) {
@@ -751,6 +767,12 @@ impl Window {
                 // TODO : pass this onto the application
                 self.width = ev.configure.width as u32;
                 self.height = ev.configure.height as u32;
+                self.free_image();
+                self.ximage = Self::alloc_image(
+                    &self.d,
+                    cast::usize(self.width),
+                    cast::usize(self.height),
+                    &mut self.draw_buffer).expect("todo");
             }
 
             _ => {}
@@ -978,13 +1000,12 @@ impl Window {
 impl Drop for Window {
     fn drop(&mut self) {
         unsafe {
-            (*self.ximage).data = ptr::null_mut();
+            self.free_image();
 
             // TODO  [ andrewj: right now DisplayInfo is not shared, so doing this is
             //                  probably pointless ]
             // XSaveContext(s_display, info->window, s_context, (XPointer)0);
 
-            (self.d.lib.XDestroyImage)(self.ximage);
             (self.d.lib.XDestroyWindow)(self.d.display, self.handle);
         }
     }
