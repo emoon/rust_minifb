@@ -6,15 +6,15 @@ fn main() {
     let width = 640;
     let height = 320;
     let mut buffer = vec![0u32; width * height];
-    let mut orig = Window::new("Smaller", width, height, WindowOptions {
-        resize: true,
-        ..WindowOptions::default()
-    }).unwrap();
     let mut double = Window::new("Larger", width, height, WindowOptions {
-        resize: true,
         scale: Scale::X2,
         ..WindowOptions::default()
     }).unwrap();
+
+    let mut orig = Window::new("Smaller", width, height, WindowOptions {
+        ..WindowOptions::default()
+    }).unwrap();
+
 
     let mut pos = 13;
 

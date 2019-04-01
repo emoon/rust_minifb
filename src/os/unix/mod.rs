@@ -45,7 +45,7 @@ struct DisplayInfo {
     depth: i32,
     screen_width: usize,
     screen_height: usize,
-    context: xlib::XContext,
+    _context: xlib::XContext,
     cursor_lib: x11_dl::xcursor::Xcursor,
     cursors: [xlib::Cursor; 8],
     keyb_ext: bool,
@@ -66,20 +66,11 @@ impl DisplayInfo {
 
     fn setup() -> Result<DisplayInfo> {
         unsafe {
-            // load the Xlib library
-            let lib = match xlib::Xlib::open() {
-                Err(_) => {
-                    return Err(Error::WindowCreate("failed to load Xlib".to_owned()));
-                }
-                Ok(v) => v,
-            };
+            let lib = xlib::Xlib::open()
+                .map_err(|e| Error::WindowCreate(format!("failed to load Xlib: {:?}", e)))?;
 
-            let cursor_lib = match xcursor::Xcursor::open() {
-                Err(_) => {
-                    return Err(Error::WindowCreate("failed to load Xcursor".to_owned()));
-                }
-                Ok(v) => v,
-            };
+            let cursor_lib = xcursor::Xcursor::open()
+                .map_err(|e| Error::WindowCreate(format!("failed to load XCursor: {:?}", e)))?;
 
             let display = (lib.XOpenDisplay)(ptr::null());
 
@@ -110,7 +101,7 @@ impl DisplayInfo {
                 depth,
                 screen_width,
                 screen_height,
-                context,
+                _context: context,
                 cursor_lib,
                 // the following are determined later...
                 cursors: [0 as xlib::Cursor; 8],
@@ -174,9 +165,6 @@ impl DisplayInfo {
     }
 
     fn init_cursors(&mut self) {
-        // andrewj: TODO: consider using the XCreateFontCursor() API, since
-        // some of these names are not working for me (they return zero).
-
         self.cursors[0] = self.load_cursor("arrow");
         self.cursors[1] = self.load_cursor("xterm");
         self.cursors[2] = self.load_cursor("crosshair");
@@ -320,12 +308,10 @@ impl Window {
                     | xlib::ButtonReleaseMask,
             );
 
-            if opts.resize {
+            if !opts.resize {
                 let mut size_hints: xlib::XSizeHints = mem::zeroed();
 
-                size_hints.flags = xlib::PPosition | xlib::PMinSize | xlib::PMaxSize;
-                size_hints.x = 0;
-                size_hints.y = 0;
+                size_hints.flags = xlib::PMinSize | xlib::PMaxSize;
                 size_hints.min_width = width as i32;
                 size_hints.max_width = width as i32;
                 size_hints.min_height = height as i32;
@@ -342,32 +328,17 @@ impl Window {
             (d.lib.XMapRaised)(d.display, handle);
             (d.lib.XFlush)(d.display);
 
-            let bytes_per_line = (width as i32) * 4;
-
-            let ximage = (d.lib.XCreateImage)(
-                d.display,
-                d.visual, /* TODO: this was CopyFromParent in the C code */
-                d.depth as u32,
-                xlib::ZPixmap,
-                0,
-                ptr::null_mut(),
-                width as u32,
-                height as u32,
-                32,
-                bytes_per_line,
-            );
-
-            if ximage == ptr::null_mut() {
-                (d.lib.XDestroyWindow)(d.display, handle);
-                return Err(Error::WindowCreate(
-                    "Unable to create pixel buffer".to_owned(),
-                ));
-            }
-
             let mut draw_buffer: Vec<u32> = Vec::new();
-            draw_buffer.resize(width * height, 0);
 
-            (*ximage).data = draw_buffer[..].as_mut_ptr() as *mut c_char;
+            let ximage = match Self::alloc_image(&d, width, height, &mut draw_buffer) {
+                Some(ximage) => ximage,
+                None => {
+                    (d.lib.XDestroyWindow)(d.display, handle);
+                    return Err(Error::WindowCreate(
+                        "Unable to create pixel buffer".to_owned(),
+                    ));
+                }
+            };
 
             Ok(Window {
                 d,
@@ -389,6 +360,37 @@ impl Window {
                 menus: Vec::new(),
             })
         }
+    }
+
+    unsafe fn alloc_image(d: &DisplayInfo, width: usize, height: usize, draw_buffer: &mut Vec<u32>) -> Option<*mut xlib::XImage> {
+        let bytes_per_line = (width as i32) * 4;
+
+        draw_buffer.resize(width * height, 0);
+
+        let image = (d.lib.XCreateImage)(
+            d.display,
+            d.visual, /* TODO: this was CopyFromParent in the C code */
+            d.depth as u32,
+            xlib::ZPixmap,
+            0,
+            draw_buffer[..].as_mut_ptr() as *mut c_char,
+            width as u32,
+            height as u32,
+            32,
+            bytes_per_line,
+        );
+
+        if image.is_null() {
+            None
+        } else {
+            Some(image)
+        }
+    }
+
+    unsafe fn free_image(&mut self) {
+        (*self.ximage).data = ptr::null_mut();
+        (self.d.lib.XDestroyImage)(self.ximage);
+        self.ximage = ptr::null_mut();
     }
 
     pub fn set_title(&mut self, title: &str) {
@@ -434,7 +436,7 @@ impl Window {
 
     #[inline]
     pub fn get_window_handle(&self) -> *mut raw::c_void {
-        unsafe { mem::transmute(self.handle as usize) }
+        self.handle as *mut raw::c_void
     }
 
     #[inline]
@@ -765,6 +767,12 @@ impl Window {
                 // TODO : pass this onto the application
                 self.width = ev.configure.width as u32;
                 self.height = ev.configure.height as u32;
+                self.free_image();
+                self.ximage = Self::alloc_image(
+                    &self.d,
+                    cast::usize(self.width),
+                    cast::usize(self.height),
+                    &mut self.draw_buffer).expect("todo");
             }
 
             _ => {}
@@ -992,13 +1000,12 @@ impl Window {
 impl Drop for Window {
     fn drop(&mut self) {
         unsafe {
-            (*self.ximage).data = ptr::null_mut();
+            self.free_image();
 
             // TODO  [ andrewj: right now DisplayInfo is not shared, so doing this is
             //                  probably pointless ]
             // XSaveContext(s_display, info->window, s_context, (XPointer)0);
 
-            (self.d.lib.XDestroyImage)(self.ximage);
             (self.d.lib.XDestroyWindow)(self.d.display, self.handle);
         }
     }
@@ -1024,7 +1031,7 @@ impl Menu {
         let handle = self.next_item_handle();
         self.internal.items.push(UnixMenuItem {
             label: name.to_owned(),
-            handle: handle,
+            handle,
             sub_menu: Some(Box::new(sub_menu.internal.clone())),
             id: 0,
             enabled: true,
