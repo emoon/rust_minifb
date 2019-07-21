@@ -2,7 +2,7 @@ extern crate minifb;
 
 use minifb::{Window, Key, Scale, WindowOptions};
 
-const WIDTH: usize = 2560;
+const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
 
 fn main() {
