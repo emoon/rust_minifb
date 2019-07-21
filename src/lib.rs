@@ -464,7 +464,7 @@ impl Window {
 
     ///
     /// Check if a single key was released since last call to update.
-    /// 
+    ///
     #[inline]
     pub fn is_key_released(&self, key: Key) -> bool {
         self.0.is_key_released(key)
@@ -512,7 +512,7 @@ impl Window {
     /// Set input callback to recive callback on char input
     ///
     #[inline]
-    pub fn set_input_callback(&mut self, callback: Box<InputCallback>)  {
+    pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>)  {
         self.0.set_input_callback(callback)
     }
 

@@ -4,7 +4,7 @@ use std::mem;
 use {Key, KeyRepeat, InputCallback};
 
 pub struct KeyHandler {
-    pub key_callback: Option<Box<InputCallback>>,
+    pub key_callback: Option<Box<dyn InputCallback>>,
     prev_time: f64,
     delta_time: f32,
     keys: [bool; 512],
@@ -70,7 +70,7 @@ impl KeyHandler {
         }
     }
 
-    pub fn set_input_callback(&mut self, callback: Box<InputCallback>) {
+    pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>) {
         self.key_callback = Some(callback);
     }
 

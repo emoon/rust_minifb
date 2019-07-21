@@ -534,7 +534,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_input_callback(&mut self, callback: Box<InputCallback>) {
+    pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>) {
         self.key_handler.set_input_callback(callback)
     }
 
