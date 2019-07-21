@@ -2,6 +2,14 @@
 
 This project follows semantic versioning.
 
+### v0.12 (2019-07-21)
+
+- [changed] Linux/Unix backend rewritten in Rust (thanks Chris West!)
+- [changed] WinAPI updated to 0.3 (Thanks Richard Hozák!)
+- [changed] Bump orbclient to 0.3.20 on Redox, remove alpha handling hacks (Thanks Nagy Tibor!)
+
+- [added] Window.is_key_released
+
 ### v0.11.2 (2018-12-19)
 
 - [added] Window.is_key_released
