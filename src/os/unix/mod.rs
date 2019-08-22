@@ -625,6 +625,18 @@ impl Window {
                 self.scale_4x(buffer);
             }
 
+            8 => {
+                self.scale_8x(buffer);
+            }
+
+            16 => {
+                self.scale_16x(buffer);
+            }
+
+            32 => {
+                self.scale_32x(buffer);
+            }
+
             _ => {
                 panic!("bad scale for raw_blit_buffer()");
             }
@@ -643,48 +655,6 @@ impl Window {
             self.height,
         );
         (self.d.lib.XFlush)(self.d.display);
-    }
-
-    unsafe fn scale_2x(&mut self, buffer: &[u32]) {
-        let w = self.width as usize;
-
-        let bw = (self.width as usize) / 2;
-        let bh = (self.height as usize) / 2;
-
-        for y in 0..bh {
-            let src = &buffer[y * bw..y * bw + bw];
-
-            for dy in 0..2 {
-                let dest = &mut self.draw_buffer[(y * 2 + dy) * w..(y * 2 + dy) * w + w];
-
-                for x in 0..bw {
-                    dest[x * 2] = src[x];
-                    dest[x * 2 + 1] = src[x];
-                }
-            }
-        }
-    }
-
-    unsafe fn scale_4x(&mut self, buffer: &[u32]) {
-        let w = self.width as usize;
-
-        let bw = (self.width as usize) / 4;
-        let bh = (self.height as usize) / 4;
-
-        for y in 0..bh {
-            let src = &buffer[y * bw..y * bw + bw];
-
-            for dy in 0..4 {
-                let dest = &mut self.draw_buffer[(y * 4 + dy) * w..(y * 4 + dy) * w + w];
-
-                for x in 0..bw {
-                    dest[x * 4] = src[x];
-                    dest[x * 4 + 1] = src[x];
-                    dest[x * 4 + 2] = src[x];
-                    dest[x * 4 + 3] = src[x];
-                }
-            }
-        }
     }
 
     unsafe fn raw_get_mouse_pos(&mut self) {
@@ -996,6 +966,41 @@ impl Window {
         self.key_handler.set_key_state(key, is_down);
     }
 }
+
+// macro_rules inside impl {} blocks currently not supported
+// https://github.com/rust-lang/rust/issues/37205
+macro_rules! gen_scale_x(
+    ($($fn_name:ident, $x:expr),+$(,)?) => (
+        impl Window {
+            $(unsafe fn $fn_name(&mut self, buffer :  &[u32]) {
+                let w = self.width as usize;
+
+                let bw = (self.width as usize) / $x;
+                let bh = (self.height as usize) / $x;
+
+                for y in 0..bh {
+                    let src = &buffer[y * bw..y * bw + bw];
+
+                    for dy in 0..$x {
+                        let dest = &mut self.draw_buffer[(y * $x + dy) * w..(y * $x + dy) * w + w];
+
+                        for x in 0..bw {
+                            dest[x * $x .. x * $x + $x].copy_from_slice(&[src[x]; $x]);
+                        }
+                    }
+                }
+            })+
+        }
+    )
+);
+
+gen_scale_x!(
+    scale_2x, 2,
+    scale_4x, 4,
+    scale_8x, 8,
+    scale_16x, 16,
+    scale_32x, 32,
+);
 
 impl Drop for Window {
     fn drop(&mut self) {
