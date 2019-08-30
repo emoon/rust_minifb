@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.13 (2019-08-30)
+
+- [changed] unix: replaced scale functions with macro and added missing invocations (Thanks Johannes Stölp!)
+
 ### v0.12 (2019-07-21)
 
 - [changed] Linux/Unix backend rewritten in Rust (thanks Chris West!)
