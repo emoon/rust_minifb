@@ -13,6 +13,8 @@ pub enum Error {
     WindowCreate(String),
     /// Unable to Update
     UpdateFailed(String),
+    /// Unable to load dynamic library
+    LibraryLoadFailed(String),
 }
 
 impl StdError for Error {
@@ -22,6 +24,7 @@ impl StdError for Error {
             Error::MenuExists(_) => "Menu already exists",
             Error::WindowCreate(_) => "Failed to create window",
             Error::UpdateFailed(_) => "Failed to Update",
+            Error::LibraryLoadFailed(_) => "Failed to Load Library",
         }
     }
 
@@ -31,6 +34,7 @@ impl StdError for Error {
             Error::MenuExists(_) => None,
             Error::WindowCreate(_) => None,
             Error::UpdateFailed(_) => None,
+            Error::LibraryLoadFailed(_) => None,
         }
     }
 }
@@ -48,6 +52,9 @@ impl fmt::Display for Error {
                 write!(fmt, "{} {:?}", self.description(), e)
             }
             Error::UpdateFailed(ref e) => {
+                write!(fmt, "{} {:?}", self.description(), e)
+            }
+            Error::LibraryLoadFailed(ref e) => {
                 write!(fmt, "{} {:?}", self.description(), e)
             }
         }

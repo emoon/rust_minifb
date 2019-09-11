@@ -10,15 +10,19 @@
 
 extern crate cast;
 extern crate x11_dl;
+extern crate time;
 
 use self::x11_dl::keysym::*;
 use self::x11_dl::xcursor;
 use self::x11_dl::xlib;
+use self::x11_dl::glx;
 use key_handler::KeyHandler;
 use {InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, WindowOptions};
 
+use gl::GlLib;
 use error::Error;
 use Result;
+use UseGPU;
 use {CursorStyle, MenuHandle, MenuItem, MenuItemHandle, UnixMenu, UnixMenuItem};
 
 use std::ffi::CString;
@@ -37,7 +41,10 @@ const Button7: c_uint = xlib::Button5 + 2;
 mod key_mapping;
 
 struct DisplayInfo {
+    gl_lib: Option<GlLib>,
+    glx_lib: Option<glx::Glx>,
     lib: x11_dl::xlib::Xlib,
+    glc: glx::GLXContext,
     display: *mut xlib::Display,
     screen: i32,
     visual: *mut xlib::Visual,
@@ -50,11 +57,12 @@ struct DisplayInfo {
     cursors: [xlib::Cursor; 8],
     keyb_ext: bool,
     wm_delete_window: xlib::Atom,
+    prev_time: f64,
 }
 
 impl DisplayInfo {
-    fn new() -> Result<DisplayInfo> {
-        let mut display = Self::setup()?;
+    fn new(opts: &WindowOptions) -> Result<DisplayInfo> {
+        let mut display = Self::setup(opts)?;
 
         display.check_formats()?;
         display.check_extensions()?;
@@ -64,7 +72,7 @@ impl DisplayInfo {
         Ok(display)
     }
 
-    fn setup() -> Result<DisplayInfo> {
+    fn setup(opts: &WindowOptions) -> Result<DisplayInfo> {
         unsafe {
             let lib = xlib::Xlib::open()
                 .map_err(|e| Error::WindowCreate(format!("failed to load Xlib: {:?}", e)))?;
@@ -76,6 +84,28 @@ impl DisplayInfo {
 
             if display.is_null() {
                 return Err(Error::WindowCreate("XOpenDisplay failed".to_owned()));
+            }
+
+            let (glx_lib, gl_lib) = match opts.use_gpu {
+                // If disabled just don't load glx
+                UseGPU::Disabled => (None, None),
+                // Try to load glx in auto detection mode
+                UseGPU::Auto => {
+                    (x11_dl::glx::Glx::open().ok(),
+                     GlLib::load("libGL.so").ok())
+                }
+                // Return from this code if this fails loading
+                UseGPU::Required => {
+                    let glx = x11_dl::glx::Glx::open().map_err(|e|
+                        Error::LibraryLoadFailed(format!("failed to load Glx: {:?}", e)))?;
+                    let gl_lib = GlLib::load("libGL.so")?;
+
+                    (Some(glx), Some(gl_lib))
+                }
+            };
+
+            if glx_lib.is_some() && gl_lib.is_some() {
+                println!("found gl libs");
             }
 
             let screen = (lib.XDefaultScreen)(display);
@@ -93,6 +123,8 @@ impl DisplayInfo {
             let context = (lib.XrmUniqueQuark)();
 
             Ok(DisplayInfo {
+                gl_lib,
+                glx_lib,
                 lib,
                 display,
                 screen,
@@ -107,6 +139,8 @@ impl DisplayInfo {
                 cursors: [0 as xlib::Cursor; 8],
                 keyb_ext: false,
                 wm_delete_window: 0,
+                glc: std::ptr::null_mut(),
+                prev_time: 0.0,
             })
         }
     }
@@ -257,9 +291,12 @@ impl Window {
         // FIXME: this DisplayInfo should be a singleton, hence this code
         // is probably no good when using multiple windows.
 
-        let d = DisplayInfo::new()?;
+        let mut d = DisplayInfo::new(&opts)?;
 
         let scale = Self::get_scale_factor(width, height, d.screen_width, d.screen_height, opts.scale);
+
+        let original_width = width;
+        let original_height = height;
 
         let width = width * scale;
         let height = height * scale;
@@ -271,8 +308,40 @@ impl Window {
 
             attributes.border_pixel = (d.lib.XBlackPixel)(d.display, d.screen);
             attributes.background_pixel = attributes.border_pixel;
-
             attributes.backing_store = xlib::NotUseful;
+            attributes.event_mask = xlib::ExposureMask;
+
+            let mut flags = xlib::CWBackingStore | xlib::CWBackPixel | xlib::CWBorderPixel;
+
+            // If we have glx lib setup, we will assume to use OpenGL so setup the glx stuff here
+            if let Some(glx_lib) = &d.glx_lib {
+                let mut att = [glx::GLX_RGBA, glx::GLX_DEPTH_SIZE, 24, glx::GLX_DOUBLEBUFFER, glx::GLX_NONE];
+                let vi = (glx_lib.glXChooseVisual)(d.display, 0, &mut att[0]);
+
+                 if vi.is_null() {
+                    println!("failed to glXChooseVisual");
+                    // If GPU is required return an error back here otherwise set glx_lib and
+                    // gl_lib to None so Software path will progress
+                    if opts.use_gpu == UseGPU::Required {
+                        return Err(Error::WindowCreate("Display does not meet minimum requirements: RGBA buffer, 24-bit depth, double-buffered display for GPU.".to_owned()));
+                    } else {
+                        d.gl_lib = None;
+                        d.glx_lib = None;
+                    }
+                } else {
+                    //flags |= x11_dl::xlib::CWColormap;
+                    flags = x11_dl::xlib::CWColormap;
+
+                    println!("visual id {:x}", (*vi).visualid);
+
+                    let glc = (glx_lib.glXCreateContext)(d.display, vi, ::std::ptr::null_mut(), 1);
+                    let cmap = (d.lib.XCreateColormap)(d.display, root, (*vi).visual, xlib::AllocNone);
+                    attributes.colormap = cmap;
+
+                    d.visual = (*vi).visual;
+                    d.glc = glc;
+                }
+            }
 
             let x = (d.screen_width - width) / 2;
             let y = (d.screen_height - height) / 2;
@@ -285,10 +354,11 @@ impl Window {
                 width as u32,
                 height as u32,
                 0, /* border_width */
-                d.depth,
+                /*d.depth,*/
+                0,
                 xlib::InputOutput as u32, /* class */
                 d.visual,
-                xlib::CWBackingStore | xlib::CWBackPixel | xlib::CWBorderPixel,
+                flags,
                 &mut attributes,
             );
 
@@ -297,6 +367,17 @@ impl Window {
             }
 
             (d.lib.XStoreName)(d.display, handle, name.as_ptr());
+
+            // Make the context the current one
+            if let Some(glx_lib) = &d.glx_lib {
+                (d.lib.XMapWindow)(d.display, handle);
+                (glx_lib.glXMakeCurrent)(d.display, handle, d.glc);
+
+                if let Some(gl) = d.gl_lib.as_mut() {
+                    //gl.set_swap_interval(d.display as *mut std::os::raw::c_void, handle, 0);
+                    gl.setup(original_width, original_height);
+                }
+            }
 
             (d.lib.XSelectInput)(
                 d.display,
@@ -327,6 +408,9 @@ impl Window {
             (d.lib.XClearWindow)(d.display, handle);
             (d.lib.XMapRaised)(d.display, handle);
             (d.lib.XFlush)(d.display);
+
+            // TODO: Right now we are allocating the draw buffer here but we actually don't
+            // need it in the OpenGL case
 
             let mut draw_buffer: Vec<u32> = Vec::new();
 
@@ -407,6 +491,8 @@ impl Window {
     }
 
     pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
+        let start_time = time::precise_time_s();
+
         buffer_helper::check_buffer_size(
             self.width as usize,
             self.height as usize,
@@ -414,9 +500,30 @@ impl Window {
             buffer,
         )?;
 
-        unsafe { self.raw_blit_buffer(buffer) };
+        if let Some(glx_lib) = &self.d.glx_lib {
+            unsafe {
+                let mut attr: xlib::XWindowAttributes = std::mem::zeroed();
+                (self.d.lib.XGetWindowAttributes)(self.d.display, self.handle, &mut attr);
+
+                if let Some(gl) = &self.d.gl_lib {
+                    gl.update(buffer, attr.width as u32, attr.height as u32);
+                }
+            }
+
+        } else {
+            unsafe { self.raw_blit_buffer(buffer) };
+        }
 
         self.update();
+
+        let end_time = time::precise_time_s();
+
+        // Swap the buffers if we have glx enabled
+        if let Some(glx_lib) = &self.d.glx_lib {
+            unsafe { (glx_lib.glXSwapBuffers)(self.d.display, self.handle) };
+        }
+
+        println!("minifb time {} ms", (end_time - start_time) * 1000.0);
 
         Ok(())
     }

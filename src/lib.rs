@@ -30,6 +30,21 @@ pub enum Scale {
     X32,
 }
 
+/// Use GPU will allow (potentially) faster display of the buffer using acceleration availible on
+/// the given platform. The default is `Auto` which will enable GPU acceleration if avaible. It's
+/// also possible to use `Disabled` to always run in software mode or `Required` to demand GPU
+/// acceleration. `Auto` is what is recommended to be used. Notice that on macOS GPU acceleration
+/// will always be used.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum UseGPU {
+    /// Auto detect GPU presence and use if supported
+    Auto,
+    /// Disable usage of GPU acceleration. Notice that on macOS GPU will always be used.
+    Disabled,
+    /// Fail to create the window if no GPU acceleration is availible.
+    Required,
+}
+
 /// Used for is_key_pressed and get_keys_pressed() to indicated if repeat of presses is wanted
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum KeyRepeat {
@@ -108,6 +123,9 @@ mod window_flags;
 //pub use menu::MENU_KEY_CTRL;
 //pub use menu::MENU_KEY_ALT;
 
+#[cfg(not(target_os = "macos"))]
+mod gl;
+
 
 #[cfg(target_os = "macos")]
 use self::os::macos as imp;
@@ -149,6 +167,8 @@ pub struct WindowOptions {
     pub resize: bool,
     /// Scale of the window that used in conjunction with update_with_buffer (default: X1)
     pub scale: Scale,
+    /// Use GPU acceleration for (potentially) faster updates. Defaults to Auto detect
+    pub use_gpu: UseGPU,
 }
 
 impl Window {
@@ -819,6 +839,7 @@ impl Default for WindowOptions {
             title: true,
             resize: false,
             scale: Scale::X1,
+            use_gpu: UseGPU::Auto,
         }
     }
 }

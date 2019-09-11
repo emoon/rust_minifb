@@ -3,7 +3,7 @@ extern crate minifb;
 use minifb::{Window, Key, Scale, WindowOptions};
 
 const WIDTH: usize = 640;
-const HEIGHT: usize = 360;
+const HEIGHT: usize = 400;
 
 fn main() {
     let mut noise;
@@ -14,7 +14,8 @@ fn main() {
     let mut window = match Window::new("Noise Test - Press ESC to exit", WIDTH, HEIGHT,
                                        WindowOptions {
                                            resize: true,
-                                           scale: Scale::X2,
+                                           //use_gpu: minifb::UseGPU::Disabled,
+                                           scale: Scale::X4,
                                            ..WindowOptions::default()
                                        }) {
         Ok(win) => win,
@@ -24,11 +25,12 @@ fn main() {
         }
     };
 
-    let mut buffer: Vec<u32> = Vec::with_capacity(WIDTH * HEIGHT);
+    let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 
     let mut size = (0, 0);
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
+        /*
         {
             let new_size = window.get_size();
             if new_size != size {
@@ -36,6 +38,7 @@ fn main() {
                 buffer.resize(size.0 * size.1 / 2 / 2, 0);
             }
         }
+        */
 
         for i in buffer.iter_mut() {
             noise = seed;
