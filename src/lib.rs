@@ -159,7 +159,8 @@ impl Window {
     ///
     /// Open up a window with default settings
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
     /// let mut window = match Window::new("Test", 640, 400, WindowOptions::default()) {
     ///    Ok(win) => win,
     ///    Err(err) => {
@@ -171,7 +172,8 @@ impl Window {
     ///
     /// Open up a window that is resizeable
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
     /// let mut window = match Window::new("Test", 640, 400,
     ///                                     WindowOptions {
     ///                                         resize: true,
@@ -193,8 +195,9 @@ impl Window {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let mut window = match Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    /// ```no_run
+    /// # use minifb::*;
+    /// let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     ///
     /// window.set_title("My New Title!");
     /// ```
@@ -207,7 +210,7 @@ impl Window {
     /// Returns the native handle for a window which is an opaque pointer/handle which
     /// dependens on the current operating system:
     ///
-    /// ```ignore
+    /// ```text
     /// Windows HWND
     /// MacOS   NSWindow
     /// X11     XWindow
@@ -224,10 +227,11 @@ impl Window {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
     /// let mut buffer: Vec<u32> = vec![0; 640 * 400];
     ///
-    /// let mut window = match Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    /// let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     ///
     /// window.update_with_buffer(&buffer).unwrap();
     /// ```
@@ -241,10 +245,11 @@ impl Window {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
     /// let mut buffer: Vec<u32> = vec![0; 640 * 400];
     ///
-    /// let mut window = match Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    /// let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     ///
     /// window.update();
     /// ```
@@ -260,9 +265,11 @@ impl Window {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     /// while window.is_open() {
-    ///     window.update(...)
+    ///     // Update window
     /// }
     /// ```
     #[inline]
@@ -276,7 +283,9 @@ impl Window {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     /// // Moves the window to pixel position 20, 20 on the screen
     /// window.set_position(20, 20);
     /// ```
@@ -291,7 +300,9 @@ impl Window {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     /// let size = window.get_size();
     /// println!("width {} height {}", size.0, size.1);
     /// ```
@@ -307,7 +318,9 @@ impl Window {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     /// window.get_mouse_pos(MouseMode::Clamp).map(|mouse| {
     ///     println!("x {} y {}", mouse.0, mouse.1);
     /// });
@@ -325,7 +338,9 @@ impl Window {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     /// window.get_unscaled_mouse_pos(MouseMode::Clamp).map(|mouse| {
     ///     println!("x {} y {}", mouse.0, mouse.1);
     /// });
@@ -341,7 +356,9 @@ impl Window {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     /// let left_down = window.get_mouse_down(MouseButton::Left);
     /// println!("is left down? {}", left_down)
     /// ```
@@ -360,7 +377,9 @@ impl Window {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     /// window.get_scroll_wheel().map(|scroll| {
     ///     println!("scrolling - x {} y {}", scroll.0, scroll.1);
     /// });
@@ -378,7 +397,9 @@ impl Window {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     /// window.set_cursor_style(CursorStyle::ResizeLeftRight);
     /// ```
     ///
@@ -391,7 +412,9 @@ impl Window {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     /// window.get_keys().map(|keys| {
     ///     for t in keys {
     ///         match t {
@@ -413,7 +436,9 @@ impl Window {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     /// window.get_keys_pressed(KeyRepeat::No).map(|keys| {
     ///     for t in keys {
     ///         match t {
@@ -434,7 +459,9 @@ impl Window {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     /// if window.is_key_down(Key::A) {
     ///     println!("Key A is down");
     /// }
@@ -451,8 +478,10 @@ impl Window {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// if window.is_key_pressed(KeyRepeat::No) {
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    /// if window.is_key_pressed(Key::A, KeyRepeat::No) {
     ///     println!("Key A is down");
     /// }
     /// ```
@@ -476,7 +505,9 @@ impl Window {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     /// window.set_key_repeat_delay(0.5) // 0.5 sec before repeat starts
     /// ```
     ///
@@ -491,7 +522,9 @@ impl Window {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     /// window.set_key_repeat_rate(0.01) // 0.01 sec between keys
     /// ```
     ///
@@ -520,7 +553,7 @@ impl Window {
     /// This allows adding menus to your windows. As menus behaves a bit diffrently depending on
     /// Operating system here is how it works.
     ///
-    /// ```ignore
+    /// ```text
     /// Windows:
     ///   Each window has their own menu and shortcuts are active depending on active window.
     /// Mac:
@@ -680,8 +713,11 @@ impl Menu {
     /// Adds an item to the menu. Notice that you need to call "build" to finish the add
     /// # Examples
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut menu = Menu::new("test").unwrap();
     /// menu.add_item("test", 1).shortcut(Key::A, 0).build()
+    /// # ;
     /// ```
     pub fn add_item(&mut self, name: &str, id: usize) -> MenuItem {
         MenuItem {
@@ -753,8 +789,11 @@ impl<'a> MenuItem<'a> {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut menu = Menu::new("test").unwrap();
     /// menu.add_item("test", 1).shortcut(Key::A, 0).build()
+    /// # ;
     /// ```
     pub fn shortcut(self, key: Key, modifier: usize) -> Self {
         MenuItem {
@@ -768,8 +807,11 @@ impl<'a> MenuItem<'a> {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut menu = Menu::new("test").unwrap();
     /// menu.add_item("", 0).separator().build()
+    /// # ;
     /// ```
     /// Notice that it's usually easier to just call ```menu.add_separator()``` directly
     pub fn separator(self) -> Self {
@@ -783,8 +825,11 @@ impl<'a> MenuItem<'a> {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut menu = Menu::new("test").unwrap();
     /// menu.add_item("test", 1).enabled(false).build()
+    /// # ;
     /// ```
     pub fn enabled(self, enabled: bool) -> Self {
         MenuItem {
@@ -797,8 +842,11 @@ impl<'a> MenuItem<'a> {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut menu = Menu::new("test").unwrap();
     /// menu.add_item("test", 1).enabled(false).build()
+    /// # ;
     /// ```
     pub fn build(&mut self) -> MenuItemHandle {
         let t = self.clone();
