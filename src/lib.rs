@@ -222,14 +222,23 @@ impl Window {
     }
 
     ///
-    /// Updates the window with a 32-bit pixel buffer. Notice that the buffer needs to be at least
-    /// the size of the created window
+    /// Updates the window with a 32-bit pixel buffer. The encoding for each pixel is `0RGB`:
+    /// The upper 8-bits are ignored, the next 8-bits are for the red channel, the next 8-bits
+    /// afterwards for the green channel, and the lower 8-bits for the blue channel.
+    ///
+    /// Notice that the buffer needs to be at least the size of the created window.
     ///
     /// # Examples
     ///
     /// ```no_run
     /// # use minifb::*;
-    /// let mut buffer: Vec<u32> = vec![0; 640 * 400];
+    /// fn from_u8_rgb(r: u8, g: u8, b: u8) -> u32 {
+    ///     let (r, g, b) = (r as u32, g as u32, b as u32);
+    ///     (r << 16) | (g << 8) | b
+    /// }
+    /// let azure_blue = from_u8_rgb(0, 127, 255);
+    ///
+    /// let mut buffer: Vec<u32> = vec![azure_blue; 640 * 400];
     ///
     /// let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     ///
