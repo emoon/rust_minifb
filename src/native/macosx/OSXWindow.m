@@ -144,11 +144,18 @@
 			object:self];
 
 		frameView = [[[OSXWindowFrameView alloc] initWithFrame:bounds] autorelease];
+
 		[super setContentView:frameView];
 	}
 
+	frame_view = frameView;
+
 	if (childContentView)
 		[childContentView removeFromSuperview];
+
+	printf("osxwindow: setContentFrameView %p\n", frameView);
+	//printf("osxwindow: setting controller %p\n", view_controller);
+	//frameView->m_view_controller = view_controller;
 
 	//NSRect t = [self contentRectForFrameRect:bounds];
 

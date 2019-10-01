@@ -53,6 +53,7 @@ void build_submenu(NSMenu* menu, MenuDesc* desc);
 	@public int active_menu_id;
 	@public int prev_cursor;
 	@public MenuData* menu_data;
+	@public void* frame_view;
 }
 
 

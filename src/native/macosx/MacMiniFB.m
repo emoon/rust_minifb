@@ -8,12 +8,12 @@
 extern id<MTLDevice> g_metal_device;
 extern id<MTLCommandQueue> g_command_queue;
 extern id<MTLLibrary> g_library;
-extern id<MTLRenderPipelineState> g_pipeline_state; 
+extern id<MTLRenderPipelineState> g_pipeline_state;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 NSString* g_shadersSrc = @
-"	#include <metal_stdlib>\n"  
+"	#include <metal_stdlib>\n"
 	"using namespace metal;\n"
 
 	"struct VertexOutput {\n"
@@ -108,9 +108,9 @@ static bool create_shaders() {
 
 	// Error update
 	if (nsError || !library) {
-		NSLog(@"Unable to create shaders %@", nsError); 
+		NSLog(@"Unable to create shaders %@", nsError);
 		return false;
-	}                            
+	}
 
 	NSLog(@"Names %@", [g_library functionNames]);
 
@@ -173,7 +173,7 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 		s_init = true;
 	}
 
-	NSWindowStyleMask styles = NSWindowStyleMaskClosable | NSWindowStyleMaskResizable; 
+	NSWindowStyleMask styles = NSWindowStyleMaskClosable | NSWindowStyleMaskResizable;
 
 	if (flags & WINDOW_BORDERLESS)
 		styles |= NSWindowStyleMaskBorderless;
@@ -191,14 +191,13 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 	if (!window)
 		return 0;
 
-	window->draw_buffer = malloc(width * height * 4);
+	window->draw_buffer = malloc((width * height * 4) * 8);
 
 	if (!window->draw_buffer)
 		return 0;
 
 	// Setup command queue
 	g_command_queue = [g_metal_device newCommandQueue];
-
 
     WindowViewController* viewController = [WindowViewController new];
 
@@ -213,7 +212,7 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 	textureDescriptor.height = height;
 
 	// Create the texture from the device by using the descriptor
-	
+
 	for (int i = 0; i < MaxBuffersInFlight; ++i) {
 		viewController->m_texture_buffers[i] = [g_metal_device newTextureWithDescriptor:textureDescriptor];
 	}
@@ -223,12 +222,16 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
     viewController->m_draw_buffer = window->draw_buffer;
     viewController->m_width = width;
     viewController->m_height = height;
+    viewController->m_delayed_delete_count = 0;
 
     MTKView* view = [[MTKView alloc] initWithFrame:rectangle];
-    view.device = g_metal_device; 
+    view.device = g_metal_device;
     view.delegate = viewController;
     view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     [window.contentView addSubview:view];
+
+    OSXWindowFrameView* temp_view = window->frame_view;
+    temp_view->m_view_controller = viewController;
 
 	window->width = width;
 	window->height = height;
@@ -451,7 +454,13 @@ int mfb_update(void* window, void* buffer)
 int mfb_update_with_buffer(void* window, void* buffer)
 {
 	OSXWindow* win = (OSXWindow*)window;
-	memcpy(win->draw_buffer, buffer, win->width * win->height * 4);
+
+	if (win->shared_data) {
+		SharedData* shared_data = (SharedData*)win->shared_data;
+		memcpy(win->draw_buffer, buffer, shared_data->width * shared_data->height * 4);
+	} else {
+		memcpy(win->draw_buffer, buffer, win->width * win->height * 4);
+	}
 
 	int state = generic_update(win);
 
