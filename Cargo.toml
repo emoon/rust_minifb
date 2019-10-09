@@ -21,7 +21,7 @@ cc = "1.0"
 
 [dependencies]
 cast = "0.2"
-time = "0.1.34"
+time = { git = "https://gitlab.redox-os.org/redox-os/time", branch = "redox-unix" } 
 
 [target.'cfg(windows)'.dependencies.winapi]
 version = "0.3"
