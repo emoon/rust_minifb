@@ -1,0 +1,8 @@
+# The default value of `--target` used when building this crate
+# in cases where it's not specified on the command line.
+default-target = "wasm32-unknown-unknown"
+
+[cargo-web]
+# Asserts the minimum required version of `cargo-web` necessary
+# to compile this crate; supported since 0.6.0.
+minimum-version = "0.6.0"

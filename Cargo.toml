@@ -25,6 +25,9 @@ cc = "1.0"
 
 [dependencies]
 raw-window-handle = "0.4"
+cast = "0.2"
+time = "0.1.34"
+instant = { version = "0.1", features = [ "web-sys", "now" ] }
 
 [target.'cfg(windows)'.dependencies.winapi]
 version = "0.3"
@@ -57,3 +60,12 @@ libc = { version = "0.2.107", optional = true }
 
 [target.x86_64-unknown-redox.dependencies]
 orbclient = "0.3.20"
+
+[target.wasm32-unknown-unknown.dependencies]
+stdweb = "0.4.20"
+
+[target.wasm32-unknown-emscripten.dependencies]
+stdweb = "0.4.20"
+
+[target.asmjs-unknown-emscripten.dependencies]
+stdweb = "0.4.20"

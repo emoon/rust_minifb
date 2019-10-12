@@ -12,3 +12,5 @@ pub mod posix;
 pub mod redox;
 #[cfg(target_os = "windows")]
 pub mod windows;
+#[cfg(target_arch = "wasm32")]
+pub mod wasm;

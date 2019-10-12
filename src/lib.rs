@@ -5,6 +5,11 @@
 //!
 #![deny(missing_debug_implementations)]
 
+// Defined here because we need the macros
+#[macro_use]
+#[cfg(target_arch = "wasm32")]
+extern crate stdweb;
+
 use std::fmt;
 use std::os::raw;
 
@@ -126,6 +131,8 @@ use self::os::posix as imp;
 use self::os::redox as imp;
 #[cfg(target_os = "windows")]
 use self::os::windows as imp;
+#[cfg(target_arch = "wasm32")]
+use self::os::wasm as imp;
 ///
 /// Window is used to open up a window. It's possible to optionally display a 32-bit buffer when
 /// the widow is set as non-resizable.
