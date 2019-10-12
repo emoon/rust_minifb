@@ -121,6 +121,8 @@ use self::os::windows as imp;
 use self::os::unix as imp;
 #[cfg(target_os = "redox")]
 use self::os::redox as imp;
+#[cfg(target_arch = "wasm32")]
+use self::os::wasm as imp;
 ///
 /// Window is used to open up a window. It's possible to optionally display a 32-bit buffer when
 /// the widow is set as non-resizable.

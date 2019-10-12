@@ -10,3 +10,5 @@ pub mod windows;
 pub mod unix;
 #[cfg(target_os = "redox")]
 pub mod redox;
+#[cfg(target_arch = "wasm32")]
+pub mod wasm;

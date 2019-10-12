@@ -52,3 +52,12 @@ x11-dl = "2.18.3"
 
 [target.x86_64-unknown-redox.dependencies]
 orbclient = "0.3.20"
+
+[target.wasm32-unknown-unknown.dependencies]
+stdweb = "0.4.20"
+
+[target.wasm32-unknown-emscripten.dependencies]
+stdweb = "0.4.20"
+
+[target.asmjs-unknown-emscripten.dependencies]
+stdweb = "0.4.20"
