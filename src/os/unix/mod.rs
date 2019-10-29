@@ -275,7 +275,7 @@ impl Window {
             attributes.backing_store = xlib::NotUseful;
 
             let x = if d.screen_width > width { (d.screen_width - width) / 2 } else { 0 };
-            let y = id d.screen_height > height { (d.screen_height - height) / 2 } else { 0 };
+            let y = if d.screen_height > height { (d.screen_height - height) / 2 } else { 0 };
 
             let handle = (d.lib.XCreateWindow)(
                 d.display,
