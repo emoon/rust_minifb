@@ -257,7 +257,7 @@ impl Window {
         // FIXME: this DisplayInfo should be a singleton, hence this code
         // is probably no good when using multiple windows.
 
-        let d = DisplayInfo::new()?;
+        let mut d = DisplayInfo::new()?;
 
         let scale = Self::get_scale_factor(width, height, d.screen_width, d.screen_height, opts.scale);
 
@@ -326,6 +326,7 @@ impl Window {
 
             (d.lib.XClearWindow)(d.display, handle);
             (d.lib.XMapRaised)(d.display, handle);
+            (d.lib.XSetWMProtocols)(d.display, handle, &mut d.wm_delete_window, 1);
             (d.lib.XFlush)(d.display);
 
             let mut draw_buffer: Vec<u32> = Vec::new();
