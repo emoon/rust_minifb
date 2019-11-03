@@ -936,6 +936,8 @@ impl Window {
             XK_Scroll_Lock => Key::ScrollLock,
             XK_Shift_L => Key::LeftShift,
             XK_Shift_R => Key::RightShift,
+            XK_Alt_L => Key::LeftAlt,
+            XK_Alt_R => Key::RightAlt,
             XK_Control_L => Key::LeftCtrl,
             XK_Control_R => Key::RightCtrl,
             XK_Super_L => Key::LeftSuper,
