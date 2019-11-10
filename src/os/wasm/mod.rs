@@ -3,19 +3,21 @@
 extern crate stdweb;
 use os::wasm::stdweb::{
     unstable::TryInto,
-    web::{document, window, html_element::CanvasElement, CanvasRenderingContext2d, ImageData},
+    web::{
+        document, html_element::CanvasElement, window, CanvasRenderingContext2d, INode, ImageData,
+    },
 };
 
-use error::Error;
-use Result;
-use mouse_handler;
 use buffer_helper;
+use error::Error;
 use key_handler::KeyHandler;
+use mouse_handler;
 use InputCallback;
+use Result;
 use {CursorStyle, MouseButton, MouseMode};
 use {Key, KeyRepeat};
+use {MenuHandle, MenuItem, MenuItemHandle, UnixMenu, UnixMenuItem};
 use {Scale, WindowOptions};
-use {MenuItem, MenuItemHandle, MenuHandle, UnixMenu, UnixMenuItem};
 
 use std::os::raw;
 
@@ -36,23 +38,26 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn new(name: &str,
-        width: usize,
-        height: usize,
-        opts: WindowOptions)
-        -> Result<Window> {
+    pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
         stdweb::initialize();
 
-        let canvas: CanvasElement = document()
+        let document = document();
+        document.set_title(name);
+
+        // Create a canvas element and place it in the window
+        let canvas: CanvasElement = document
             .create_element("canvas")
             .unwrap()
             .try_into()
             .unwrap();
 
+        let body = document.body().unwrap();
+        body.append_child(&canvas);
+
         canvas.set_width(width as u32);
         canvas.set_height(height as u32);
 
-        let window = Window {
+        let mut window = Window {
             width: width as u32,
             height: height as u32,
             mouse_pos: None,
@@ -69,6 +74,8 @@ impl Window {
 
         stdweb::event_loop();
 
+        window.set_title(name);
+
         Ok(window)
     }
 
@@ -84,20 +91,19 @@ impl Window {
 
     pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
         let context: CanvasRenderingContext2d = self.canvas.get_context().unwrap();
-        let buffer = context.create_image_data(self.width as f64, self.height as f64).unwrap();
+        let buffer = context
+            .create_image_data(self.width as f64, self.height as f64)
+            .unwrap();
 
         context.put_image_data(buffer, 0.0, 0.0).unwrap();
 
         Ok(())
     }
 
-    pub fn update(&mut self) {
-
-    }
+    pub fn update(&mut self) {}
 
     #[inline]
-    pub fn set_position(&mut self, x: isize, y: isize) {
-    }
+    pub fn set_position(&mut self, x: isize, y: isize) {}
 
     #[inline]
     pub fn get_size(&self) -> (usize, usize) {
@@ -114,9 +120,9 @@ impl Window {
 
     pub fn get_mouse_down(&self, button: MouseButton) -> bool {
         match button {
-            MouseButton::Left   => self.mouse_state.0,
+            MouseButton::Left => self.mouse_state.0,
             MouseButton::Middle => self.mouse_state.1,
-            MouseButton::Right  => self.mouse_state.2,
+            MouseButton::Right => self.mouse_state.2,
         }
     }
 
@@ -125,8 +131,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_cursor_style(&mut self, cursor: CursorStyle) {
-    }
+    pub fn set_cursor_style(&mut self, cursor: CursorStyle) {}
 
     #[inline]
     pub fn get_keys(&self) -> Option<Vec<Key>> {
@@ -144,16 +149,13 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>)  {
-    }
+    pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>) {}
 
     #[inline]
-    pub fn set_key_repeat_delay(&mut self, delay: f32) {
-    }
+    pub fn set_key_repeat_delay(&mut self, delay: f32) {}
 
     #[inline]
-    pub fn set_key_repeat_rate(&mut self, rate: f32) {
-    }
+    pub fn set_key_repeat_rate(&mut self, rate: f32) {}
 
     #[inline]
     pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
@@ -217,9 +219,7 @@ impl Menu {
         })
     }
 
-    pub fn add_sub_menu(&mut self, name: &str, sub_menu: &Menu) {
-
-    }
+    pub fn add_sub_menu(&mut self, name: &str, sub_menu: &Menu) {}
 
     fn next_item_handle(&mut self) -> MenuItemHandle {
         let handle = self.internal.item_counter;
@@ -239,10 +239,7 @@ impl Menu {
             modifier: item.modifier,
         });
         item_handle
-
     }
 
-    pub fn remove_item(&mut self, handle: &MenuItemHandle) {
-
-    }
+    pub fn remove_item(&mut self, handle: &MenuItemHandle) {}
 }
