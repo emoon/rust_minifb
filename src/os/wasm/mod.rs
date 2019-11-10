@@ -1,7 +1,6 @@
 #![cfg(target_arch = "wasm32")]
 
-extern crate stdweb;
-use os::wasm::stdweb::{
+use stdweb::{
     unstable::TryInto,
     web::{
         document, html_element::CanvasElement, window, CanvasRenderingContext2d, INode, ImageData,
@@ -31,6 +30,7 @@ pub struct Window {
     window_scale: usize,
 
     canvas: CanvasElement,
+    context: CanvasRenderingContext2d,
 
     key_handler: KeyHandler,
     menu_counter: MenuHandle,
@@ -57,6 +57,9 @@ impl Window {
         canvas.set_width(width as u32);
         canvas.set_height(height as u32);
 
+        // Create an image buffer
+        let context: CanvasRenderingContext2d = canvas.get_context().unwrap();
+
         let mut window = Window {
             width: width as u32,
             height: height as u32,
@@ -66,6 +69,7 @@ impl Window {
             window_scale: 1,
 
             canvas,
+            context,
 
             key_handler: KeyHandler::new(),
             menu_counter: MenuHandle(0),
@@ -90,12 +94,32 @@ impl Window {
     }
 
     pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
-        let context: CanvasRenderingContext2d = self.canvas.get_context().unwrap();
-        let buffer = context
+        let image_data = self
+            .context
             .create_image_data(self.width as f64, self.height as f64)
             .unwrap();
 
-        context.put_image_data(buffer, 0.0, 0.0).unwrap();
+        for i in 0..buffer.len() {
+            let pixel = buffer[i];
+            let r = ((pixel & 0x00FF0000) >> 16) as u8;
+            let g = ((pixel & 0x0000FF00) >> 8) as u8;
+            let b = (pixel & 0x000000FF) as u8;
+            let a = ((pixel & 0xFF000000) >> 24) as u8;
+
+            let r = 255;
+            let a = 255;
+
+            let index = i as u32 * 4;
+            js!(
+                @{&image_data}.data[@{index} + 0] = @{r};  // R value
+                @{&image_data}.data[@{index} + 1] = @{g};    // G value
+                @{&image_data}.data[@{index} + 2] = @{b};  // B value
+                @{&image_data}.data[@{index} + 3] = @{a};  // A value
+            );
+        }
+
+        let context: CanvasRenderingContext2d = self.canvas.get_context().unwrap();
+        context.put_image_data(image_data, 0.0, 0.0).unwrap();
 
         Ok(())
     }
