@@ -1,11 +1,14 @@
-on: [push]
+on: [push, pull_request]
 
 name: CI
 
 jobs:
   build_and_test:
     name: Rust project
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@master
       - uses: actions-rs/cargo@v1
