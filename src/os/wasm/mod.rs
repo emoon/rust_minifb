@@ -3,7 +3,8 @@
 use stdweb::{
     unstable::TryInto,
     web::{
-        document, html_element::CanvasElement, window, CanvasRenderingContext2d, INode, ImageData,
+        self, document, html_element::CanvasElement, window, CanvasRenderingContext2d, INode,
+        IParentNode, ImageData,
     },
 };
 
@@ -40,6 +41,12 @@ pub struct Window {
 impl Window {
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
         stdweb::initialize();
+
+        js!(
+            window.onload = function() {
+                console.log("Hello");
+            }
+        );
 
         let document = document();
         document.set_title(name);
@@ -94,6 +101,13 @@ impl Window {
     }
 
     pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
+        buffer_helper::check_buffer_size(
+            self.width as usize,
+            self.height as usize,
+            self.window_scale,
+            buffer,
+        )?;
+
         let image_data = self
             .context
             .create_image_data(self.width as f64, self.height as f64)
@@ -106,20 +120,18 @@ impl Window {
             let b = (pixel & 0x000000FF) as u8;
             let a = ((pixel & 0xFF000000) >> 24) as u8;
 
-            let r = 255;
-            let a = 255;
-
             let index = i as u32 * 4;
             js!(
                 @{&image_data}.data[@{index} + 0] = @{r};  // R value
-                @{&image_data}.data[@{index} + 1] = @{g};    // G value
+                @{&image_data}.data[@{index} + 1] = @{g};  // G value
                 @{&image_data}.data[@{index} + 2] = @{b};  // B value
                 @{&image_data}.data[@{index} + 3] = @{a};  // A value
             );
         }
 
-        let context: CanvasRenderingContext2d = self.canvas.get_context().unwrap();
-        context.put_image_data(image_data, 0.0, 0.0).unwrap();
+        self.context.put_image_data(image_data, 0.0, 0.0).unwrap();
+
+        self.update();
 
         Ok(())
     }

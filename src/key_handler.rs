@@ -1,7 +1,8 @@
+extern crate instant;
 extern crate time;
 
 use std::mem;
-use {Key, KeyRepeat, InputCallback};
+use {InputCallback, Key, KeyRepeat};
 
 pub struct KeyHandler {
     pub key_callback: Option<Box<dyn InputCallback>>,
@@ -21,7 +22,7 @@ impl KeyHandler {
             keys: [false; 512],
             keys_prev: [false; 512],
             keys_down_duration: [-1.0; 512],
-            prev_time: time::precise_time_s(),
+            prev_time: self::instant::now(),
             delta_time: 0.0,
             key_repeat_delay: 0.250,
             key_repeat_rate: 0.050,
@@ -118,7 +119,9 @@ impl KeyHandler {
         if repeat == KeyRepeat::Yes && t > self.key_repeat_delay {
             let delay = self.key_repeat_delay;
             let rate = self.key_repeat_rate;
-            if (((t - delay) % rate) > rate * 0.5) != (((t - delay - self.delta_time) % rate) > rate * 0.5) {
+            if (((t - delay) % rate) > rate * 0.5)
+                != (((t - delay - self.delta_time) % rate) > rate * 0.5)
+            {
                 return true;
             }
         }
