@@ -178,9 +178,7 @@ impl DisplayInfo {
     fn load_cursor(&mut self, name: &'static str) -> xlib::Cursor {
         let name = CString::new(name).expect("static data");
 
-        unsafe {
-            (self.cursor_lib.XcursorLibraryLoadCursor)(self.display, name.as_ptr())
-        }
+        unsafe { (self.cursor_lib.XcursorLibraryLoadCursor)(self.display, name.as_ptr()) }
     }
 
     fn init_atoms(&mut self) {
@@ -259,7 +257,8 @@ impl Window {
 
         let mut d = DisplayInfo::new()?;
 
-        let scale = Self::get_scale_factor(width, height, d.screen_width, d.screen_height, opts.scale);
+        let scale =
+            Self::get_scale_factor(width, height, d.screen_width, d.screen_height, opts.scale);
 
         let width = width * scale;
         let height = height * scale;
@@ -274,8 +273,16 @@ impl Window {
 
             attributes.backing_store = xlib::NotUseful;
 
-            let x = if d.screen_width > width { (d.screen_width - width) / 2 } else { 0 };
-            let y = if d.screen_height > height { (d.screen_height - height) / 2 } else { 0 };
+            let x = if d.screen_width > width {
+                (d.screen_width - width) / 2
+            } else {
+                0
+            };
+            let y = if d.screen_height > height {
+                (d.screen_height - height) / 2
+            } else {
+                0
+            };
 
             let handle = (d.lib.XCreateWindow)(
                 d.display,
@@ -363,7 +370,12 @@ impl Window {
         }
     }
 
-    unsafe fn alloc_image(d: &DisplayInfo, width: usize, height: usize, draw_buffer: &mut Vec<u32>) -> Option<*mut xlib::XImage> {
+    unsafe fn alloc_image(
+        d: &DisplayInfo,
+        width: usize,
+        height: usize,
+        draw_buffer: &mut Vec<u32>,
+    ) -> Option<*mut xlib::XImage> {
         let bytes_per_line = (width as i32) * 4;
 
         draw_buffer.resize(width * height, 0);
@@ -550,7 +562,13 @@ impl Window {
         true
     }
 
-    fn get_scale_factor(width: usize, height: usize, screen_width: usize, screen_height: usize, scale: Scale) -> usize {
+    fn get_scale_factor(
+        width: usize,
+        height: usize,
+        screen_width: usize,
+        screen_height: usize,
+        scale: Scale,
+    ) -> usize {
         match scale {
             Scale::X1 => 1,
             Scale::X2 => 2,
@@ -743,7 +761,9 @@ impl Window {
                     &self.d,
                     cast::usize(self.width),
                     cast::usize(self.height),
-                    &mut self.draw_buffer).expect("todo");
+                    &mut self.draw_buffer,
+                )
+                .expect("todo");
             }
 
             _ => {}
@@ -997,13 +1017,7 @@ macro_rules! gen_scale_x(
     )
 );
 
-gen_scale_x!(
-    scale_2x, 2,
-    scale_4x, 4,
-    scale_8x, 8,
-    scale_16x, 16,
-    scale_32x, 32,
-);
+gen_scale_x!(scale_2x, 2, scale_4x, 4, scale_8x, 8, scale_16x, 16, scale_32x, 32,);
 
 impl Drop for Window {
     fn drop(&mut self) {

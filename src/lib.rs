@@ -50,7 +50,6 @@ pub enum MouseButton {
     Right,
 }
 
-
 /// The diffrent modes that can be used to decide how mouse coordinates should be handled
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum MouseMode {
@@ -94,11 +93,11 @@ pub use self::error::Error;
 pub type Result<T> = std::result::Result<T, Error>;
 
 mod key;
-pub use key::Key as Key;
-mod os;
-mod mouse_handler;
+pub use key::Key;
 mod buffer_helper;
 mod key_handler;
+mod mouse_handler;
+mod os;
 mod window_flags;
 //mod menu;
 //pub use menu::Menu as Menu;
@@ -108,19 +107,20 @@ mod window_flags;
 //pub use menu::MENU_KEY_CTRL;
 //pub use menu::MENU_KEY_ALT;
 
-
 #[cfg(target_os = "macos")]
 use self::os::macos as imp;
-#[cfg(target_os = "windows")]
-use self::os::windows as imp;
-#[cfg(any(target_os="linux",
-    target_os="freebsd",
-    target_os="dragonfly",
-    target_os="netbsd",
-    target_os="openbsd"))]
-use self::os::unix as imp;
 #[cfg(target_os = "redox")]
 use self::os::redox as imp;
+#[cfg(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "dragonfly",
+    target_os = "netbsd",
+    target_os = "openbsd"
+))]
+use self::os::unix as imp;
+#[cfg(target_os = "windows")]
+use self::os::windows as imp;
 ///
 /// Window is used to open up a window. It's possible to optionally display a 32-bit buffer when
 /// the widow is set as non-resizable.
@@ -129,9 +129,7 @@ pub struct Window(imp::Window);
 
 impl fmt::Debug for Window {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("Window")
-            .field(&format_args!(".."))
-            .finish()
+        f.debug_tuple("Window").field(&format_args!("..")).finish()
     }
 }
 
@@ -554,7 +552,7 @@ impl Window {
     /// Set input callback to recive callback on char input
     ///
     #[inline]
-    pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>)  {
+    pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>) {
         self.0.set_input_callback(callback)
     }
 
@@ -590,18 +588,19 @@ impl Window {
     /// Get Unix menu. Will only return menus on Unix class OSes
     /// otherwise ```None```
     ///
-    #[cfg(any(target_os="macos",
-              target_os="windows"))]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
         None
     }
 
-    #[cfg(any(target_os="linux",
-        target_os="freebsd",
-        target_os="dragonfly",
-        target_os="netbsd",
-        target_os="openbsd",
-        target_os="redox"))]
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "freebsd",
+        target_os = "dragonfly",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "redox"
+    ))]
     pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
         self.0.get_unix_menus()
     }
@@ -615,7 +614,6 @@ impl Window {
     }
 }
 
-
 /// Command key on Mac OS
 pub const MENU_KEY_COMMAND: usize = 1;
 /// Windows key on Windows
@@ -627,7 +625,7 @@ pub const MENU_KEY_CTRL: usize = 8;
 /// Alt key
 pub const MENU_KEY_ALT: usize = 16;
 
-const MENU_ID_SEPARATOR:usize = 0xffffffff;
+const MENU_ID_SEPARATOR: usize = 0xffffffff;
 
 ///
 /// Used on Unix (Linux, FreeBSD, etc) as menus aren't supported in a native where there.
@@ -635,14 +633,14 @@ const MENU_ID_SEPARATOR:usize = 0xffffffff;
 ///
 #[derive(Debug, Clone)]
 pub struct UnixMenu {
-	/// Name of the menu
-	pub name: String,
-	/// All items of the menu.
-	pub items: Vec<UnixMenuItem>,
+    /// Name of the menu
+    pub name: String,
+    /// All items of the menu.
+    pub items: Vec<UnixMenuItem>,
     #[doc(hidden)]
-	pub handle: MenuHandle,
+    pub handle: MenuHandle,
     #[doc(hidden)]
-	pub item_counter: MenuItemHandle,
+    pub item_counter: MenuItemHandle,
 }
 
 ///
@@ -652,10 +650,10 @@ pub struct UnixMenu {
 #[derive(Debug, Clone)]
 pub struct UnixMenuItem {
     /// Set to a menu if there is a Item is a sub_menu otherwise None
-	pub sub_menu: Option<Box<UnixMenu>>,
-	/// Handle of the MenuItem
-	pub handle: MenuItemHandle,
-	/// Id of the item (set by the user from the outside and should be reported back when pressed)
+    pub sub_menu: Option<Box<UnixMenu>>,
+    /// Handle of the MenuItem
+    pub handle: MenuItemHandle,
+    /// Id of the item (set by the user from the outside and should be reported back when pressed)
     pub id: usize,
     /// Name of the item
     pub label: String,
@@ -675,7 +673,6 @@ pub struct MenuItemHandle(pub u64);
 #[doc(hidden)]
 pub struct MenuHandle(pub u64);
 
-
 ///
 /// Menu holds info for menus
 ///
@@ -683,9 +680,7 @@ pub struct Menu(imp::Menu);
 
 impl fmt::Debug for Menu {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("Menu")
-            .field(&format_args!(".."))
-            .finish()
+        f.debug_tuple("Menu").field(&format_args!("..")).finish()
     }
 }
 
@@ -709,7 +704,10 @@ impl Menu {
 
     /// Adds a menu separator
     pub fn add_separator(&mut self) {
-        self.add_menu_item(&MenuItem { id: MENU_ID_SEPARATOR, ..MenuItem::default() });
+        self.add_menu_item(&MenuItem {
+            id: MENU_ID_SEPARATOR,
+            ..MenuItem::default()
+        });
     }
 
     #[inline]
@@ -808,7 +806,7 @@ impl<'a> MenuItem<'a> {
         MenuItem {
             key: key,
             modifier: modifier,
-            .. self
+            ..self
         }
     }
     #[inline]
@@ -826,7 +824,7 @@ impl<'a> MenuItem<'a> {
     pub fn separator(self) -> Self {
         MenuItem {
             id: MENU_ID_SEPARATOR,
-            .. self
+            ..self
         }
     }
     #[inline]
@@ -843,7 +841,7 @@ impl<'a> MenuItem<'a> {
     pub fn enabled(self, enabled: bool) -> Self {
         MenuItem {
             enabled: enabled,
-            .. self
+            ..self
         }
     }
     #[inline]
