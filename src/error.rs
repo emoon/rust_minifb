@@ -38,18 +38,10 @@ impl StdError for Error {
 impl fmt::Display for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::MenusNotSupported => {
-                write!(fmt, "{}", self.description())
-            },
-            Error::MenuExists(ref e) => {
-                write!(fmt, "{} {:?}", self.description(), e)
-            },
-            Error::WindowCreate(ref e) => {
-                write!(fmt, "{} {:?}", self.description(), e)
-            }
-            Error::UpdateFailed(ref e) => {
-                write!(fmt, "{} {:?}", self.description(), e)
-            }
+            Error::MenusNotSupported => write!(fmt, "{}", self.description()),
+            Error::MenuExists(ref e) => write!(fmt, "{} {:?}", self.description(), e),
+            Error::WindowCreate(ref e) => write!(fmt, "{} {:?}", self.description(), e),
+            Error::UpdateFailed(ref e) => write!(fmt, "{} {:?}", self.description(), e),
         }
     }
 }

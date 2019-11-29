@@ -3,16 +3,16 @@
 extern crate orbclient;
 use os::redox::orbclient::Renderer;
 
-use error::Error;
-use Result;
-use mouse_handler;
 use buffer_helper;
+use error::Error;
 use key_handler::KeyHandler;
+use mouse_handler;
 use InputCallback;
+use Result;
 use {CursorStyle, MouseButton, MouseMode};
 use {Key, KeyRepeat};
+use {MenuHandle, MenuItem, MenuItemHandle, UnixMenu, UnixMenuItem};
 use {Scale, WindowOptions};
-use {MenuItem, MenuItemHandle, MenuHandle, UnixMenu, UnixMenuItem};
 
 use std::cmp;
 use std::os::raw;
@@ -47,14 +47,15 @@ impl Window {
                     .map_err(|_| Error::WindowCreate("Unable to get display size".to_owned()))?;
                 let mut scale = 32;
                 while scale > 1 {
-                    if width * scale < display_size.0 as usize &&
-                        height * scale < display_size.1 as usize {
+                    if width * scale < display_size.0 as usize
+                        && height * scale < display_size.1 as usize
+                    {
                         break;
                     }
                     scale -= 1;
                 }
                 scale
-            },
+            }
         };
 
         let window_width = width as u32 * window_scale as u32;
@@ -68,29 +69,23 @@ impl Window {
             window_flags.push(orbclient::WindowFlag::Borderless);
         }
 
-        let window_opt = orbclient::Window::new_flags(-1,
-                                                      -1,
-                                                      window_width,
-                                                      window_height,
-                                                      name,
-                                                      &window_flags);
+        let window_opt =
+            orbclient::Window::new_flags(-1, -1, window_width, window_height, name, &window_flags);
         match window_opt {
-            Some(window) => {
-                Ok(Window {
-                    mouse_pos: None,
-                    mouse_scroll: None,
-                    mouse_state: (false, false, false),
-                    is_open: true,
-                    is_active: true,
-                    buffer_width: width,
-                    buffer_height: height,
-                    window: window,
-                    window_scale: window_scale,
-                    key_handler: KeyHandler::new(),
-                    menu_counter: MenuHandle(0),
-                    menus: Vec::new(),
-                })
-            },
+            Some(window) => Ok(Window {
+                mouse_pos: None,
+                mouse_scroll: None,
+                mouse_state: (false, false, false),
+                is_open: true,
+                is_active: true,
+                buffer_width: width,
+                buffer_height: height,
+                window: window,
+                window_scale: window_scale,
+                key_handler: KeyHandler::new(),
+                menu_counter: MenuHandle(0),
+                menus: Vec::new(),
+            }),
             None => Err(Error::WindowCreate("Unable to open Window".to_owned())),
         }
     }
@@ -107,7 +102,12 @@ impl Window {
         self.process_events();
         self.key_handler.update();
 
-        let check_res = buffer_helper::check_buffer_size(self.buffer_width, self.buffer_height, self.window_scale, buffer);
+        let check_res = buffer_helper::check_buffer_size(
+            self.buffer_width,
+            self.buffer_height,
+            self.window_scale,
+            buffer,
+        );
         if check_res.is_err() {
             return check_res;
         }
@@ -142,20 +142,22 @@ impl Window {
 
     pub fn get_mouse_down(&self, button: MouseButton) -> bool {
         match button {
-            MouseButton::Left   => self.mouse_state.0,
+            MouseButton::Left => self.mouse_state.0,
             MouseButton::Middle => self.mouse_state.1,
-            MouseButton::Right  => self.mouse_state.2,
+            MouseButton::Right => self.mouse_state.2,
         }
     }
 
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         if let Some((mouse_x, mouse_y)) = self.mouse_pos {
-            mouse_handler::get_pos(mode,
-                                   mouse_x as f32,
-                                   mouse_y as f32,
-                                   self.window_scale as f32,
-                                   self.buffer_width as f32 * self.window_scale as f32,
-                                   self.buffer_height as f32 * self.window_scale as f32)
+            mouse_handler::get_pos(
+                mode,
+                mouse_x as f32,
+                mouse_y as f32,
+                self.window_scale as f32,
+                self.buffer_width as f32 * self.window_scale as f32,
+                self.buffer_height as f32 * self.window_scale as f32,
+            )
         } else {
             None
         }
@@ -163,12 +165,14 @@ impl Window {
 
     pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         if let Some((mouse_x, mouse_y)) = self.mouse_pos {
-            mouse_handler::get_pos(mode,
-                                   mouse_x as f32,
-                                   mouse_y as f32,
-                                   1.0 as f32,
-                                   self.buffer_width as f32 * self.window_scale as f32,
-                                   self.buffer_height as f32 * self.window_scale as f32)
+            mouse_handler::get_pos(
+                mode,
+                mouse_x as f32,
+                mouse_y as f32,
+                1.0 as f32,
+                self.buffer_width as f32 * self.window_scale as f32,
+                self.buffer_height as f32 * self.window_scale as f32,
+            )
         } else {
             None
         }
@@ -228,26 +232,26 @@ impl Window {
                     if let Some(key) = key_opt {
                         self.key_handler.set_key_state(key, key_event.pressed);
                     }
-                },
+                }
                 orbclient::EventOption::Mouse(mouse_event) => {
                     self.mouse_pos = Some((mouse_event.x, mouse_event.y));
-                },
+                }
                 orbclient::EventOption::Button(button_event) => {
                     self.mouse_state = (button_event.left, button_event.middle, button_event.right);
-                },
+                }
                 orbclient::EventOption::Quit(_) => {
                     self.is_open = false;
-                },
+                }
                 orbclient::EventOption::Focus(focus_event) => {
                     self.is_active = focus_event.focused;
-                    if ! self.is_active {
+                    if !self.is_active {
                         self.mouse_pos = None;
                     }
-                },
+                }
                 orbclient::EventOption::Scroll(scroll_event) => {
                     self.mouse_pos = Some((scroll_event.x, scroll_event.y));
-                },
-                _ => { },
+                }
+                _ => {}
             }
         }
     }
@@ -335,16 +339,20 @@ impl Window {
             _ => {
                 println!("Unknown Orbital scancode 0x{:2x}", scancode);
                 None
-            },
+            }
         }
     }
 
     /// Renders the given pixel data into the Orbital window
     fn render_buffer(&mut self, buffer: &[u32]) {
-        let render_width = cmp::min(self.buffer_width * self.window_scale,
-                                    self.window.width() as usize);
-        let render_height = cmp::min(self.buffer_height * self.window_scale,
-                                     self.window.height() as usize);
+        let render_width = cmp::min(
+            self.buffer_width * self.window_scale,
+            self.window.width() as usize,
+        );
+        let render_height = cmp::min(
+            self.buffer_height * self.window_scale,
+            self.window.height() as usize,
+        );
 
         let window_width = self.window.width() as usize;
         let window_buffer = self.window.data_mut();
@@ -400,7 +408,7 @@ impl Menu {
                 item_counter: MenuItemHandle(0),
                 name: name.to_owned(),
                 items: Vec::new(),
-            }
+            },
         })
     }
 
@@ -438,6 +446,8 @@ impl Menu {
     }
 
     pub fn remove_item(&mut self, handle: &MenuItemHandle) {
-        self.internal.items.retain(|ref item| item.handle.0 != handle.0);
+        self.internal
+            .items
+            .retain(|ref item| item.handle.0 != handle.0);
     }
 }
