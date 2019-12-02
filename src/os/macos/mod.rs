@@ -250,7 +250,7 @@ unsafe impl raw_window_handle::HasRawWindowHandle for Window {
         let handle = raw_window_handle::macos::MacOsHandle {
             ns_window: self.handle,
             ns_view: std::ptr::null_mut(),
-            ..raw_window_handle::unix::MacOsHandle::empty()
+            ..raw_window_handle::macos::MacOsHandle::empty()
         };
         raw_window_handle::RawWindowHandle::MacOS(handle)
     }
