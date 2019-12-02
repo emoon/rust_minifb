@@ -10,6 +10,7 @@
 
 extern crate cast;
 extern crate x11_dl;
+extern crate raw_window_handle;
 
 use self::x11_dl::keysym::*;
 use self::x11_dl::xcursor;
@@ -240,6 +241,17 @@ pub struct Window {
     key_handler: KeyHandler,
     menu_counter: MenuHandle,
     menus: Vec<UnixMenu>,
+}
+
+unsafe impl raw_window_handle::HasRawWindowHandle for Window {
+    fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
+        let handle = raw_window_handle::unix::XlibHandle {
+            window: self.handle,
+            display: self.d.display as *mut core::ffi::c_void,
+            ..raw_window_handle::unix::XlibHandle::empty()
+        };
+        raw_window_handle::RawWindowHandle::Xlib(handle)
+    }
 }
 
 impl Window {

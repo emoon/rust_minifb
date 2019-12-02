@@ -1,5 +1,7 @@
 #![cfg(target_os = "macos")]
 
+extern crate raw_window_handle;
+
 use error::Error;
 use key_handler::KeyHandler;
 use Result;
@@ -240,6 +242,17 @@ unsafe extern "C" fn char_callback(window: *mut c_void, code_point: u32) {
 
     if let Some(ref mut callback) = (*win).key_handler.key_callback {
         callback.add_char(code_point);
+    }
+}
+
+unsafe impl raw_window_handle::HasRawWindowHandle for Window {
+    fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
+        let handle = raw_window_handle::macos::MacOsHandle {
+            ns_window: self.handle,
+            ns_view: std::ptr::null_mut(),
+            ..raw_window_handle::unix::MacOsHandle::empty()
+        };
+        raw_window_handle::RawWindowHandle::MacOS(handle)
     }
 }
 

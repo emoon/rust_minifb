@@ -1,5 +1,6 @@
 #![cfg(target_os = "windows")]
 
+extern crate raw_window_handle;
 extern crate time;
 extern crate winapi;
 
@@ -337,13 +338,16 @@ pub struct Window {
     cursors: [windef::HCURSOR; 8],
 }
 
-// TranslateAccelerator is currently missing in win-rs
-// #[cfg(target_family = "windows")]
-// #[link(name = "user32")]
-// #[allow(non_snake_case)]
-// extern "system" {
-//     fn RemoveMenu(menu: HMENU, pos: UINT, flags: UINT) -> BOOL;
-// }
+unsafe impl raw_window_handle::HasRawWindowHandle for Window {
+    fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
+        let handle = raw_window_handle::macos::WindowsHandle {
+            hwnd: self.handle.unwrap() as *raw::c_void,
+            hinstance: libloaderapi::GetModuleHandleA(ptr::null()),
+            ..raw_window_handle::unix::WindowsHandle::empty()
+        };
+        raw_window_handle::RawWindowHandle::WindowsHandle(handle)
+    }
+}
 
 impl Window {
     fn open_window(
