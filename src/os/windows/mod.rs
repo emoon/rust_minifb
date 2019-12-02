@@ -342,10 +342,10 @@ unsafe impl raw_window_handle::HasRawWindowHandle for Window {
     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
         let handle = raw_window_handle::windows::WindowsHandle {
             hwnd: self.window.unwrap() as *mut raw::c_void,
-            hinstance: libloaderapi::GetModuleHandleA(ptr::null()),
+            hinstance: libloaderapi::GetModuleHandleA(ptr::null()) as *mut raw::c_void,
             ..raw_window_handle::windows::WindowsHandle::empty()
         };
-        raw_window_handle::RawWindowHandle::WindowsHandle(handle)
+        raw_window_handle::RawWindowHandle::Windows(handle)
     }
 }
 
