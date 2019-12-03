@@ -34,8 +34,8 @@ fn main() {
         && !orig.is_key_down(Key::Escape)
         && !double.is_key_down(Key::Escape)
     {
-        orig.update_with_buffer(&buffer).unwrap();
-        double.update_with_buffer(&buffer).unwrap();
+        orig.update_with_buffer_size(&buffer, width, height).unwrap();
+        double.update_with_buffer_size(&buffer, width, height).unwrap();
         pos += 7;
         pos *= 13;
         pos %= buffer.len();
