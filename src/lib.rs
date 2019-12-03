@@ -145,7 +145,7 @@ pub struct WindowOptions {
     pub title: bool,
     /// If it should be possible to resize the window (default: false)
     pub resize: bool,
-    /// Scale of the window that used in conjunction with update_with_buffer (default: X1)
+    /// Scale of the window that used in conjunction with update_with_buffer_size (default: X1)
     pub scale: Scale,
 }
 
@@ -243,7 +243,45 @@ impl Window {
     /// window.update_with_buffer(&buffer).unwrap();
     /// ```
     #[inline]
+    #[deprecated(
+        since = "0.14.0",
+        note = "Please use the update_with_buffer_size instead. This function will be replaced with args given in update_with_buffer_size in the future."
+    )]
     pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
+        self.0.update_with_buffer(buffer)
+    }
+
+    ///
+    /// Updates the window with a 32-bit pixel buffer. The encoding for each pixel is `0RGB`:
+    /// The upper 8-bits are ignored, the next 8-bits are for the red channel, the next 8-bits
+    /// afterwards for the green channel, and the lower 8-bits for the blue channel.
+    ///
+    /// Notice that the buffer needs to be at least the size of the created window.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use minifb::*;
+    /// fn from_u8_rgb(r: u8, g: u8, b: u8) -> u32 {
+    ///     let (r, g, b) = (r as u32, g as u32, b as u32);
+    ///     (r << 16) | (g << 8) | b
+    /// }
+    /// let window_width = 600;
+    /// let window_height = 400;
+    /// let buffer_width = 600;
+    /// let buffer_height = 400;
+    ///
+    /// let azure_blue = from_u8_rgb(0, 127, 255);
+    ///
+    /// let mut buffer: Vec<u32> = vec![azure_blue; buffer_width * buffer_height];
+    ///
+    /// let mut window = Window::new("Test", window_width, window_height, WindowOptions::default()).unwrap();
+    ///
+    /// window.update_with_buffer_size(&buffer, buffer_width, buffer_height).unwrap();
+    /// ```
+    #[inline]
+    pub fn update_with_buffer_size(&mut self, buffer: &[u32], _width: usize, _height: usize) -> Result<()> {
+        // currently width / height isn't used but will be soon
         self.0.update_with_buffer(buffer)
     }
 
