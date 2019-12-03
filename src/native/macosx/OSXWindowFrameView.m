@@ -17,6 +17,8 @@ id<MTLRenderPipelineState> g_pipeline_state;
 
 -(void)drawInMTKView:(nonnull MTKView *)view
 {
+	//printf("draw view\n");
+
     // Wait to ensure only MaxBuffersInFlight number of frames are getting proccessed
     //   by any stage in the Metal pipeline (App, Metal, Drivers, GPU, etc)
     dispatch_semaphore_wait(m_semaphore, DISPATCH_TIME_FOREVER);
@@ -178,6 +180,51 @@ id<MTLRenderPipelineState> g_pipeline_state;
     object:[self window]];
 }
 
+- (void)viewDidEndLiveResize
+{
+	//NSRect originalFrame = [win frame];
+	//NSRect contentRect = [NSWindow contentRectForFrameRect: originalFrame styleMask: NSWindowStyleMaskTitled];
+    NSSize size = [self bounds].size;
+	//NSSize size = [[self contentView] frame].size;
+    OSXWindow* window = (OSXWindow*)[self window];
+
+    int width = (int)size.width;
+    int height = (int)size.height;
+
+    // if windows is resized we need to create new textures so we do that here and put the old textures in a
+    // "to delete" queue and set a frame counter of 3 frames before the gets released
+
+    if (window->shared_data) {
+		if ((width != window->shared_data->width) ||
+			(height != window->shared_data->height)) {
+
+			MTLTextureDescriptor* textureDescriptor = [[MTLTextureDescriptor alloc] init];
+
+			// Indicate that each pixel has a blue, green, red, and alpha channel, where each channel is
+			// an 8-bit unsigned normalized value (i.e. 0 maps to 0.0 and 255 maps to 1.0)
+			textureDescriptor.pixelFormat = MTLPixelFormatBGRA8Unorm;
+
+			// Set the pixel dimensions of the texture
+			textureDescriptor.width = width;
+			textureDescriptor.height = height;
+
+			// Create the texture from the device by using the descriptor
+
+			m_view_controller->m_width = width;
+			m_view_controller->m_height = height;
+
+			for (int i = 0; i < MaxBuffersInFlight; ++i) {
+				m_view_controller->m_delayed_delete_count = 3;
+				m_view_controller->m_delayed_delete_textures[i] = m_view_controller->m_texture_buffers[i];
+				m_view_controller->m_texture_buffers[i] = [g_metal_device newTextureWithDescriptor:textureDescriptor];
+			}
+		}
+
+        window->shared_data->width = width;
+        window->shared_data->height = height;
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 - (void)dealloc
@@ -190,14 +237,6 @@ id<MTLRenderPipelineState> g_pipeline_state;
 
 - (void)windowResized:(NSNotification *)notification
 {
-    (void)notification;
-    NSSize size = [self bounds].size;
-    OSXWindow* window = (OSXWindow*)[self window];
-
-    if (window->shared_data) {
-        window->shared_data->width = (int)(size.width);
-        window->shared_data->height = (int)(size.height);
-    }
 }
 
 @end

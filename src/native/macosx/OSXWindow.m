@@ -35,29 +35,57 @@
 {
 	const uint32_t flags = [event modifierFlags];
 
-	// Left Shift
-	key_callback(rust_data, 0x38, flags == 0x20102 ? 1 : 0);
+	// Ctrl checking - First check device dependent flags, otherwise fallback to none-device dependent
 
-	// RightShift
-	key_callback(rust_data, 0x3c, flags == 0x20104 ? 1 : 0);
+	if ((flags & NX_DEVICELCTLKEYMASK) || (flags & NX_DEVICERCTLKEYMASK)) {
+		key_callback(rust_data, 0x3b, (flags & NX_DEVICELCTLKEYMASK) ? 1 : 0); // Left Ctrl
+		key_callback(rust_data, 0x3e, (flags & NX_DEVICERCTLKEYMASK) ? 1 : 0); // Right Ctrl
+	} else if (flags & NX_CONTROLMASK) {
+		key_callback(rust_data, 0x3b, 1); // Left Ctrl
+		key_callback(rust_data, 0x3e, 1); // Right Ctrl
+	} else {
+		key_callback(rust_data, 0x3b, 0); // Left Ctrl
+		key_callback(rust_data, 0x3e, 0); // Right Ctrl
+	}
 
-	// Left Ctrl
-	key_callback(rust_data, 0x3b, flags == 0x40101 ? 1 : 0);
+	// Shift checking - First check device dependent flags, otherwise fallback to none-device dependent
 
-	// Right Ctrl
-	key_callback(rust_data, 0x3b, flags == 0x42101 ? 1 : 0);
+	if ((flags & NX_DEVICELSHIFTKEYMASK) || (flags & NX_DEVICERSHIFTKEYMASK)) {
+		key_callback(rust_data, 0x38, (flags & NX_DEVICELSHIFTKEYMASK) ? 1 : 0); // Left Shift
+		key_callback(rust_data, 0x3c, (flags & NX_DEVICERSHIFTKEYMASK) ? 1 : 0); // Right Shift
+	} else if (flags & NX_SHIFTMASK) {
+		key_callback(rust_data, 0x38, 1); // Left Shift
+		key_callback(rust_data, 0x3c, 1); // Right Shift
+	} else {
+		key_callback(rust_data, 0x38, 0); // Left Shift
+		key_callback(rust_data, 0x3c, 0); // Right Shift
+	}
 
-	// Left Alt
-	key_callback(rust_data, 0x3a, flags == 0x80120 ? 1 : 0);
+	// Alt checking - First check device dependent flags, otherwise fallback to none-device dependent
 
-	// Right Super
-	key_callback(rust_data, 0x3d, flags == 0x80140  ? 1 : 0);
+	if ((flags & NX_DEVICELALTKEYMASK) || (flags & NX_DEVICERALTKEYMASK)) {
+		key_callback(rust_data, 0x3a, (flags & NX_DEVICELALTKEYMASK) ? 1 : 0); // Left Alt
+		key_callback(rust_data, 0x3d, (flags & NX_DEVICERALTKEYMASK) ? 1 : 0); // Right Alt
+	} else if (flags & NX_ALTERNATEMASK) {
+		key_callback(rust_data, 0x3a, 1); // Left Alt
+		key_callback(rust_data, 0x3d, 1); // Right Alt
+	} else {
+		key_callback(rust_data, 0x3a, 0); // Left Alt
+		key_callback(rust_data, 0x3d, 0); // Right Alt
+	}
 
-	// Left Super
-	key_callback(rust_data, 0x37, flags == 0x100108 ? 1 : 0);
+	// Cmd checking - First check device dependent flags, otherwise fallback to none-device dependent
 
-	// Right Super
-	key_callback(rust_data, 0x36, flags == 0x100110 ? 1 : 0);
+	if ((flags & NX_DEVICELCMDKEYMASK) || (flags & NX_DEVICERCMDKEYMASK)) {
+		key_callback(rust_data, 0x37, (flags & NX_DEVICELCMDKEYMASK) ? 1 : 0); // Left Cmd
+		key_callback(rust_data, 0x36, (flags & NX_DEVICERCMDKEYMASK) ? 1 : 0); // Right Cmd
+	} else if (flags & NX_COMMANDMASK) {
+		key_callback(rust_data, 0x37, 1); // Left Cmd
+		key_callback(rust_data, 0x36, 1); // Right Cmd
+	} else {
+		key_callback(rust_data, 0x37, 0); // Left Cmd
+		key_callback(rust_data, 0x36, 0); // Right Cmd
+	}
 
 	[super flagsChanged:event];
 }
@@ -144,11 +172,18 @@
 			object:self];
 
 		frameView = [[[OSXWindowFrameView alloc] initWithFrame:bounds] autorelease];
+
 		[super setContentView:frameView];
 	}
 
+	frame_view = frameView;
+
 	if (childContentView)
 		[childContentView removeFromSuperview];
+
+	printf("osxwindow: setContentFrameView %p\n", frameView);
+	//printf("osxwindow: setting controller %p\n", view_controller);
+	//frameView->m_view_controller = view_controller;
 
 	//NSRect t = [self contentRectForFrameRect:bounds];
 
