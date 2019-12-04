@@ -485,6 +485,9 @@ impl Window {
                 ],
             };
 
+            // Set arrow as default cursor
+            winuser::SetCursor(window.cursors[0]);
+
             Ok(window)
         }
     }
