@@ -1,6 +1,6 @@
 extern crate minifb;
 
-use minifb::{MouseButton, MouseMode, Window, Key, Scale, WindowOptions};
+use minifb::{Key, MouseButton, MouseMode, Scale, Window, WindowOptions};
 
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
@@ -8,12 +8,16 @@ const HEIGHT: usize = 360;
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 
-    let mut window = match Window::new("Mouse Draw - Press ESC to exit", WIDTH, HEIGHT,
-                                       WindowOptions {
-                                           resize: true,
-                                           scale: Scale::X2,
-                                           ..WindowOptions::default()
-                                       }) {
+    let mut window = match Window::new(
+        "Mouse Draw - Press ESC to exit",
+        WIDTH,
+        HEIGHT,
+        WindowOptions {
+            resize: true,
+            scale: Scale::X2,
+            ..WindowOptions::default()
+        },
+    ) {
         Ok(win) => win,
         Err(err) => {
             println!("Unable to create window {}", err);
@@ -27,7 +31,6 @@ fn main() {
         {
             let (new_width, new_height) = window.get_size();
             if new_width != width || new_height != height {
-
                 // copy valid bits of old buffer to new buffer
                 let mut new_buffer = vec![0; new_width * new_height / 2 / 2];
                 for y in 0..(height / 2).min(new_height / 2) {
@@ -38,13 +41,15 @@ fn main() {
                 buffer = new_buffer;
                 width = new_width;
                 height = new_height;
-
             }
         }
 
         window.get_mouse_pos(MouseMode::Discard).map(|(x, y)| {
             let screen_pos = ((y as usize) * width / 2) + x as usize;
-            println!("{:?}", window.get_unscaled_mouse_pos(MouseMode::Discard).unwrap());
+            println!(
+                "{:?}",
+                window.get_unscaled_mouse_pos(MouseMode::Discard).unwrap()
+            );
 
             if window.get_mouse_down(MouseButton::Left) {
                 buffer[screen_pos] = 0x00ffffff;
@@ -60,6 +65,6 @@ fn main() {
         });
 
         // We unwrap here as we want this code to exit if it fails
-        window.update_with_buffer(&buffer).unwrap();
+        window.update_with_buffer_size(&buffer, width, height).unwrap();
     }
 }

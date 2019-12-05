@@ -1,7 +1,7 @@
 extern crate minifb;
 
-use minifb::{InputCallback, Window, Key, Scale, WindowOptions, Menu};
-use minifb::{MENU_KEY_CTRL};
+use minifb::MENU_KEY_CTRL;
+use minifb::{InputCallback, Key, Menu, Scale, Window, WindowOptions};
 
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
@@ -24,31 +24,44 @@ impl InputCallback for KeyCharCallback {
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 
-    let mut window = Window::new("Menu Test - Press ESC to exit",
-                                 WIDTH,
-                                 HEIGHT,
-                                 WindowOptions {
-                                     resize: true,
-                                     scale: Scale::X2,
-                                     ..WindowOptions::default()
-                                 })
-                         .expect("Unable to Open Window");
+    let mut window = Window::new(
+        "Menu Test - Press ESC to exit",
+        WIDTH,
+        HEIGHT,
+        WindowOptions {
+            scale: Scale::X2,
+            ..WindowOptions::default()
+        },
+    )
+    .expect("Unable to Open Window");
 
     window.set_input_callback(Box::new(KeyCharCallback {}));
 
     let mut menu = Menu::new("Test").unwrap();
     let mut sub = Menu::new("Select Color").unwrap();
 
-    sub.add_item("Color 0", COLOR_0_ID).shortcut(Key::F1, 0).build();
-    sub.add_item("Color 1", COLOR_1_ID).shortcut(Key::F2, 0).build();
-    sub.add_item("Color 2", COLOR_2_ID).shortcut(Key::F7, 0).build();
+    sub.add_item("Color 0", COLOR_0_ID)
+        .shortcut(Key::F1, 0)
+        .build();
+    sub.add_item("Color 1", COLOR_1_ID)
+        .shortcut(Key::F2, 0)
+        .build();
+    sub.add_item("Color 2", COLOR_2_ID)
+        .shortcut(Key::F7, 0)
+        .build();
 
-    menu.add_item("Menu Test", MENU_TEST_ID).shortcut(Key::W, MENU_KEY_CTRL).build();
+    menu.add_item("Menu Test", MENU_TEST_ID)
+        .shortcut(Key::W, MENU_KEY_CTRL)
+        .build();
 
     menu.add_separator();
 
-    menu.add_item("Other Menu", OTHER_MENU_ID).shortcut(Key::W, MENU_KEY_CTRL).build();
-    menu.add_item("Remove Menu", CLOSE_MENU_ID).shortcut(Key::R, 0).build();
+    menu.add_item("Other Menu", OTHER_MENU_ID)
+        .shortcut(Key::W, MENU_KEY_CTRL)
+        .build();
+    menu.add_item("Remove Menu", CLOSE_MENU_ID)
+        .shortcut(Key::R, 0)
+        .build();
 
     menu.add_sub_menu("Sub Test", &sub);
 
@@ -99,6 +112,6 @@ fn main() {
         });
 
         // We unwrap here as we want this code to exit if it fails
-        window.update_with_buffer(&buffer).unwrap();
+        window.update_with_buffer_size(&buffer, WIDTH, HEIGHT).unwrap();
     }
 }

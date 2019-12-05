@@ -1,6 +1,6 @@
 extern crate minifb;
 
-use minifb::{CursorStyle, Window, Key, Scale, WindowOptions, MouseMode};
+use minifb::{CursorStyle, Key, MouseMode, Scale, Window, WindowOptions};
 
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
@@ -21,8 +21,7 @@ impl Rect {
         let xe = self.x + self.width;
         let ye = self.y + self.height;
 
-        if (y >= self.y) && (y <= ye) &&
-           (x >= self.x) && (x <= xe) {
+        if (y >= self.y) && (y <= ye) && (x >= self.x) && (x <= xe) {
             true
         } else {
             false
@@ -41,23 +40,81 @@ fn fill_rect(dest: &mut [u32], rect: &Rect) {
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 
-    let mut window = Window::new("I haz no title :(",
-                                 WIDTH,
-                                 HEIGHT,
-                                 WindowOptions {
-                                     scale: Scale::X2,
-                                     ..WindowOptions::default()
-                                 })
-                         .expect("Unable to Open Window");
+    let mut window = Window::new(
+        "I haz no title :(",
+        WIDTH,
+        HEIGHT,
+        WindowOptions {
+            scale: Scale::X2,
+            ..WindowOptions::default()
+        },
+    )
+    .expect("Unable to Open Window");
     let rects = [
-        Rect { x: 0, y: 0, width: 160, height: 180, color: 0x00b27474, cursor_style: CursorStyle::Arrow },
-        Rect { x: 160, y: 0, width: 160, height: 180, color: 0x00b28050, cursor_style: CursorStyle::Ibeam },
-        Rect { x: 320, y: 0, width: 160, height: 180, color: 0x00a9b250, cursor_style: CursorStyle::Crosshair },
-        Rect { x: 480, y: 0, width: 160, height: 180, color: 0x0060b250, cursor_style: CursorStyle::ClosedHand },
-        Rect { x: 0, y: 180, width: 160, height: 180, color: 0x004fb292, cursor_style: CursorStyle::OpenHand },
-        Rect { x: 160, y: 180, width: 160, height: 180, color: 0x004f71b2, cursor_style: CursorStyle::ResizeLeftRight },
-        Rect { x: 320, y: 180, width: 160, height: 180, color: 0x008850b2, cursor_style: CursorStyle::ResizeUpDown },
-        Rect { x: 480, y: 180, width: 160, height: 180, color: 0x00b25091, cursor_style: CursorStyle::ResizeAll }
+        Rect {
+            x: 0,
+            y: 0,
+            width: 160,
+            height: 180,
+            color: 0x00b27474,
+            cursor_style: CursorStyle::Arrow,
+        },
+        Rect {
+            x: 160,
+            y: 0,
+            width: 160,
+            height: 180,
+            color: 0x00b28050,
+            cursor_style: CursorStyle::Ibeam,
+        },
+        Rect {
+            x: 320,
+            y: 0,
+            width: 160,
+            height: 180,
+            color: 0x00a9b250,
+            cursor_style: CursorStyle::Crosshair,
+        },
+        Rect {
+            x: 480,
+            y: 0,
+            width: 160,
+            height: 180,
+            color: 0x0060b250,
+            cursor_style: CursorStyle::ClosedHand,
+        },
+        Rect {
+            x: 0,
+            y: 180,
+            width: 160,
+            height: 180,
+            color: 0x004fb292,
+            cursor_style: CursorStyle::OpenHand,
+        },
+        Rect {
+            x: 160,
+            y: 180,
+            width: 160,
+            height: 180,
+            color: 0x004f71b2,
+            cursor_style: CursorStyle::ResizeLeftRight,
+        },
+        Rect {
+            x: 320,
+            y: 180,
+            width: 160,
+            height: 180,
+            color: 0x008850b2,
+            cursor_style: CursorStyle::ResizeUpDown,
+        },
+        Rect {
+            x: 480,
+            y: 180,
+            width: 160,
+            height: 180,
+            color: 0x00b25091,
+            cursor_style: CursorStyle::ResizeAll,
+        },
     ];
 
     window.set_title("Different cursor on each color region");
@@ -73,7 +130,6 @@ fn main() {
         }
 
         // We unwrap here as we want this code to exit if it fails
-        window.update_with_buffer(&buffer).unwrap();
+        window.update_with_buffer_size(&buffer, WIDTH, HEIGHT).unwrap();
     }
 }
-

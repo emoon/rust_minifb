@@ -1,9 +1,9 @@
 #[allow(dead_code)]
-const WINDOW_BORDERLESS: u32 = 1 << 1; 
+const WINDOW_BORDERLESS: u32 = 1 << 1;
 #[allow(dead_code)]
-const WINDOW_RESIZE: u32 = 1 << 2; 
+const WINDOW_RESIZE: u32 = 1 << 2;
 #[allow(dead_code)]
-const WINDOW_TITLE: u32 = 1 << 3; 
+const WINDOW_TITLE: u32 = 1 << 3;
 
 use WindowOptions;
 

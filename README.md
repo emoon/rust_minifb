@@ -1,6 +1,5 @@
+[![Build Status](https://github.com/emoon/rust_minifb/workflows/CI/badge.svg)](https://github.com/emoon/rust_minifb/actions?workflow=CI)
 [![Crates.io](https://img.shields.io/crates/v/minifb.svg)](https://crates.io/crates/minifb)
-[![Build Status](https://travis-ci.org/emoon/rust_minifb.svg)](https://travis-ci.org/emoon/rust_minifb)
-[![Build Status](https://ci.appveyor.com/api/projects/status/sfvgqq4d4sjulkbx?svg=true)](https://ci.appveyor.com/project/emoon/rust-minifb)
 [![Documentation](https://docs.rs/minifb/badge.svg)](https://docs.rs/minifb)
 
 minifb is a cross platform library written in [Rust](https://www.rust-lang.org) and that makes it easy to setup a window and to (optional) display a 32-bit pixel buffer.  It also makes it easy to get input from keyboard and mouse.
@@ -14,7 +13,7 @@ Usage
 ```toml
 # Cargo.toml
 [dependencies]
-minifb = "0.13"
+minifb = "0.14"
 ```
 
 Example
@@ -44,14 +43,14 @@ fn main() {
         }
 
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
-        window.update_with_buffer(&buffer).unwrap();
+        window.update_with_buffer_size(&buffer, WIDTH, HEIGHT).unwrap();
     }
 }
 ```
 
 Status
 ------
-Currently Mac, Redox, Linux and Windows (64-bit and 32-bit) are the current supported platforms. X11 (Linux/FreeBSD/etc) support has been tested on Ubuntu (x64). Bug report(s) for other OSes/CPUs are welcome!
+Currently macOS, Redox, Linux and Windows (64-bit and 32-bit) are the current supported platforms. X11 (Linux/FreeBSD/etc) support has been tested on Ubuntu (x64). Bug report(s) for other OSes/CPUs are welcome!
 
 
 Build instructions

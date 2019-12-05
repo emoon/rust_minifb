@@ -17,6 +17,8 @@ id<MTLRenderPipelineState> g_pipeline_state;
 
 -(void)drawInMTKView:(nonnull MTKView *)view
 {
+	//printf("draw view\n");
+
     // Wait to ensure only MaxBuffersInFlight number of frames are getting proccessed
     //   by any stage in the Metal pipeline (App, Metal, Drivers, GPU, etc)
     dispatch_semaphore_wait(m_semaphore, DISPATCH_TIME_FOREVER);

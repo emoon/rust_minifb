@@ -1,6 +1,6 @@
 extern crate minifb;
 
-use minifb::{Window, Key, Scale, WindowOptions};
+use minifb::{Key, Scale, Window, WindowOptions};
 
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
@@ -10,13 +10,16 @@ fn main() {
     let mut carry;
     let mut seed = 0xbeefu32;
 
-
-    let mut window = match Window::new("Noise Test - Press ESC to exit", WIDTH, HEIGHT,
-                                       WindowOptions {
-                                           resize: true,
-                                           scale: Scale::X2,
-                                           ..WindowOptions::default()
-                                       }) {
+    let mut window = match Window::new(
+        "Noise Test - Press ESC to exit",
+        WIDTH,
+        HEIGHT,
+        WindowOptions {
+            resize: true,
+            scale: Scale::X2,
+            ..WindowOptions::default()
+        },
+    ) {
         Ok(win) => win,
         Err(err) => {
             println!("Unable to create window {}", err);
@@ -29,12 +32,10 @@ fn main() {
     let mut size = (0, 0);
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
-        {
-            let new_size = window.get_size();
-            if new_size != size {
-                size = new_size;
-                buffer.resize(size.0 * size.1 / 2 / 2, 0);
-            }
+        let new_size = window.get_size();
+        if new_size != size {
+            size = new_size;
+            buffer.resize(size.0 * size.1 / 2 / 2, 0);
         }
 
         for i in buffer.iter_mut() {
@@ -60,6 +61,6 @@ fn main() {
         });
 
         // We unwrap here as we want this code to exit if it fails
-        window.update_with_buffer(&buffer).unwrap();
+        window.update_with_buffer_size(&buffer, new_size.0, new_size.0).unwrap();
     }
 }
