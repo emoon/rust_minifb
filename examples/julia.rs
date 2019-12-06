@@ -10,18 +10,13 @@ const GENERATION_INFINITY: f64 = 16.;
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 
-    let mut window = match Window::new(
+    let mut window = Window::new(
         "Fractal - ESC to exit",
         WIDTH,
         HEIGHT,
-        WindowOptions::default(),
-    ) {
-        Ok(win) => win,
-        Err(err) => {
-            println!("Unable to create window {}", err);
-            return;
-        }
-    };
+        WindowOptions::default()
+    )
+    .expect("Unable to Open Window");
 
     let range = 2.0;
     let x_min = 0. - range;
@@ -58,7 +53,7 @@ fn main() {
         angle += 0.1;
 
         // We unwrap here as we want this code to exit if it fails
-        window.update_with_buffer_size(&buffer, WIDTH, HEIGHT).unwrap();
+        window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
     }
 }
 

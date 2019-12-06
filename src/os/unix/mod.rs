@@ -9,8 +9,8 @@
 #![allow(non_upper_case_globals)]
 
 extern crate cast;
-extern crate x11_dl;
 extern crate raw_window_handle;
+extern crate x11_dl;
 
 use self::x11_dl::keysym::*;
 use self::x11_dl::xcursor;
@@ -34,6 +34,31 @@ use mouse_handler;
 // NOTE: the x11-dl crate does not define Button6 or Button7
 const Button6: c_uint = xlib::Button5 + 1;
 const Button7: c_uint = xlib::Button5 + 2;
+
+// We have these in C so we can always have optimize on (-O3) so they
+// run fast in debug build as well. These functions should be seen as
+// "system" functions that just doesn't exist in X11
+extern "C" {
+    fn Image_resize_bilinear_c(
+        target: *mut u32,
+        source: *const u32,
+        source_w: u32,
+        source_h: u32,
+        source_stride: u32,
+        dest_width: u32,
+        dest_height: u32,
+    );
+
+    fn Image_resize_linear_c(
+        target: *mut u32,
+        source: *const u32,
+        source_w: u32,
+        source_h: u32,
+        source_stride: u32,
+        dest_width: u32,
+        dest_height: u32,
+    );
+}
 
 mod key_mapping;
 
@@ -431,15 +456,16 @@ impl Window {
         };
     }
 
-    pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
-        buffer_helper::check_buffer_size(
-            self.width as usize,
-            self.height as usize,
-            self.scale as usize,
-            buffer,
-        )?;
+    pub fn update_with_buffer_stride(
+        &mut self,
+        buffer: &[u32],
+        buf_width: usize,
+        buf_height: usize,
+        buf_stride: usize,
+    ) -> Result<()> {
+        buffer_helper::check_buffer_size(buf_width, buf_height, buf_stride, buffer)?;
 
-        unsafe { self.raw_blit_buffer(buffer) };
+        unsafe { self.raw_blit_buffer(buffer, buf_width, buf_height, buf_stride) };
 
         self.update();
 
@@ -639,39 +665,16 @@ impl Window {
 
     ////////////////////////////////////
 
-    unsafe fn raw_blit_buffer(&mut self, buffer: &[u32]) {
-        match self.scale {
-            1 => {
-                // input buffer may be larger than necessary, so get a slice of correct size
-                let src_buf = &buffer[0..self.draw_buffer.len()];
-
-                self.draw_buffer[..].copy_from_slice(src_buf);
-            }
-
-            2 => {
-                self.scale_2x(buffer);
-            }
-
-            4 => {
-                self.scale_4x(buffer);
-            }
-
-            8 => {
-                self.scale_8x(buffer);
-            }
-
-            16 => {
-                self.scale_16x(buffer);
-            }
-
-            32 => {
-                self.scale_32x(buffer);
-            }
-
-            _ => {
-                panic!("bad scale for raw_blit_buffer()");
-            }
-        }
+    unsafe fn raw_blit_buffer(&mut self, buffer: &[u32], buf_width: usize, buf_height: usize, buf_stride: usize) {
+        // TODO: Fast path for copy case
+        Image_resize_linear_c(
+            self.draw_buffer.as_mut_ptr(),
+            buffer.as_ptr(),
+            buf_width as u32,
+            buf_height as u32,
+            buf_stride as u32,
+            self.width as u32,
+            self.height as u32);
 
         (self.d.lib.XPutImage)(
             self.d.display,
@@ -1001,35 +1004,6 @@ impl Window {
         self.key_handler.set_key_state(key, is_down);
     }
 }
-
-// macro_rules inside impl {} blocks currently not supported
-// https://github.com/rust-lang/rust/issues/37205
-macro_rules! gen_scale_x(
-    ($($fn_name:ident, $x:expr),+$(,)?) => (
-        impl Window {
-            $(unsafe fn $fn_name(&mut self, buffer :  &[u32]) {
-                let w = self.width as usize;
-
-                let bw = (self.width as usize) / $x;
-                let bh = (self.height as usize) / $x;
-
-                for y in 0..bh {
-                    let src = &buffer[y * bw..y * bw + bw];
-
-                    for dy in 0..$x {
-                        let dest = &mut self.draw_buffer[(y * $x + dy) * w..(y * $x + dy) * w + w];
-
-                        for x in 0..bw {
-                            dest[x * $x .. x * $x + $x].copy_from_slice(&[src[x]; $x]);
-                        }
-                    }
-                }
-            })+
-        }
-    )
-);
-
-gen_scale_x!(scale_2x, 2, scale_4x, 4, scale_8x, 8, scale_16x, 16, scale_32x, 32,);
 
 impl Drop for Window {
     fn drop(&mut self) {

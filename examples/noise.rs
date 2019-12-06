@@ -35,7 +35,7 @@ fn main() {
         let new_size = window.get_size();
         if new_size != size {
             size = new_size;
-            buffer.resize(size.0 * size.1 / 2 / 2, 0);
+            buffer.resize(size.0 * size.1, 0);
         }
 
         for i in buffer.iter_mut() {
@@ -61,6 +61,6 @@ fn main() {
         });
 
         // We unwrap here as we want this code to exit if it fails
-        window.update_with_buffer_size(&buffer, new_size.0, new_size.0).unwrap();
+        window.update_with_buffer(&buffer, new_size.0, new_size.1).unwrap();
     }
 }
