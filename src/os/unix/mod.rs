@@ -39,6 +39,16 @@ const Button7: c_uint = xlib::Button5 + 2;
 // run fast in debug build as well. These functions should be seen as
 // "system" functions that just doesn't exist in X11
 extern "C" {
+    fn Image_center(
+        target: *mut u32,
+        source: *const u32,
+        source_w: u32,
+        source_h: u32,
+        source_stride: u32,
+        dest_width: u32,
+        dest_height: u32,
+        bg_color: u32);
+
     fn Image_resize_linear_aspect_fill_c(
         target: *mut u32,
         source: *const u32,
@@ -699,6 +709,18 @@ impl Window {
 
             ScaleMode::AspectRatioFill => {
                 Image_resize_linear_aspect_fill_c(
+                    self.draw_buffer.as_mut_ptr(),
+                    buffer.as_ptr(),
+                    buf_width as u32,
+                    buf_height as u32,
+                    buf_stride as u32,
+                    self.width as u32,
+                    self.height as u32,
+                    self.bg_color);
+            },
+
+            ScaleMode::Center => {
+                Image_center(
                     self.draw_buffer.as_mut_ptr(),
                     buffer.as_ptr(),
                     buf_width as u32,

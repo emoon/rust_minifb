@@ -136,4 +136,75 @@ extern "C" void Image_resize_linear_aspect_fill_c(
     }
 }
 
+extern "C" void Image_center(
+    uint32_t* target,
+    const uint32_t* source,
+    int w, int h, int s,
+    int window_width, int window_height, uint32_t bg_clear)
+{
+    // TODO: Optimize by only clearing the areas the image blit doesn't fill
+    for (int i = 0; i < window_width * window_height; ++i) {
+        target[i] = bg_clear;
+    }
+
+    if (h > window_height) {
+        int y_offset = (h - window_height) / 2;
+        int new_height = h - y_offset;
+        source += y_offset * s;
+
+        if (w > window_width) {
+            int x_offset = (w - window_width) / 2;
+            source += x_offset;
+
+            for (int y = 0; y < window_height; ++y) {
+                for (int x = 0; x < window_width; ++x) {
+                    *target++ = *source++;
+                }
+                source += (s - window_width);
+            }
+        } else {
+            int x_offset = (window_width - w) / 2;
+
+            for (int y = 0; y < new_height; ++y) {
+                target += x_offset;
+
+                for (int x = 0; x < w; ++x) {
+                    *target++ = *source++;
+                }
+
+                target += (window_width - (w + x_offset));
+                source += s - w;
+            }
+        }
+
+    } else {
+        int y_offset = (window_height - h) / 2;
+        target += y_offset * window_width;
+
+        if (w > window_width) {
+            int x_offset = (w - window_width) / 2;
+            source += x_offset;
+
+            for (int y = 0; y < h; ++y) {
+                for (int x = 0; x < window_width; ++x) {
+                    *target++ = *source++;
+                }
+                source += (s - window_width);
+            }
+        } else {
+            int x_offset = (window_width - w) / 2;
+            target += x_offset;
+
+            for (int y = 0; y < h; ++y) {
+                for (int x = 0; x < w; ++x) {
+                    *target++ = *source++;
+                }
+
+                target += (window_width - w);
+                source += s - w;
+            }
+        }
+    }
+}
+
 
