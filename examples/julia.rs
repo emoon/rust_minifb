@@ -1,6 +1,6 @@
 extern crate minifb;
 
-use minifb::{Key, Window, WindowOptions};
+use minifb::{Key, Window, WindowOptions, ScaleMode};
 
 const WIDTH: usize = 600;
 const HEIGHT: usize = 600;
@@ -14,7 +14,11 @@ fn main() {
         "Fractal - ESC to exit",
         WIDTH,
         HEIGHT,
-        WindowOptions::default()
+        WindowOptions {
+            resize: true,
+            scale_mode: ScaleMode::AspectRatioFill,
+            ..WindowOptions::default()
+        }
     )
     .expect("Unable to Open Window");
 
@@ -26,6 +30,8 @@ fn main() {
     let y_max = 0. + range;
 
     let mut angle: f64 = 0.0;
+
+    window.set_background_color(0, 0, 20);
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         for i in 0..buffer.len() {

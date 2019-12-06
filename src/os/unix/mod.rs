@@ -16,7 +16,7 @@ use self::x11_dl::keysym::*;
 use self::x11_dl::xcursor;
 use self::x11_dl::xlib;
 use key_handler::KeyHandler;
-use {InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, WindowOptions};
+use {InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, WindowOptions, ScaleMode};
 
 use error::Error;
 use Result;
@@ -39,6 +39,16 @@ const Button7: c_uint = xlib::Button5 + 2;
 // run fast in debug build as well. These functions should be seen as
 // "system" functions that just doesn't exist in X11
 extern "C" {
+    fn Image_resize_linear_aspect_fill_c(
+        target: *mut u32,
+        source: *const u32,
+        source_w: u32,
+        source_h: u32,
+        source_stride: u32,
+        dest_width: u32,
+        dest_height: u32,
+        bg_color: u32);
+
     fn Image_resize_bilinear_c(
         target: *mut u32,
         source: *const u32,
@@ -253,6 +263,8 @@ pub struct Window {
     height: u32, //
 
     scale: i32,
+    bg_color: u32,
+    scale_mode: ScaleMode,
 
     mouse_x: f32,
     mouse_y: f32,
@@ -397,6 +409,8 @@ impl Window {
                 mouse_y: 0.0,
                 scroll_x: 0.0,
                 scroll_y: 0.0,
+                bg_color: 0,
+                scale_mode: opts.scale_mode,
                 buttons: [0, 0, 0],
                 prev_cursor: CursorStyle::Arrow,
                 should_close: false,
@@ -488,6 +502,11 @@ impl Window {
     #[inline]
     pub fn get_window_handle(&self) -> *mut raw::c_void {
         self.handle as *mut raw::c_void
+    }
+
+    #[inline]
+    pub fn set_background_color(&mut self, bg_color: u32) {
+        self.bg_color = bg_color;
     }
 
     #[inline]
@@ -666,15 +685,32 @@ impl Window {
     ////////////////////////////////////
 
     unsafe fn raw_blit_buffer(&mut self, buffer: &[u32], buf_width: usize, buf_height: usize, buf_stride: usize) {
-        // TODO: Fast path for copy case
-        Image_resize_linear_c(
-            self.draw_buffer.as_mut_ptr(),
-            buffer.as_ptr(),
-            buf_width as u32,
-            buf_height as u32,
-            buf_stride as u32,
-            self.width as u32,
-            self.height as u32);
+        match self.scale_mode {
+            ScaleMode::Fill => {
+                Image_resize_linear_c(
+                    self.draw_buffer.as_mut_ptr(),
+                    buffer.as_ptr(),
+                    buf_width as u32,
+                    buf_height as u32,
+                    buf_stride as u32,
+                    self.width as u32,
+                    self.height as u32);
+            },
+
+            ScaleMode::AspectRatioFill => {
+                Image_resize_linear_aspect_fill_c(
+                    self.draw_buffer.as_mut_ptr(),
+                    buffer.as_ptr(),
+                    buf_width as u32,
+                    buf_height as u32,
+                    buf_stride as u32,
+                    self.width as u32,
+                    self.height as u32,
+                    self.bg_color);
+            },
+
+            _ => (),
+        }
 
         (self.d.lib.XPutImage)(
             self.d.display,

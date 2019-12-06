@@ -133,6 +133,33 @@ impl fmt::Debug for Window {
     }
 }
 
+pub fn clamp<T: PartialOrd>(low: T, value: T, high: T) -> T {
+    if value < low {
+        low
+    } else if value > high {
+        high
+    } else {
+        value
+    }
+}
+
+///
+/// On some OS (X11 for example) it's possible a window can resize even if no resize has been set.
+/// This causes some issues depending on how the content of an input buffer should be displayed then it's possible
+/// to set this scaling mode to get a better behavior.
+///
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ScaleMode {
+    /// Fill the buffer in the whole window meaning if your buffer is 256x256 and window is 1024x1024 it will be scaled up 4 times
+    Fill,
+    /// Tries to keep the correct aspect ratio to be displayed while scaling up fully in the other axis. Fill area will be filed with Window::set_bg_color (default 0, 0, 0)
+    AspectRatioFill,
+    /// Places the buffer in the middle of the window without any scaling. Fills the borders with color set Window::set_bg_color (default 0,0,0)
+    Center,
+    /// Same as Center but places the buffer in the upper left corner of the window.
+    UpperLeft,
+}
+
 ///
 /// WindowOptions is creation settings for the window. By default the settings are defined for
 /// displayng a 32-bit buffer (no scaling of window is possible)
@@ -147,6 +174,8 @@ pub struct WindowOptions {
     pub resize: bool,
     /// Scale of the window that used in conjunction with update_with_buffer (default: X1)
     pub scale: Scale,
+    /// Adjust how the scaling of the buffer used with update_with_buffer should be done.
+    pub scale_mode: ScaleMode,
 }
 
 impl Window {
@@ -172,17 +201,12 @@ impl Window {
     ///
     /// ```no_run
     /// # use minifb::*;
-    /// let mut window = match Window::new("Test", 640, 400,
-    ///                                     WindowOptions {
-    ///                                         resize: true,
-    ///                                         ..WindowOptions::default()
-    ///                                     }) {
-    ///    Ok(win) => win,
-    ///    Err(err) => {
-    ///        println!("Unable to create window {}", err);
-    ///        return;
-    ///    }
-    ///};
+    /// let mut window = Window::new("Test", 640, 400,
+    ///     WindowOptions {
+    ///        resize: true,
+    ///        ..WindowOptions::default()
+    ///  })
+    ///  .expect("Unable to open Window");
     /// ```
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
         imp::Window::new(name, width, height, opts).map(Window)
@@ -305,6 +329,29 @@ impl Window {
     #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
         self.0.set_position(x, y)
+    }
+
+    ///
+    /// Sets the background color that is used with update_with_buffer.
+    /// In some cases there will be a blank area around the buffer depending on the ScaleMode that has been set.
+    /// This color will be used in the in that area.
+    /// The function takes 3 parameters in (red, green, blue) and each value is in the range of 0-255 where 255 is the brightest value
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    /// // Set background color to bright red
+    /// window.set_background_color(255, 0, 0);
+    /// ```
+    ///
+    #[inline]
+    pub fn set_background_color(&mut self, red: usize, green: usize, blue: usize) {
+        let r = clamp(0, red, 255);
+        let g = clamp(0, green, 255);
+        let b = clamp(0, blue, 255);
+        self.0.set_background_color(((r << 16) | (g << 8) | b) as u32);
     }
 
     ///
@@ -879,6 +926,7 @@ impl Default for WindowOptions {
             title: true,
             resize: false,
             scale: Scale::X1,
+            scale_mode: ScaleMode::Fill,
         }
     }
 }
