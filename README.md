@@ -22,7 +22,7 @@ Example
 ```rust
 extern crate minifb;
 
-use minifb::{Key, WindowOptions, Window};
+use minifb::{Key, Window, WindowOptions};
 
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
@@ -30,10 +30,13 @@ const HEIGHT: usize = 360;
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 
-    let mut window = Window::new("Test - ESC to exit",
-                                 WIDTH,
-                                 HEIGHT,
-                                 WindowOptions::default()).unwrap_or_else(|e| {
+    let mut window = Window::new(
+        "Test - ESC to exit",
+        WIDTH,
+        HEIGHT,
+        WindowOptions::default(),
+    )
+    .unwrap_or_else(|e| {
         panic!("{}", e);
     });
 
@@ -43,7 +46,9 @@ fn main() {
         }
 
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
-        window.update_with_buffer_size(&buffer, WIDTH, HEIGHT).unwrap();
+        window
+            .update_with_buffer_size(&buffer, WIDTH, HEIGHT)
+            .unwrap();
     }
 }
 ```
