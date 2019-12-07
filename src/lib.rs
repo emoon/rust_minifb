@@ -150,11 +150,12 @@ pub fn clamp<T: PartialOrd>(low: T, value: T, high: T) -> T {
 ///
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ScaleMode {
-    /// Fill the buffer in the whole window meaning if your buffer is 256x256 and window is 1024x1024 it will be scaled up 4 times
-    Fill,
-    /// Tries to keep the correct aspect ratio to be displayed while scaling up fully in the other axis. Fill area will be filed with Window::set_bg_color (default 0, 0, 0)
-    AspectRatioFill,
+    /// Stretch the buffer in the whole window meaning if your buffer is 256x256 and window is 1024x1024 it will be scaled up 4 times
+    Stretch,
+    /// Keep the correct aspect ratio to be displayed while scaling up fully in the other axis. Fill area will be filed with Window::set_bg_color (default 0, 0, 0)
+    AspectRatioStretch,
     /// Places the buffer in the middle of the window without any scaling. Fills the borders with color set Window::set_bg_color (default 0,0,0)
+    /// If the window is smaller than the buffer the center of the buffer will be displayed
     Center,
     /// Same as Center but places the buffer in the upper left corner of the window.
     UpperLeft,
@@ -926,7 +927,7 @@ impl Default for WindowOptions {
             title: true,
             resize: false,
             scale: Scale::X1,
-            scale_mode: ScaleMode::Fill,
+            scale_mode: ScaleMode::Stretch,
         }
     }
 }

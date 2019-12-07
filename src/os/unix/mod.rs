@@ -39,6 +39,16 @@ const Button7: c_uint = xlib::Button5 + 2;
 // run fast in debug build as well. These functions should be seen as
 // "system" functions that just doesn't exist in X11
 extern "C" {
+    fn Image_upper_left(
+        target: *mut u32,
+        source: *const u32,
+        source_w: u32,
+        source_h: u32,
+        source_stride: u32,
+        dest_width: u32,
+        dest_height: u32,
+        bg_color: u32);
+
     fn Image_center(
         target: *mut u32,
         source: *const u32,
@@ -58,16 +68,6 @@ extern "C" {
         dest_width: u32,
         dest_height: u32,
         bg_color: u32);
-
-    fn Image_resize_bilinear_c(
-        target: *mut u32,
-        source: *const u32,
-        source_w: u32,
-        source_h: u32,
-        source_stride: u32,
-        dest_width: u32,
-        dest_height: u32,
-    );
 
     fn Image_resize_linear_c(
         target: *mut u32,
@@ -696,7 +696,7 @@ impl Window {
 
     unsafe fn raw_blit_buffer(&mut self, buffer: &[u32], buf_width: usize, buf_height: usize, buf_stride: usize) {
         match self.scale_mode {
-            ScaleMode::Fill => {
+            ScaleMode::Stretch => {
                 Image_resize_linear_c(
                     self.draw_buffer.as_mut_ptr(),
                     buffer.as_ptr(),
@@ -707,7 +707,7 @@ impl Window {
                     self.height as u32);
             },
 
-            ScaleMode::AspectRatioFill => {
+            ScaleMode::AspectRatioStretch => {
                 Image_resize_linear_aspect_fill_c(
                     self.draw_buffer.as_mut_ptr(),
                     buffer.as_ptr(),
@@ -731,7 +731,17 @@ impl Window {
                     self.bg_color);
             },
 
-            _ => (),
+            ScaleMode::UpperLeft => {
+                Image_upper_left(
+                    self.draw_buffer.as_mut_ptr(),
+                    buffer.as_ptr(),
+                    buf_width as u32,
+                    buf_height as u32,
+                    buf_stride as u32,
+                    self.width as u32,
+                    self.height as u32,
+                    self.bg_color);
+            },
         }
 
         (self.d.lib.XPutImage)(
