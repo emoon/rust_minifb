@@ -451,9 +451,11 @@ int mfb_update(void* window, void* buffer)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-int mfb_update_with_buffer(void* window, void* buffer)
+int mfb_update_with_buffer(void* window, void* buffer, uint32_t buf_width, uint32_t buf_height, uint32_t buf_stride)
 {
 	OSXWindow* win = (OSXWindow*)window;
+
+	printf("width %d height %d stride %d\n", buf_width, buf_height, buf_stride);
 
 	if (win->shared_data) {
 		SharedData* shared_data = (SharedData*)win->shared_data;

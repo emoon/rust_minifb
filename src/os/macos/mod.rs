@@ -166,7 +166,12 @@ extern "C" {
     fn mfb_set_title(window: *mut c_void, title: *const c_char);
     fn mfb_close(window: *mut c_void);
     fn mfb_update(window: *mut c_void);
-    fn mfb_update_with_buffer(window: *mut c_void, buffer: *const c_uchar);
+    fn mfb_update_with_buffer(
+        window: *mut c_void,
+        buffer: *const c_uchar,
+        buf_width: u32,
+        buf_height: u32,
+        buf_stride: u32);
     fn mfb_set_position(window: *mut c_void, x: i32, y: i32);
     fn mfb_set_key_callback(
         window: *mut c_void,
@@ -248,7 +253,7 @@ unsafe extern "C" fn char_callback(window: *mut c_void, code_point: u32) {
 unsafe impl raw_window_handle::HasRawWindowHandle for Window {
     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
         let handle = raw_window_handle::macos::MacOSHandle {
-            ns_window: self.window_handle,
+            ns_window: self.window_handle as *mut _,
             ns_view: std::ptr::null_mut(),
             ..raw_window_handle::macos::MacOSHandle::empty()
         };
@@ -313,21 +318,23 @@ impl Window {
         mfb_set_mouse_data(self.window_handle, &mut self.shared_data);
     }
 
-    pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
+    pub fn update_with_buffer_stride(
+        &mut self,
+        buffer: &[u32],
+        buf_width: usize,
+        buf_height: usize,
+        buf_stride: usize,
+    ) -> Result<()> {
         self.key_handler.update();
 
-        let check_res = buffer_helper::check_buffer_size(
-            self.shared_data.width as usize,
-            self.shared_data.height as usize,
-            self.scale_factor as usize,
-            buffer,
-        );
-        if check_res.is_err() {
-            return check_res;
-        }
+        buffer_helper::check_buffer_size(buf_width, buf_height, buf_stride, buffer)?;
 
         unsafe {
-            mfb_update_with_buffer(self.window_handle, buffer.as_ptr() as *const u8);
+            mfb_update_with_buffer(
+                self.window_handle, buffer.as_ptr() as *const u8,
+                buf_width as u32,
+                buf_height as u32,
+                buf_stride as u32);
             Self::set_mouse_data(self);
             mfb_set_key_callback(
                 self.window_handle,
@@ -459,7 +466,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_input_callback(&mut self, callback: Box<InputCallback>) {
+    pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>) {
         self.key_handler.set_input_callback(callback)
     }
 

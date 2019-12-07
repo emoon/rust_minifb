@@ -181,7 +181,7 @@
 	if (childContentView)
 		[childContentView removeFromSuperview];
 
-	printf("osxwindow: setContentFrameView %p\n", frameView);
+	//printf("osxwindow: setContentFrameView %p\n", frameView);
 	//printf("osxwindow: setting controller %p\n", view_controller);
 	//frameView->m_view_controller = view_controller;
 

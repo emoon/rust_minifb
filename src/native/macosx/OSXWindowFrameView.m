@@ -195,8 +195,8 @@ id<MTLRenderPipelineState> g_pipeline_state;
     // "to delete" queue and set a frame counter of 3 frames before the gets released
 
     if (window->shared_data) {
-		if ((width != window->shared_data->width) ||
-			(height != window->shared_data->height)) {
+		if ((width != (int)window->shared_data->width) ||
+			(height != (int)window->shared_data->height)) {
 
 			MTLTextureDescriptor* textureDescriptor = [[MTLTextureDescriptor alloc] init];
 
@@ -237,6 +237,7 @@ id<MTLRenderPipelineState> g_pipeline_state;
 
 - (void)windowResized:(NSNotification *)notification
 {
+	(void)notification;
 }
 
 @end
