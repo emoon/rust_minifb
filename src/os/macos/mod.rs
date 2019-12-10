@@ -205,6 +205,7 @@ extern "C" {
 #[derive(Default)]
 #[repr(C)]
 pub struct SharedData {
+    pub scale_mode: u32,
     pub width: u32,
     pub height: u32,
     pub mouse_x: f32,
@@ -289,6 +290,7 @@ impl Window {
                 window_handle: handle,
                 scale_factor: scale_factor,
                 shared_data: SharedData {
+                    scale_mode: opts.scale_mode as u32,
                     width: width as u32 * scale_factor as u32,
                     height: height as u32 * scale_factor as u32,
                     ..SharedData::default()

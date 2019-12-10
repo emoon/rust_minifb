@@ -10,6 +10,7 @@ id<MTLRenderPipelineState> g_pipeline_state;
 @implementation WindowViewController
 -(void)mtkView:(nonnull MTKView *)view drawableSizeWillChange:(CGSize)size
 {
+	printf("resize draw %f %f\n", size.width, size.height);
 	(void)view;
 	(void)size;
     // resize
@@ -17,7 +18,8 @@ id<MTLRenderPipelineState> g_pipeline_state;
 
 -(void)drawInMTKView:(nonnull MTKView *)view
 {
-	//printf("draw view\n");
+	//*((volatile int*)0) = 0x666;
+	printf("draw view\n");
 
     // Wait to ensure only MaxBuffersInFlight number of frames are getting proccessed
     //   by any stage in the Metal pipeline (App, Metal, Drivers, GPU, etc)
@@ -27,12 +29,14 @@ id<MTLRenderPipelineState> g_pipeline_state;
     m_current_buffer = (m_current_buffer + 1) % MaxBuffersInFlight;
 
     // Calculate the number of bytes per row of our image.
-    NSUInteger bytesPerRow = 4 * m_width;
-    MTLRegion region = { { 0, 0, 0 }, { m_width, m_height, 1 } };
+    NSUInteger bytesPerRow = 4 * m_draw_parameters->buffer_stride;
+    MTLRegion region = { { 0, 0, 0 },
+    	{ m_draw_parameters->buffer_width,
+    	  m_draw_parameters->buffer_height, 1 } };
 
     // Copy the bytes from our data object into the texture
-    [m_texture_buffers[m_current_buffer] replaceRegion:region
-                mipmapLevel:0 withBytes:m_draw_buffer bytesPerRow:bytesPerRow];
+    [m_draw_state[m_current_buffer].texture replaceRegion:region
+                mipmapLevel:0 withBytes:m_draw_parameters->buffer bytesPerRow:bytesPerRow];
 
     // Create a new command buffer for each render pass to the current drawable
     id<MTLCommandBuffer> commandBuffer = [g_command_queue commandBuffer];
@@ -64,7 +68,7 @@ id<MTLRenderPipelineState> g_pipeline_state;
         // Set render command encoder state
         [renderEncoder setRenderPipelineState:g_pipeline_state];
 
-        [renderEncoder setFragmentTexture:m_texture_buffers[m_current_buffer] atIndex:0];
+        [renderEncoder setFragmentTexture:m_draw_state[m_current_buffer].texture atIndex:0];
 
         // Draw the vertices of our quads
         [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle
@@ -191,10 +195,13 @@ id<MTLRenderPipelineState> g_pipeline_state;
     int width = (int)size.width;
     int height = (int)size.height;
 
+    printf("resize %d\n");
+
     // if windows is resized we need to create new textures so we do that here and put the old textures in a
     // "to delete" queue and set a frame counter of 3 frames before the gets released
 
     if (window->shared_data) {
+    	/*
 		if ((width != (int)window->shared_data->width) ||
 			(height != (int)window->shared_data->height)) {
 
@@ -219,6 +226,7 @@ id<MTLRenderPipelineState> g_pipeline_state;
 				m_view_controller->m_texture_buffers[i] = [g_metal_device newTextureWithDescriptor:textureDescriptor];
 			}
 		}
+		*/
 
         window->shared_data->width = width;
         window->shared_data->height = height;

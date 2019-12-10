@@ -45,7 +45,7 @@ void build_submenu(NSMenu* menu, MenuDesc* desc);
 	@public int width;
 	@public int height;
 	@public int scale;
-	@public void* draw_buffer;
+	@public DrawParameters* draw_parameters;
 	@public void* rust_data;
 	@public SharedData* shared_data;
 	@public bool should_close;

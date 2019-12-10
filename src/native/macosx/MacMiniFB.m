@@ -191,9 +191,9 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 	if (!window)
 		return 0;
 
-	window->draw_buffer = malloc((width * height * 4) * 8);
+	window->draw_parameters = calloc(sizeof(DrawParameters), 1);
 
-	if (!window->draw_buffer)
+	if (!window->draw_parameters)
 		return 0;
 
 	// Setup command queue
@@ -211,18 +211,34 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 	textureDescriptor.width = width;
 	textureDescriptor.height = height;
 
-	// Create the texture from the device by using the descriptor
+	static const Vertex intial_vertices[] = {
+		{ 250.0f,  -250.0f,  1.0f, 1.0f },
+		{ -250.0f, -250.0f,  0.0f, 1.0f },
+		{ -250.0f,  250.0f,  0.0f, 0.0f },
+
+		{ 250.0f,  -250.0f,  1.0f, 1.0f },
+		{ -250.0f,  250.0f,  0.0f, 0.0f },
+		{ 250.0f,   250.0f,  1.0f, 0.0f },
+	};
 
 	for (int i = 0; i < MaxBuffersInFlight; ++i) {
-		viewController->m_texture_buffers[i] = [g_metal_device newTextureWithDescriptor:textureDescriptor];
+		viewController->m_draw_state[i].texture_width = width;
+		viewController->m_draw_state[i].texture_height = height;
+		viewController->m_draw_state[i].texture =
+			[g_metal_device newTextureWithDescriptor:textureDescriptor];
+		viewController->m_draw_state[i].vertex_buffer =
+			[g_metal_device newBufferWithBytes:intial_vertices
+							length:sizeof(intial_vertices)
+							options:MTLResourceStorageModeShared];
+
+		viewController->m_delayed_delete_textures[i].frame_count = -1;
 	}
 
 	// Used for syncing the CPU and GPU
 	viewController->m_semaphore = dispatch_semaphore_create(MaxBuffersInFlight);
-    viewController->m_draw_buffer = window->draw_buffer;
-    viewController->m_width = width;
-    viewController->m_height = height;
-    viewController->m_delayed_delete_count = 0;
+    viewController->m_draw_parameters = window->draw_parameters;
+    //viewController->m_width = width;
+    //viewController->m_height = height;
 
     MTKView* view = [[MTKView alloc] initWithFrame:rectangle];
     view.device = g_metal_device;
@@ -455,18 +471,27 @@ int mfb_update_with_buffer(void* window, void* buffer, uint32_t buf_width, uint3
 {
 	OSXWindow* win = (OSXWindow*)window;
 
-	printf("width %d height %d stride %d\n", buf_width, buf_height, buf_stride);
+	win->draw_parameters->buffer = buffer;
+	win->draw_parameters->buffer_width = buf_width;
+	win->draw_parameters->buffer_height = buf_height;
+	win->draw_parameters->buffer_stride = buf_stride;
+	win->draw_parameters->scale_mode = 0;
 
 	if (win->shared_data) {
-		SharedData* shared_data = (SharedData*)win->shared_data;
-		memcpy(win->draw_buffer, buffer, shared_data->width * shared_data->height * 4);
+		win->draw_parameters->scale_mode = win->shared_data->scale_mode;
 	} else {
-		memcpy(win->draw_buffer, buffer, win->width * win->height * 4);
+		win->draw_parameters->scale_mode = 0;
 	}
+
+	//win->draw_parameters->pos_x = 0;
+	//win->draw_parameters->pos_y = 0;
+	//win->draw_parameters->width = buf_width;
+	//win->draw_parameters->height = buf_height;
 
 	int state = generic_update(win);
 
 	[[win contentView] setNeedsDisplay:YES];
+
 	return state;
 }
 
@@ -605,7 +630,7 @@ static CFStringRef create_string_for_key(CGKeyCode keyCode)
 	if (!layoutData)
 		return 0;
 
-    const UCKeyboardLayout *keyboardLayout = (const UCKeyboardLayout *)CFDataGetBytePtr(layoutData);
+    const UCKeyboardLayout* keyboardLayout = (const UCKeyboardLayout*)CFDataGetBytePtr(layoutData);
 
     UInt32 keysDown = 0;
     UniChar chars[4];
