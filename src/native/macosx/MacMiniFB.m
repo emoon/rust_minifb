@@ -22,17 +22,18 @@ NSString* g_shadersSrc = @
 	"};\n"
 
 	"vertex VertexOutput vertFunc(\n"
-		"unsigned int vID[[vertex_id]])\n"
+		"unsigned int vID[[vertex_id]],\n"
+		"constant float4* vertexArray[[buffer(0)]])\n"
 	"{\n"
 		"VertexOutput out;\n"
 
-		"out.pos.x = (float)(vID / 2) * 4.0 - 1.0;\n"
-		"out.pos.y = (float)(vID % 2) * 4.0 - 1.0;\n"
+		"out.pos.x = (vertexArray[vID].x * 2.0) - 1.0;\n"
+		"out.pos.y = (vertexArray[vID].y * 2.0) - 1.0;\n"
 		"out.pos.z = 0.0;\n"
 		"out.pos.w = 1.0;\n"
 
-		"out.texcoord.x = (float)(vID / 2) * 2.0;\n"
-		"out.texcoord.y = 1.0 - (float)(vID % 2) * 2.0;\n"
+		"out.texcoord.x = vertexArray[vID].w;\n"
+		"out.texcoord.y = vertexArray[vID].z;\n"
 
 		"return out;\n"
 	"}\n"
@@ -211,15 +212,20 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 	textureDescriptor.width = width;
 	textureDescriptor.height = height;
 
-	static const Vertex intial_vertices[] = {
-		{ 250.0f,  -250.0f,  1.0f, 1.0f },
-		{ -250.0f, -250.0f,  0.0f, 1.0f },
-		{ -250.0f,  250.0f,  0.0f, 0.0f },
+	const float scale_t = 1.00f;
 
-		{ 250.0f,  -250.0f,  1.0f, 1.0f },
-		{ -250.0f,  250.0f,  0.0f, 0.0f },
-		{ 250.0f,   250.0f,  1.0f, 0.0f },
+	static const Vertex intial_vertices[] = {
+		{  -1.0f * scale_t,  1.0f * scale_t,  0.0f, 0.0f },
+		{   1.0f * scale_t,  1.0f * scale_t,  0.0f, 1.0f },
+		{   1.0f * scale_t, -1.0f * scale_t,  1.0f, 1.0f },
+
+		{  -1.0f * scale_t,  1.0f * scale_t,  0.0f, 0.0f },
+		{   1.0f * scale_t, -1.0f * scale_t,  1.0f, 1.0f },
+		{  -1.0f * scale_t, -1.0f * scale_t,  1.0f, 0.0f },
 	};
+
+	viewController->m_width = width;
+	viewController->m_height = height;
 
 	for (int i = 0; i < MaxBuffersInFlight; ++i) {
 		viewController->m_draw_state[i].texture_width = width;

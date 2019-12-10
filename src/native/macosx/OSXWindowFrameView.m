@@ -7,20 +7,101 @@ id<MTLCommandQueue> g_command_queue;
 id<MTLLibrary> g_library;
 id<MTLRenderPipelineState> g_pipeline_state;
 
+enum ScaleMode {
+    ScaleMode_Stretch,
+    ScaleMode_AspectRatioStretch,
+    ScaleMode_Center,
+    ScaleMode_UpperLeft,
+};
+
+typedef struct Box {
+	int x, y, width, height;
+} Box;
+
+static void gen_normalized(Vertex* output, const Box* box, float x, float y, float u, float v) {
+	// data gets normalized in the shader
+	float pos_x = box->x * x;
+	float pos_y = box->y * y;
+	float width = box->width * x;
+	float height = box->height * y;
+
+	output[0].x = pos_x;
+	output[0].y = pos_y;
+	output[1].x = width;
+	output[1].y = pos_y;
+	output[2].x = width;
+	output[2].y = height;
+
+	output[3].x = pos_x;
+	output[3].y = pos_y;
+	output[4].x = width;
+	output[4].y = height;
+	output[5].x = pos_x;
+	output[5].y = height;
+}
+
+static void calculate_scaling(
+	Vertex* output,
+	int buf_width, int buf_height,
+	int texture_width, int texture_height,
+	int window_width, int window_height,
+	int scale_mode)
+{
+	float x_ratio = 1.0f / (float)window_width;
+	float y_ratio = 1.0f / (float)window_height;
+	float u_ratio = (float)texture_width / (float)buf_width;
+	float v_ratio = (float)texture_height / (float)buf_height;
+
+	//Box box = { 0, 0, window_width, window_height };
+	//gen_normalized(output, &box, x_ratio, y_ratio, u_ratio, v_ratio);
+
+	switch (scale_mode) {
+		case ScaleMode_Stretch:
+		{
+			Box box = { 0, 0, window_width, window_height };
+			gen_normalized(output, &box, x_ratio, y_ratio, u_ratio, v_ratio);
+			break;
+		}
+
+		case ScaleMode_AspectRatioStretch:
+		{
+			float buffer_aspect = (float)buf_width / (float)buf_height;
+			float win_aspect = (float)window_width / (float)(window_height);
+
+			if (buffer_aspect > win_aspect) {
+				int new_height = (int)(window_width / buffer_aspect);
+				int offset = (new_height - window_height) / -2;
+
+				Box box = { 0, offset, window_width, offset + new_height };
+				gen_normalized(output, &box, x_ratio, y_ratio, u_ratio, v_ratio);
+			} else {
+				int new_width = (int)(window_height * buffer_aspect);
+				int offset = (new_width - window_width) / -2;
+
+				Box box = { offset, 0, offset + new_width, window_height };
+				gen_normalized(output, &box, x_ratio, y_ratio, u_ratio, v_ratio);
+			}
+
+			break;
+		}
+
+		default:
+			break;
+	}
+}
+
+
 @implementation WindowViewController
 -(void)mtkView:(nonnull MTKView *)view drawableSizeWillChange:(CGSize)size
 {
-	printf("resize draw %f %f\n", size.width, size.height);
+	m_width = (int)size.width;
+	m_height = (int)size.height;
 	(void)view;
-	(void)size;
-    // resize
 }
+
 
 -(void)drawInMTKView:(nonnull MTKView *)view
 {
-	//*((volatile int*)0) = 0x666;
-	printf("draw view\n");
-
     // Wait to ensure only MaxBuffersInFlight number of frames are getting proccessed
     //   by any stage in the Metal pipeline (App, Metal, Drivers, GPU, etc)
     dispatch_semaphore_wait(m_semaphore, DISPATCH_TIME_FOREVER);
@@ -37,6 +118,14 @@ id<MTLRenderPipelineState> g_pipeline_state;
     // Copy the bytes from our data object into the texture
     [m_draw_state[m_current_buffer].texture replaceRegion:region
                 mipmapLevel:0 withBytes:m_draw_parameters->buffer bytesPerRow:bytesPerRow];
+
+    // Update the vertex buffer
+	calculate_scaling(
+		m_draw_state[m_current_buffer].vertex_buffer.contents,
+		m_draw_parameters->buffer_width, m_draw_parameters->buffer_height,
+		m_draw_state[m_current_buffer].texture_width, m_draw_state[m_current_buffer].texture_height,
+		m_width, m_height,
+		m_draw_parameters->scale_mode);
 
     // Create a new command buffer for each render pass to the current drawable
     id<MTLCommandBuffer> commandBuffer = [g_command_queue commandBuffer];
@@ -69,11 +158,12 @@ id<MTLRenderPipelineState> g_pipeline_state;
         [renderEncoder setRenderPipelineState:g_pipeline_state];
 
         [renderEncoder setFragmentTexture:m_draw_state[m_current_buffer].texture atIndex:0];
+        [renderEncoder setVertexBuffer:m_draw_state[m_current_buffer].vertex_buffer offset:0 atIndex:0];
 
         // Draw the vertices of our quads
         [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle
                           vertexStart:0
-                          vertexCount:3];
+                          vertexCount:6];
 
         // We're done encoding commands
         [renderEncoder endEncoding];
@@ -195,7 +285,7 @@ id<MTLRenderPipelineState> g_pipeline_state;
     int width = (int)size.width;
     int height = (int)size.height;
 
-    printf("resize %d\n");
+    //printf("resize %d\n");
 
     // if windows is resized we need to create new textures so we do that here and put the old textures in a
     // "to delete" queue and set a frame counter of 3 frames before the gets released

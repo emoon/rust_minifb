@@ -36,6 +36,8 @@ typedef struct DelayedTextureDelete {
 	@public DelayedTextureDelete m_delayed_delete_textures[MaxBuffersInFlight];
 	@public int m_current_buffer;
     @public DrawParameters* m_draw_parameters;
+	@public int m_width;
+	@public int m_height;
 	// Used for syncing with CPU/GPU
 	@public dispatch_semaphore_t m_semaphore;
 }

@@ -320,6 +320,11 @@ impl Window {
         mfb_set_mouse_data(self.window_handle, &mut self.shared_data);
     }
 
+    #[inline]
+    pub fn set_background_color(&mut self, _color: u32) {
+        // TODO: Set shared data here
+    }
+
     pub fn update_with_buffer_stride(
         &mut self,
         buffer: &[u32],
