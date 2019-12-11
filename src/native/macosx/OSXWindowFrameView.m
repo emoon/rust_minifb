@@ -295,9 +295,9 @@ uint32_t upper_power_of_two(uint32_t v) {
 
     if (renderPassDescriptor != nil)
     {
-		float red = (m_draw_parameters->bg_color >> 16) * 1.0f / 255.0f;
-		float green = (m_draw_parameters->bg_color >> 8) * 1.0f / 255.0f;
-		float blue = (m_draw_parameters->bg_color >> 0) * 1.0f / 255.0f;
+		float red = ((m_draw_parameters->bg_color >> 16) & 0xff) * 1.0f / 255.0f;
+		float green = ((m_draw_parameters->bg_color >> 8) & 0xff) * 1.0f / 255.0f;
+		float blue = ((m_draw_parameters->bg_color >> 0) & 0xff) * 1.0f / 255.0f;
 
 		renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(red, green, blue, 1.0);
 
