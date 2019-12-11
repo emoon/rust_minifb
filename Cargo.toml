@@ -16,6 +16,9 @@ readme = "README.md"
 appveyor = { repository = "emoon/rust-minifb" }
 travis-ci = { repository = "emoon/rust_minifb" }
 
+[dev-dependencies]
+png = "0.15"
+
 [build-dependencies]
 cc = "1.0"
 

@@ -1,10 +1,10 @@
 extern crate minifb;
 
-use minifb::{Key, Window, WindowOptions, ScaleMode};
+use minifb::{Key, Window, Scale, WindowOptions, ScaleMode};
 use std::thread;
 
-const WIDTH: usize = 600;
-const HEIGHT: usize = 600;
+const WIDTH: usize = 100;
+const HEIGHT: usize = 100;
 const FRACTAL_DEPTH: u32 = 64;
 const GENERATION_INFINITY: f64 = 16.;
 
@@ -17,6 +17,7 @@ fn main() {
         HEIGHT,
         WindowOptions {
             resize: true,
+            scale: Scale::X2,
             scale_mode: ScaleMode::AspectRatioStretch,
             ..WindowOptions::default()
         }

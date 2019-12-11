@@ -205,6 +205,7 @@ extern "C" {
 #[derive(Default)]
 #[repr(C)]
 pub struct SharedData {
+    pub bg_color: u32,
     pub scale_mode: u32,
     pub width: u32,
     pub height: u32,
@@ -290,6 +291,7 @@ impl Window {
                 window_handle: handle,
                 scale_factor: scale_factor,
                 shared_data: SharedData {
+                    bg_color: 0,
                     scale_mode: opts.scale_mode as u32,
                     width: width as u32 * scale_factor as u32,
                     height: height as u32 * scale_factor as u32,
@@ -321,8 +323,8 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_background_color(&mut self, _color: u32) {
-        // TODO: Set shared data here
+    pub fn set_background_color(&mut self, color: u32) {
+        self.shared_data.bg_color = color;
     }
 
     pub fn update_with_buffer_stride(

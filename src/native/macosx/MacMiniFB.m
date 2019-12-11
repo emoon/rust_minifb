@@ -5,10 +5,11 @@
 #include <MetalKit/MetalKit.h>
 #include <unistd.h>
 
-extern id<MTLDevice> g_metal_device;
 extern id<MTLCommandQueue> g_command_queue;
 extern id<MTLLibrary> g_library;
 extern id<MTLRenderPipelineState> g_pipeline_state;
+
+id<MTLDevice> g_metal_device;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -160,6 +161,7 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 		[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 		create_standard_menu();
 		cursor_init();
+
 		g_metal_device = MTLCreateSystemDefaultDevice();
 
 		if (!g_metal_device) {
@@ -213,15 +215,16 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 	textureDescriptor.height = height;
 
 	const float scale_t = 1.00f;
+	const float uv_const = 1.0f;
 
 	static const Vertex intial_vertices[] = {
 		{  -1.0f * scale_t,  1.0f * scale_t,  0.0f, 0.0f },
-		{   1.0f * scale_t,  1.0f * scale_t,  0.0f, 1.0f },
-		{   1.0f * scale_t, -1.0f * scale_t,  1.0f, 1.0f },
+		{   1.0f * scale_t,  1.0f * scale_t,  uv_const, 0.0f },
+		{   1.0f * scale_t, -1.0f * scale_t,  uv_const, uv_const },
 
 		{  -1.0f * scale_t,  1.0f * scale_t,  0.0f, 0.0f },
-		{   1.0f * scale_t, -1.0f * scale_t,  1.0f, 1.0f },
-		{  -1.0f * scale_t, -1.0f * scale_t,  1.0f, 0.0f },
+		{   1.0f * scale_t, -1.0f * scale_t,  uv_const, uv_const },
+		{  -1.0f * scale_t, -1.0f * scale_t,  0.0f, uv_const },
 	};
 
 	viewController->m_width = width;
@@ -477,13 +480,14 @@ int mfb_update_with_buffer(void* window, void* buffer, uint32_t buf_width, uint3
 {
 	OSXWindow* win = (OSXWindow*)window;
 
-	win->draw_parameters->buffer = buffer;
 	win->draw_parameters->buffer_width = buf_width;
 	win->draw_parameters->buffer_height = buf_height;
 	win->draw_parameters->buffer_stride = buf_stride;
 	win->draw_parameters->scale_mode = 0;
 
 	if (win->shared_data) {
+		win->draw_parameters->buffer = buffer;
+		win->draw_parameters->bg_color = win->shared_data->bg_color;
 		win->draw_parameters->scale_mode = win->shared_data->scale_mode;
 	} else {
 		win->draw_parameters->scale_mode = 0;

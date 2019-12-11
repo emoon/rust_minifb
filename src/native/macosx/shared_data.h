@@ -1,6 +1,7 @@
 #pragma once
 
 typedef struct SharedData {
+    unsigned int bg_color;
     unsigned int scale_mode;
     unsigned int width;
     unsigned int height;
@@ -15,6 +16,7 @@ typedef struct SharedData {
 
 typedef struct DrawParameters {
     void* buffer;
+    unsigned int bg_color;
     int buffer_width;
     int buffer_height;
     int buffer_stride;
