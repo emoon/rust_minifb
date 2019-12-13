@@ -190,6 +190,13 @@ unsafe extern "system" fn wnd_proc(
             wnd.mouse.scroll = scroll;
         }
 
+        /*
+        winuser::WM_SETCURSOR => {
+            winuser::SetCursor(wnd.cursors[wnd.prev_cursor as usize]);
+            return 1;
+		}
+        */
+
         winuser::WM_KEYDOWN => {
             update_key_state(wnd, (lparam as u32) >> 16, true);
             return 0;
@@ -274,6 +281,7 @@ unsafe extern "system" fn wnd_proc(
 			let mut y_offset = 0;
 
             let dc = wnd.dc.unwrap(); 
+            wingdi::SelectObject(dc, wnd.clear_brush as *mut std::ffi::c_void); 
 
             match wnd.draw_params.scale_mode {
                 ScaleMode::AspectRatioStretch => {
@@ -283,7 +291,7 @@ unsafe extern "system" fn wnd_proc(
 					if buffer_aspect > win_aspect {
 						new_height = (window_width as f32 / buffer_aspect) as i32;
 						y_offset = (new_height - window_height) / -2;
-                        // clear upper and lower part if y != 0
+
                         if y_offset != 0 {
                             let end_height = window_height - (y_offset + new_height + 1);
                             wingdi::Rectangle(dc, 0, 0, window_width, y_offset);
@@ -301,6 +309,37 @@ unsafe extern "system" fn wnd_proc(
 					}
 				}
 
+                ScaleMode::Center => {
+                    new_width = buffer_width;
+                    new_height = buffer_height;
+
+					if buffer_height > window_height {
+						y_offset = -(buffer_height - window_height) / 2;
+					} else {
+						y_offset = (window_height - buffer_height) / 2;
+					}
+
+					if buffer_width > window_width {
+						x_offset = -(buffer_width - window_width) / 2;
+					} else {
+						x_offset = (window_width - buffer_width) / 2;
+					}
+
+                    if y_offset > 0 {
+                        wingdi::Rectangle(dc, 0, 0, window_width, y_offset);
+                        wingdi::Rectangle(dc, 0, y_offset + new_height, window_width, window_height);
+					}
+
+                    if x_offset > 0 {
+                        wingdi::Rectangle(dc, 0, y_offset, x_offset, buffer_height + y_offset);
+                        wingdi::Rectangle(
+                            dc, 
+                            x_offset + buffer_width, 
+                            y_offset, 
+                            window_width, buffer_height + y_offset);
+					}
+				}
+
                 ScaleMode::UpperLeft => {
                     new_width = buffer_width;
                     new_height = buffer_height;
@@ -314,7 +353,7 @@ unsafe extern "system" fn wnd_proc(
                     }
                 },
 
-                _ => println!("unimplemented!"),
+                _ => (), 
 			}
 
 			wingdi::StretchDIBits(
@@ -398,6 +437,7 @@ pub struct Window {
     accel_table: windef::HACCEL,
     accel_key: usize,
     prev_cursor: CursorStyle,
+    updated_cursor: bool,
     cursors: [windef::HCURSOR; 8],
     draw_params: DrawParameters,
 }
@@ -536,6 +576,7 @@ impl Window {
                 accel_table: ptr::null_mut(),
                 accel_key: INVALID_ACCEL,
                 prev_cursor: CursorStyle::Arrow,
+                updated_cursor: false,
                 clear_brush: wingdi::CreateSolidBrush(0),
                 cursors: [
                     winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_ARROW),
@@ -552,9 +593,6 @@ impl Window {
                     ..DrawParameters::default()
 				}
             };
-
-            // Set arrow as default cursor
-            winuser::SetCursor(window.cursors[0]);
 
             Ok(window)
         }
@@ -630,13 +668,9 @@ impl Window {
     #[inline]
     pub fn set_cursor_style(&mut self, cursor: CursorStyle) {
         unsafe {
-            if self.prev_cursor == cursor {
-                return;
-            }
-
-            winuser::SetCursor(self.cursors[cursor as usize]);
-
+            //winuser::SetCursor(self.cursors[cursor as usize]);
             self.prev_cursor = cursor;
+            self.updated_cursor = true;
         }
     }
 
@@ -726,8 +760,14 @@ impl Window {
         }
     }
 
-    pub fn set_background_color(&mut self, _color: u32) {
-    
+    pub fn set_background_color(&mut self, color: u32) {
+        unsafe {
+			wingdi::DeleteObject(self.clear_brush as *mut std::ffi::c_void);
+			let r = (color >> 16) & 0xff;
+			let g = (color >> 8) & 0xff;
+			let b = (color >> 0) & 0xff;
+			self.clear_brush = wingdi::CreateSolidBrush((b << 16) | (g << 8) | r);
+		}
 	}
 
     pub fn update_with_buffer_stride(
