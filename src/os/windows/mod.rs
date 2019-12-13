@@ -230,6 +230,14 @@ unsafe extern "system" fn wnd_proc(
             }
         }
 
+        /*
+        winuser::WM_ERASEBKGND => {
+            let dc = wnd.dc.unwrap(); 
+            wingdi::SelectObject(dc, wnd.clear_brush as *mut std::ffi::c_void); 
+            wingdi::Rectangle(dc, 0, 0, wnd.width, wnd.height);
+		}
+        */
+        
         winuser::WM_SIZE => {
             let width = (lparam as u32) & 0xffff;
             let height = ((lparam as u32) >> 16) & 0xffff;
@@ -255,8 +263,6 @@ unsafe extern "system" fn wnd_proc(
             bitmap_info.bmi_colors[1].rgbGreen = 0xff;
             bitmap_info.bmi_colors[2].rgbBlue = 0xff;
 
-            println!("{} {} - {}", wnd.width, wnd.height, wnd.scale_factor);
-
             let buffer_width = wnd.draw_params.buffer_width as i32;
             let buffer_height = wnd.draw_params.buffer_height as i32;
             let window_width = wnd.width as i32;
@@ -273,8 +279,6 @@ unsafe extern "system" fn wnd_proc(
                 ScaleMode::AspectRatioStretch => {
 					let buffer_aspect = buffer_width as f32 / buffer_height as f32; 
 					let win_aspect = window_width as f32 / window_height as f32;
-
-                    wingdi::SelectObject(dc, wnd.clear_brush as *mut std::ffi::c_void); 
 
 					if buffer_aspect > win_aspect {
 						new_height = (window_width as f32 / buffer_aspect) as i32;
@@ -298,6 +302,9 @@ unsafe extern "system" fn wnd_proc(
 				}
 
                 ScaleMode::UpperLeft => {
+                    new_width = buffer_width;
+                    new_height = buffer_height;
+
                     if buffer_width < window_width {
                         wingdi::Rectangle(dc, buffer_width, 0, window_width, window_height);
 					}
@@ -477,8 +484,6 @@ impl Window {
             if opts.borderless {
                 flags &= !winuser::WS_THICKFRAME;
             }
-
-            println!("open size {} {}", rect.right, rect.bottom);
 
             let handle = winuser::CreateWindowExW(
                 0,
