@@ -1,15 +1,19 @@
 [package]
 name = "minifb"
-version = "0.14.0"
+version = "0.15.0"
 license = "MIT/Apache-2.0"
 authors = ["Daniel Collin <daniel@collin.com>"]
 description = "Cross-platform window setup with optional bitmap rendering"
 keywords = ["windowing", "window", "framebuffer"]
 categories = ["rendering"]
 repository = "https://github.com/emoon/rust_minifb"
-documentation = "https://docs.rs/minifb/0.12/minifb"
+documentation = "https://docs.rs/minifb/0.15/minifb"
 build = "build.rs"
 readme = "README.md"
+
+exclude = [
+  "resources/"
+]
 
 [badges]
 maintenance = {status = "actively-developed"}
