@@ -190,12 +190,12 @@ unsafe extern "system" fn wnd_proc(
             wnd.mouse.scroll = scroll;
         }
 
-        /*
         winuser::WM_SETCURSOR => {
-            winuser::SetCursor(wnd.cursors[wnd.prev_cursor as usize]);
-            return 1;
+            if winapi::shared::minwindef::LOWORD(lparam as u32) == winuser::HTCLIENT as u16 {
+                winuser::SetCursor(wnd.cursors[wnd.cursor as usize]);
+                return 1;
+			}
 		}
-        */
 
         winuser::WM_KEYDOWN => {
             update_key_state(wnd, (lparam as u32) >> 16, true);
@@ -293,7 +293,6 @@ unsafe extern "system" fn wnd_proc(
 						y_offset = (new_height - window_height) / -2;
 
                         if y_offset != 0 {
-                            let end_height = window_height - (y_offset + new_height + 1);
                             wingdi::Rectangle(dc, 0, 0, window_width, y_offset);
                             wingdi::Rectangle(dc, 0, y_offset + new_height, window_width, window_height);
                         }
@@ -383,10 +382,6 @@ unsafe extern "system" fn wnd_proc(
     return winuser::DefWindowProcW(window, msg, wparam, lparam);
 }
 
-pub enum MinifbError {
-    UnableToCreateWindow,
-}
-
 fn to_wstring(str: &str) -> Vec<u16> {
     let v: Vec<u16> = OsStr::new(str)
         .encode_wide()
@@ -405,7 +400,6 @@ struct MouseData {
 
 struct DrawParameters {
     buffer: *const u32,
-    bg_color: u32,
     buffer_width: u32,
     buffer_height: u32,
     scale_mode: ScaleMode,
@@ -415,7 +409,6 @@ impl Default for DrawParameters {
     fn default() -> Self {
         DrawParameters {
             buffer: std::ptr::null(),
-            bg_color: 0,
             buffer_width: 0,
             buffer_height: 0,
             scale_mode: ScaleMode::Stretch,
@@ -436,8 +429,7 @@ pub struct Window {
     key_handler: KeyHandler,
     accel_table: windef::HACCEL,
     accel_key: usize,
-    prev_cursor: CursorStyle,
-    updated_cursor: bool,
+    cursor: CursorStyle,
     cursors: [windef::HCURSOR; 8],
     draw_params: DrawParameters,
 }
@@ -575,8 +567,7 @@ impl Window {
                 menus: Vec::new(),
                 accel_table: ptr::null_mut(),
                 accel_key: INVALID_ACCEL,
-                prev_cursor: CursorStyle::Arrow,
-                updated_cursor: false,
+                cursor: CursorStyle::Arrow,
                 clear_brush: wingdi::CreateSolidBrush(0),
                 cursors: [
                     winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_ARROW),
@@ -667,11 +658,7 @@ impl Window {
 
     #[inline]
     pub fn set_cursor_style(&mut self, cursor: CursorStyle) {
-        unsafe {
-            //winuser::SetCursor(self.cursors[cursor as usize]);
-            self.prev_cursor = cursor;
-            self.updated_cursor = true;
-        }
+        self.cursor = cursor;
     }
 
     #[inline]
@@ -721,7 +708,7 @@ impl Window {
 
     fn generic_update(&mut self, window: windef::HWND) {
         unsafe {
-            let mut point: windef::POINT = mem::uninitialized();
+            let mut point: windef::POINT = mem::zeroed();
             
             winuser::GetCursorPos(&mut point);
             winuser::ScreenToClient(window, &mut point);
@@ -738,7 +725,7 @@ impl Window {
 
     fn message_loop(&self, window: windef::HWND) {
         unsafe {
-            let mut msg = mem::uninitialized();
+            let mut msg = mem::zeroed();
 
             while winuser::PeekMessageW(&mut msg, window, 0, 0, winuser::PM_REMOVE) != 0 {
                 // Make this code a bit nicer
@@ -848,7 +835,7 @@ impl Window {
     // the current client size is preserved and still show all pixels
     //
     unsafe fn adjust_window_size_for_menu(handle: windef::HWND) {
-        let mut rect: windef::RECT = mem::uninitialized();
+        let mut rect: windef::RECT = mem::zeroed();
 
         let menu_height = winuser::GetSystemMetrics(winuser::SM_CYMENU);
 

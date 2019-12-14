@@ -27,7 +27,7 @@ fn main() {
         info.height as usize,
         WindowOptions {
             resize: true,
-            scale_mode: ScaleMode::UpperLeft,
+            scale_mode: ScaleMode::Center,
             ..WindowOptions::default()
         },
     ).expect("Unable to open Window");
