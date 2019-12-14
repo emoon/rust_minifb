@@ -1,7 +1,7 @@
 extern crate minifb;
 extern crate png;
 
-use minifb::{Key, Scale, ScaleMode, Window, WindowOptions};
+use minifb::{Key, ScaleMode, Window, WindowOptions};
 
 fn main() {
     use std::fs::File;

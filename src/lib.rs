@@ -373,7 +373,7 @@ impl Window {
     /// # use minifb::*;
     /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     /// loop {
-    ///    window.update(...);
+    ///    window.update();
     /// }
     /// ```
     /// Is that lots of CPU time will be spent calling system functions to check for new events in a tight loop making the CPU time go up.

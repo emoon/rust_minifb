@@ -1,7 +1,6 @@
 extern crate minifb;
 
 use minifb::{Key, Scale, ScaleMode, Window, WindowOptions};
-use std::thread;
 
 const WIDTH: usize = 100;
 const HEIGHT: usize = 100;
