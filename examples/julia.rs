@@ -24,6 +24,9 @@ fn main() {
     )
     .expect("Unable to Open Window");
 
+    // Limit to max ~60 fps update rate
+    window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
+
     let range = 2.0;
     let x_min = 0. - range;
     let y_min = 0. - range;
@@ -62,8 +65,6 @@ fn main() {
 
         // We unwrap here as we want this code to exit if it fails
         window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
-
-        thread::sleep(std::time::Duration::from_millis(10));
     }
 }
 

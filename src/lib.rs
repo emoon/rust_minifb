@@ -96,6 +96,7 @@ mod key;
 pub use key::Key;
 mod buffer_helper;
 mod key_handler;
+mod rate;
 mod mouse_handler;
 mod os;
 mod window_flags;
@@ -279,6 +280,7 @@ impl Window {
         width: usize,
         height: usize,
     ) -> Result<()> {
+        self.0.update_rate();
         self.0
             .update_with_buffer_stride(buffer, width, height, width)
     }
@@ -298,6 +300,7 @@ impl Window {
     /// ```
     #[inline]
     pub fn update(&mut self) {
+        self.0.update_rate();
         self.0.update()
     }
 
@@ -360,6 +363,36 @@ impl Window {
         let b = clamp(0, blue, 255);
         self.0
             .set_background_color(((r << 16) | (g << 8) | b) as u32);
+    }
+
+    ///
+    /// Limits the update rate of polling for new events in order to reduce CPU usage.
+    /// The problem of having a tight loop that does something like this
+    ///
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    /// loop {
+    ///    window.update(...);
+    /// }
+    /// ```
+    /// Is that lots of CPU time will be spent calling system functions to check for new events in a tight loop making the CPU time go up.
+    /// Using `limit_update_rate` minifb will check how much time has passed since the last time and if it's less than the selected time it will sleep for the remainder of it.
+    /// This means that if more time has spent than the set time (external code taking longer) minifb will not do any waiting at all so there is no loss in CPU performance with this feature.
+    /// By default it's set to 4 milliseconds. Setting this value to None and no waiting will be done
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    /// // Make sure that at least 4 ms has passed since the last event poll
+    /// window.limit_update_rate(Some(std::time::Duration::from_millis(4)));
+    /// ```
+    ///
+    #[inline]
+    pub fn limit_update_rate(&mut self, time: Option<std::time::Duration>) {
+        self.0.set_rate(time)
     }
 
     ///

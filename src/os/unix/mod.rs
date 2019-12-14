@@ -16,6 +16,7 @@ use self::x11_dl::keysym::*;
 use self::x11_dl::xcursor;
 use self::x11_dl::xlib;
 use key_handler::KeyHandler;
+use rate::UpdateRate;
 use {InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions};
 
 use error::Error;
@@ -289,6 +290,7 @@ pub struct Window {
     should_close: bool, // received delete window message from X server
 
     key_handler: KeyHandler,
+    update_rate: UpdateRate,
     menu_counter: MenuHandle,
     menus: Vec<UnixMenu>,
 }
@@ -428,6 +430,7 @@ impl Window {
                 prev_cursor: CursorStyle::Arrow,
                 should_close: false,
                 key_handler: KeyHandler::new(),
+                update_rate: UpdateRate::new(Some(std::time::Duration::from_millis(4))),
                 menu_counter: MenuHandle(0),
                 menus: Vec::new(),
             })
@@ -579,6 +582,16 @@ impl Window {
 
             self.prev_cursor = cursor;
         }
+    }
+
+    #[inline]
+    pub fn set_rate(&mut self, rate: Option<std::time::Duration>) {
+        self.update_rate.set_rate(rate);
+    }
+
+    #[inline]
+    pub fn update_rate(&mut self) {
+        self.update_rate.update();
     }
 
     #[inline]
