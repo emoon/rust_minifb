@@ -20,7 +20,7 @@ fn main() {
             ..WindowOptions::default()
         },
     )
-    .except("Unable to create window");
+    .expect("Unable to create window");
 
     let mut buffer: Vec<u32> = Vec::with_capacity(WIDTH * HEIGHT);
 
