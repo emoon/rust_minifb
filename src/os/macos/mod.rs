@@ -171,7 +171,8 @@ extern "C" {
         buffer: *const c_uchar,
         buf_width: u32,
         buf_height: u32,
-        buf_stride: u32);
+        buf_stride: u32,
+    );
     fn mfb_set_position(window: *mut c_void, x: i32, y: i32);
     fn mfb_set_key_callback(
         window: *mut c_void,
@@ -340,10 +341,12 @@ impl Window {
 
         unsafe {
             mfb_update_with_buffer(
-                self.window_handle, buffer.as_ptr() as *const u8,
+                self.window_handle,
+                buffer.as_ptr() as *const u8,
                 buf_width as u32,
                 buf_height as u32,
-                buf_stride as u32);
+                buf_stride as u32,
+            );
             Self::set_mouse_data(self);
             mfb_set_key_callback(
                 self.window_handle,

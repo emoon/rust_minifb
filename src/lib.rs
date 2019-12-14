@@ -273,8 +273,14 @@ impl Window {
     /// window.update_with_buffer(&buffer, buffer_width, buffer_height).unwrap();
     /// ```
     #[inline]
-    pub fn update_with_buffer(&mut self, buffer: &[u32], width: usize, height: usize) -> Result<()> {
-        self.0.update_with_buffer_stride(buffer, width, height, width)
+    pub fn update_with_buffer(
+        &mut self,
+        buffer: &[u32],
+        width: usize,
+        height: usize,
+    ) -> Result<()> {
+        self.0
+            .update_with_buffer_stride(buffer, width, height, width)
     }
 
     ///
@@ -352,7 +358,8 @@ impl Window {
         let r = clamp(0, red, 255);
         let g = clamp(0, green, 255);
         let b = clamp(0, blue, 255);
-        self.0.set_background_color(((r << 16) | (g << 8) | b) as u32);
+        self.0
+            .set_background_color(((r << 16) | (g << 8) | b) as u32);
     }
 
     ///

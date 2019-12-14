@@ -1,6 +1,6 @@
 extern crate minifb;
 
-use minifb::{Key, Window, WindowOptions, ScaleMode};
+use minifb::{Key, ScaleMode, Window, WindowOptions};
 
 const WIDTH: usize = 640 / 2;
 const HEIGHT: usize = 360 / 2;
@@ -19,7 +19,8 @@ fn main() {
             scale_mode: ScaleMode::UpperLeft,
             ..WindowOptions::default()
         },
-    ).except("Unable to create window");
+    )
+    .except("Unable to create window");
 
     let mut buffer: Vec<u32> = Vec::with_capacity(WIDTH * HEIGHT);
 
@@ -54,6 +55,8 @@ fn main() {
             }
         });
 
-        window.update_with_buffer(&buffer, new_size.0, new_size.1).unwrap();
+        window
+            .update_with_buffer(&buffer, new_size.0, new_size.1)
+            .unwrap();
     }
 }

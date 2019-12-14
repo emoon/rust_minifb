@@ -1,6 +1,6 @@
 extern crate minifb;
 
-use minifb::{Key, Window, Scale, WindowOptions, ScaleMode};
+use minifb::{Key, Scale, ScaleMode, Window, WindowOptions};
 use std::thread;
 
 const WIDTH: usize = 100;
@@ -20,7 +20,7 @@ fn main() {
             scale: Scale::X2,
             scale_mode: ScaleMode::AspectRatioStretch,
             ..WindowOptions::default()
-        }
+        },
     )
     .expect("Unable to Open Window");
 

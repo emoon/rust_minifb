@@ -10,7 +10,7 @@ use error::Error;
 use key_handler::KeyHandler;
 use Result;
 use {CursorStyle, MenuHandle, MenuItem, MenuItemHandle};
-use {InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, WindowOptions, ScaleMode};
+use {InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions};
 use {MENU_KEY_ALT, MENU_KEY_CTRL, MENU_KEY_SHIFT, MENU_KEY_WIN};
 
 use buffer_helper;
@@ -194,8 +194,8 @@ unsafe extern "system" fn wnd_proc(
             if winapi::shared::minwindef::LOWORD(lparam as u32) == winuser::HTCLIENT as u16 {
                 winuser::SetCursor(wnd.cursors[wnd.cursor as usize]);
                 return 1;
-			}
-		}
+            }
+        }
 
         winuser::WM_KEYDOWN => {
             update_key_state(wnd, (lparam as u32) >> 16, true);
@@ -239,12 +239,11 @@ unsafe extern "system" fn wnd_proc(
 
         /*
         winuser::WM_ERASEBKGND => {
-            let dc = wnd.dc.unwrap(); 
-            wingdi::SelectObject(dc, wnd.clear_brush as *mut std::ffi::c_void); 
+            let dc = wnd.dc.unwrap();
+            wingdi::SelectObject(dc, wnd.clear_brush as *mut std::ffi::c_void);
             wingdi::Rectangle(dc, 0, 0, wnd.width, wnd.height);
-		}
+        }
         */
-        
         winuser::WM_SIZE => {
             let width = (lparam as u32) & 0xffff;
             let height = ((lparam as u32) >> 16) & 0xffff;
@@ -275,69 +274,88 @@ unsafe extern "system" fn wnd_proc(
             let window_width = wnd.width as i32;
             let window_height = wnd.height as i32;
 
-			let mut new_height = window_height;
-			let mut new_width = window_width;
-			let mut x_offset = 0;
-			let mut y_offset = 0;
+            let mut new_height = window_height;
+            let mut new_width = window_width;
+            let mut x_offset = 0;
+            let mut y_offset = 0;
 
-            let dc = wnd.dc.unwrap(); 
-            wingdi::SelectObject(dc, wnd.clear_brush as *mut std::ffi::c_void); 
+            let dc = wnd.dc.unwrap();
+            wingdi::SelectObject(dc, wnd.clear_brush as *mut std::ffi::c_void);
 
             match wnd.draw_params.scale_mode {
                 ScaleMode::AspectRatioStretch => {
-					let buffer_aspect = buffer_width as f32 / buffer_height as f32; 
-					let win_aspect = window_width as f32 / window_height as f32;
+                    let buffer_aspect = buffer_width as f32 / buffer_height as f32;
+                    let win_aspect = window_width as f32 / window_height as f32;
 
-					if buffer_aspect > win_aspect {
-						new_height = (window_width as f32 / buffer_aspect) as i32;
-						y_offset = (new_height - window_height) / -2;
+                    if buffer_aspect > win_aspect {
+                        new_height = (window_width as f32 / buffer_aspect) as i32;
+                        y_offset = (new_height - window_height) / -2;
 
                         if y_offset != 0 {
                             wingdi::Rectangle(dc, 0, 0, window_width, y_offset);
-                            wingdi::Rectangle(dc, 0, y_offset + new_height, window_width, window_height);
+                            wingdi::Rectangle(
+                                dc,
+                                0,
+                                y_offset + new_height,
+                                window_width,
+                                window_height,
+                            );
                         }
+                    } else {
+                        new_width = (window_height as f32 * buffer_aspect) as i32;
+                        x_offset = (new_width - window_width) / -2;
 
-					} else {
-						new_width = (window_height as f32 * buffer_aspect) as i32;
-						x_offset = (new_width - window_width) / -2;
-                        
                         if x_offset != 0 {
                             wingdi::Rectangle(dc, 0, 0, x_offset, window_height);
-                            wingdi::Rectangle(dc, x_offset + new_width, 0, window_width, window_height);
+                            wingdi::Rectangle(
+                                dc,
+                                x_offset + new_width,
+                                0,
+                                window_width,
+                                window_height,
+                            );
                         }
-					}
-				}
+                    }
+                }
 
                 ScaleMode::Center => {
                     new_width = buffer_width;
                     new_height = buffer_height;
 
-					if buffer_height > window_height {
-						y_offset = -(buffer_height - window_height) / 2;
-					} else {
-						y_offset = (window_height - buffer_height) / 2;
-					}
+                    if buffer_height > window_height {
+                        y_offset = -(buffer_height - window_height) / 2;
+                    } else {
+                        y_offset = (window_height - buffer_height) / 2;
+                    }
 
-					if buffer_width > window_width {
-						x_offset = -(buffer_width - window_width) / 2;
-					} else {
-						x_offset = (window_width - buffer_width) / 2;
-					}
+                    if buffer_width > window_width {
+                        x_offset = -(buffer_width - window_width) / 2;
+                    } else {
+                        x_offset = (window_width - buffer_width) / 2;
+                    }
 
                     if y_offset > 0 {
                         wingdi::Rectangle(dc, 0, 0, window_width, y_offset);
-                        wingdi::Rectangle(dc, 0, y_offset + new_height, window_width, window_height);
-					}
+                        wingdi::Rectangle(
+                            dc,
+                            0,
+                            y_offset + new_height,
+                            window_width,
+                            window_height,
+                        );
+                    }
 
                     if x_offset > 0 {
                         wingdi::Rectangle(dc, 0, y_offset, x_offset, buffer_height + y_offset);
                         wingdi::Rectangle(
-                            dc, 
-                            x_offset + buffer_width, 
-                            y_offset, 
-                            window_width, buffer_height + y_offset);
-					}
-				}
+                            dc,
+                            x_offset + buffer_width,
+                            y_offset,
+                            window_width,
+                            buffer_height + y_offset,
+                        );
+                    }
+                }
 
                 ScaleMode::UpperLeft => {
                     new_width = buffer_width;
@@ -345,31 +363,31 @@ unsafe extern "system" fn wnd_proc(
 
                     if buffer_width < window_width {
                         wingdi::Rectangle(dc, buffer_width, 0, window_width, window_height);
-					}
+                    }
 
                     if buffer_height < window_height {
                         wingdi::Rectangle(dc, 0, buffer_height, window_width, window_height);
                     }
-                },
+                }
 
-                _ => (), 
-			}
+                _ => (),
+            }
 
-			wingdi::StretchDIBits(
-				dc,
-				x_offset,
-				y_offset,
-				new_width,
-				new_height,
-				0,
-				0,
-				wnd.draw_params.buffer_width as i32,
-				wnd.draw_params.buffer_height as i32,
-				mem::transmute(wnd.draw_params.buffer),
-				mem::transmute(&bitmap_info),
-				wingdi::DIB_RGB_COLORS,
-				wingdi::SRCCOPY,
-			);
+            wingdi::StretchDIBits(
+                dc,
+                x_offset,
+                y_offset,
+                new_width,
+                new_height,
+                0,
+                0,
+                wnd.draw_params.buffer_width as i32,
+                wnd.draw_params.buffer_height as i32,
+                mem::transmute(wnd.draw_params.buffer),
+                mem::transmute(&bitmap_info),
+                wingdi::DIB_RGB_COLORS,
+                wingdi::SRCCOPY,
+            );
 
             winuser::ValidateRect(window, ptr::null_mut());
 
@@ -412,8 +430,8 @@ impl Default for DrawParameters {
             buffer_width: 0,
             buffer_height: 0,
             scale_mode: ScaleMode::Stretch,
-		}
-	}
+        }
+    }
 }
 
 pub struct Window {
@@ -582,7 +600,7 @@ impl Window {
                 draw_params: DrawParameters {
                     scale_mode: opts.scale_mode,
                     ..DrawParameters::default()
-				}
+                },
             };
 
             Ok(window)
@@ -709,7 +727,7 @@ impl Window {
     fn generic_update(&mut self, window: windef::HWND) {
         unsafe {
             let mut point: windef::POINT = mem::zeroed();
-            
+
             winuser::GetCursorPos(&mut point);
             winuser::ScreenToClient(window, &mut point);
 
@@ -749,13 +767,13 @@ impl Window {
 
     pub fn set_background_color(&mut self, color: u32) {
         unsafe {
-			wingdi::DeleteObject(self.clear_brush as *mut std::ffi::c_void);
-			let r = (color >> 16) & 0xff;
-			let g = (color >> 8) & 0xff;
-			let b = (color >> 0) & 0xff;
-			self.clear_brush = wingdi::CreateSolidBrush((b << 16) | (g << 8) | r);
-		}
-	}
+            wingdi::DeleteObject(self.clear_brush as *mut std::ffi::c_void);
+            let r = (color >> 16) & 0xff;
+            let g = (color >> 8) & 0xff;
+            let b = (color >> 0) & 0xff;
+            self.clear_brush = wingdi::CreateSolidBrush((b << 16) | (g << 8) | r);
+        }
+    }
 
     pub fn update_with_buffer_stride(
         &mut self,
