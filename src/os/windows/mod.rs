@@ -8,6 +8,7 @@ const INVALID_ACCEL: usize = 0xffffffff;
 
 use error::Error;
 use key_handler::KeyHandler;
+use rate::UpdateRate;
 use Result;
 use {CursorStyle, MenuHandle, MenuItem, MenuItemHandle};
 use {InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions};
@@ -445,6 +446,7 @@ pub struct Window {
     height: i32,
     menus: Vec<Menu>,
     key_handler: KeyHandler,
+    update_rate: UpdateRate,
     accel_table: windef::HACCEL,
     accel_key: usize,
     cursor: CursorStyle,
@@ -578,6 +580,7 @@ impl Window {
                 dc: Some(winuser::GetDC(handle.unwrap())),
                 window: Some(handle.unwrap()),
                 key_handler: KeyHandler::new(),
+                update_rate: UpdateRate::new(),
                 is_open: true,
                 scale_factor: scale_factor,
                 width: (width * scale_factor as usize) as i32,
@@ -677,6 +680,16 @@ impl Window {
     #[inline]
     pub fn set_cursor_style(&mut self, cursor: CursorStyle) {
         self.cursor = cursor;
+    }
+
+    #[inline]
+    pub fn set_rate(&mut self, rate: Option<std::time::Duration>) {
+        self.update_rate.set_rate(rate);
+    }
+
+    #[inline]
+    pub fn update_rate(&mut self) {
+        self.update_rate.update();
     }
 
     #[inline]

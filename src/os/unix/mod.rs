@@ -430,7 +430,7 @@ impl Window {
                 prev_cursor: CursorStyle::Arrow,
                 should_close: false,
                 key_handler: KeyHandler::new(),
-                update_rate: UpdateRate::new(Some(std::time::Duration::from_millis(4))),
+                update_rate: UpdateRate::new(),
                 menu_counter: MenuHandle(0),
                 menus: Vec::new(),
             })

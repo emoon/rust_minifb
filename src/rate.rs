@@ -8,9 +8,10 @@ pub struct UpdateRate {
 }
 
 impl UpdateRate {
-    pub fn new(rate: Option<Duration>) -> UpdateRate {
+    pub fn new() -> UpdateRate {
         UpdateRate {
-            target_rate: rate,
+            // Default limit to 4 ms
+            target_rate: Some(Duration::from_millis(4)),
             prev_time: 0.0,
         }
     }
@@ -38,4 +39,3 @@ impl UpdateRate {
         }
     }
 }
-
