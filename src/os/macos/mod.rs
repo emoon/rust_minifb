@@ -5,6 +5,7 @@ extern crate raw_window_handle;
 use error::Error;
 use key_handler::KeyHandler;
 use Result;
+use rate::UpdateRate;
 use {Key, KeyRepeat, MouseButton, MouseMode, Scale, WindowOptions};
 // use MenuItem;
 use buffer_helper;
@@ -222,6 +223,7 @@ pub struct Window {
     scale_factor: usize,
     pub shared_data: SharedData,
     key_handler: KeyHandler,
+    update_rate: UpdateRate,
     pub has_set_data: bool,
     menus: Vec<MenuHandle>,
 }
@@ -299,6 +301,7 @@ impl Window {
                     ..SharedData::default()
                 },
                 key_handler: KeyHandler::new(),
+                update_rate: UpdateRate::new(),
                 has_set_data: false,
                 menus: Vec::new(),
             })
@@ -311,6 +314,16 @@ impl Window {
             let t = CString::new(title).unwrap();
             mfb_set_title(self.window_handle, t.as_ptr());
         }
+    }
+
+    #[inline]
+    pub fn set_rate(&mut self, rate: Option<std::time::Duration>) {
+        self.update_rate.set_rate(rate);
+    }
+
+    #[inline]
+    pub fn update_rate(&mut self) {
+        self.update_rate.update();
     }
 
     #[inline]
