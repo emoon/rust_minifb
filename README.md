@@ -13,7 +13,7 @@ Usage
 ```toml
 # Cargo.toml
 [dependencies]
-minifb = "0.14"
+minifb = "0.15"
 ```
 
 Example
@@ -50,7 +50,7 @@ fn main() {
 
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         window
-            .update_with_buffer_size(&buffer, WIDTH, HEIGHT)
+            .update_with_buffer(&buffer, WIDTH, HEIGHT)
             .unwrap();
     }
 }
@@ -58,8 +58,8 @@ fn main() {
 
 Status
 ------
-Currently macOS, Redox, Linux and Windows (64-bit and 32-bit) are the current supported platforms. X11 (Linux/FreeBSD/etc) support has been tested on Ubuntu (x64). Bug report(s) for other OSes/CPUs are welcome!
-
+Currently macOS, Linux and Windows (64-bit and 32-bit) are the current supported platforms. X11 (Linux/FreeBSD/etc) support has been tested on Ubuntu (x64). Bug report(s) for other OSes/CPUs are welcome!
+Notice: That after 0.13 Redox hasn't been updated and some work is required to get that working again. PR are welcome.
 
 Build instructions
 ------------------
