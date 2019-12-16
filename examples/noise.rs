@@ -1,41 +1,39 @@
 extern crate minifb;
 
-use minifb::{Key, Scale, Window, WindowOptions};
+use minifb::{Key, ScaleMode, Window, WindowOptions};
 
-const WIDTH: usize = 640;
-const HEIGHT: usize = 360;
+const WIDTH: usize = 640 / 2;
+const HEIGHT: usize = 360 / 2;
 
 fn main() {
     let mut noise;
     let mut carry;
     let mut seed = 0xbeefu32;
 
-    let mut window = match Window::new(
+    let mut window = Window::new(
         "Noise Test - Press ESC to exit",
         WIDTH,
         HEIGHT,
         WindowOptions {
             resize: true,
-            scale: Scale::X2,
+            scale_mode: ScaleMode::UpperLeft,
             ..WindowOptions::default()
         },
-    ) {
-        Ok(win) => win,
-        Err(err) => {
-            println!("Unable to create window {}", err);
-            return;
-        }
-    };
+    )
+    .expect("Unable to create window");
+
+    // Limit to max ~60 fps update rate
+    window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
 
     let mut buffer: Vec<u32> = Vec::with_capacity(WIDTH * HEIGHT);
 
     let mut size = (0, 0);
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
-        let new_size = window.get_size();
+        let new_size = (window.get_size().0, window.get_size().1);
         if new_size != size {
             size = new_size;
-            buffer.resize(size.0 * size.1 / 2 / 2, 0);
+            buffer.resize(size.0 * size.1, 0);
         }
 
         for i in buffer.iter_mut() {
@@ -60,7 +58,8 @@ fn main() {
             }
         });
 
-        // We unwrap here as we want this code to exit if it fails
-        window.update_with_buffer_size(&buffer, new_size.0, new_size.0).unwrap();
+        window
+            .update_with_buffer(&buffer, new_size.0, new_size.1)
+            .unwrap();
     }
 }

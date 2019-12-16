@@ -5,6 +5,7 @@ extern crate raw_window_handle;
 use error::Error;
 use key_handler::KeyHandler;
 use Result;
+use rate::UpdateRate;
 use {Key, KeyRepeat, MouseButton, MouseMode, Scale, WindowOptions};
 // use MenuItem;
 use buffer_helper;
@@ -166,7 +167,13 @@ extern "C" {
     fn mfb_set_title(window: *mut c_void, title: *const c_char);
     fn mfb_close(window: *mut c_void);
     fn mfb_update(window: *mut c_void);
-    fn mfb_update_with_buffer(window: *mut c_void, buffer: *const c_uchar);
+    fn mfb_update_with_buffer(
+        window: *mut c_void,
+        buffer: *const c_uchar,
+        buf_width: u32,
+        buf_height: u32,
+        buf_stride: u32,
+    );
     fn mfb_set_position(window: *mut c_void, x: i32, y: i32);
     fn mfb_set_key_callback(
         window: *mut c_void,
@@ -200,6 +207,8 @@ extern "C" {
 #[derive(Default)]
 #[repr(C)]
 pub struct SharedData {
+    pub bg_color: u32,
+    pub scale_mode: u32,
     pub width: u32,
     pub height: u32,
     pub mouse_x: f32,
@@ -214,6 +223,7 @@ pub struct Window {
     scale_factor: usize,
     pub shared_data: SharedData,
     key_handler: KeyHandler,
+    update_rate: UpdateRate,
     pub has_set_data: bool,
     menus: Vec<MenuHandle>,
 }
@@ -248,7 +258,7 @@ unsafe extern "C" fn char_callback(window: *mut c_void, code_point: u32) {
 unsafe impl raw_window_handle::HasRawWindowHandle for Window {
     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
         let handle = raw_window_handle::macos::MacOSHandle {
-            ns_window: self.window_handle,
+            ns_window: self.window_handle as *mut _,
             ns_view: std::ptr::null_mut(),
             ..raw_window_handle::macos::MacOSHandle::empty()
         };
@@ -284,11 +294,14 @@ impl Window {
                 window_handle: handle,
                 scale_factor: scale_factor,
                 shared_data: SharedData {
+                    bg_color: 0,
+                    scale_mode: opts.scale_mode as u32,
                     width: width as u32 * scale_factor as u32,
                     height: height as u32 * scale_factor as u32,
                     ..SharedData::default()
                 },
                 key_handler: KeyHandler::new(),
+                update_rate: UpdateRate::new(),
                 has_set_data: false,
                 menus: Vec::new(),
             })
@@ -304,6 +317,16 @@ impl Window {
     }
 
     #[inline]
+    pub fn set_rate(&mut self, rate: Option<std::time::Duration>) {
+        self.update_rate.set_rate(rate);
+    }
+
+    #[inline]
+    pub fn update_rate(&mut self) {
+        self.update_rate.update();
+    }
+
+    #[inline]
     pub fn get_window_handle(&self) -> *mut raw::c_void {
         self.window_handle as *mut raw::c_void
     }
@@ -313,21 +336,30 @@ impl Window {
         mfb_set_mouse_data(self.window_handle, &mut self.shared_data);
     }
 
-    pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
+    #[inline]
+    pub fn set_background_color(&mut self, color: u32) {
+        self.shared_data.bg_color = color;
+    }
+
+    pub fn update_with_buffer_stride(
+        &mut self,
+        buffer: &[u32],
+        buf_width: usize,
+        buf_height: usize,
+        buf_stride: usize,
+    ) -> Result<()> {
         self.key_handler.update();
 
-        let check_res = buffer_helper::check_buffer_size(
-            self.shared_data.width as usize,
-            self.shared_data.height as usize,
-            self.scale_factor as usize,
-            buffer,
-        );
-        if check_res.is_err() {
-            return check_res;
-        }
+        buffer_helper::check_buffer_size(buf_width, buf_height, buf_stride, buffer)?;
 
         unsafe {
-            mfb_update_with_buffer(self.window_handle, buffer.as_ptr() as *const u8);
+            mfb_update_with_buffer(
+                self.window_handle,
+                buffer.as_ptr() as *const u8,
+                buf_width as u32,
+                buf_height as u32,
+                buf_stride as u32,
+            );
             Self::set_mouse_data(self);
             mfb_set_key_callback(
                 self.window_handle,
@@ -459,7 +491,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_input_callback(&mut self, callback: Box<InputCallback>) {
+    pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>) {
         self.key_handler.set_input_callback(callback)
     }
 

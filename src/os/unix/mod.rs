@@ -9,14 +9,15 @@
 #![allow(non_upper_case_globals)]
 
 extern crate cast;
-extern crate x11_dl;
 extern crate raw_window_handle;
+extern crate x11_dl;
 
 use self::x11_dl::keysym::*;
 use self::x11_dl::xcursor;
 use self::x11_dl::xlib;
 use key_handler::KeyHandler;
-use {InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, WindowOptions};
+use rate::UpdateRate;
+use {InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions};
 
 use error::Error;
 use Result;
@@ -34,6 +35,54 @@ use mouse_handler;
 // NOTE: the x11-dl crate does not define Button6 or Button7
 const Button6: c_uint = xlib::Button5 + 1;
 const Button7: c_uint = xlib::Button5 + 2;
+
+// We have these in C so we can always have optimize on (-O3) so they
+// run fast in debug build as well. These functions should be seen as
+// "system" functions that just doesn't exist in X11
+extern "C" {
+    fn Image_upper_left(
+        target: *mut u32,
+        source: *const u32,
+        source_w: u32,
+        source_h: u32,
+        source_stride: u32,
+        dest_width: u32,
+        dest_height: u32,
+        bg_color: u32,
+    );
+
+    fn Image_center(
+        target: *mut u32,
+        source: *const u32,
+        source_w: u32,
+        source_h: u32,
+        source_stride: u32,
+        dest_width: u32,
+        dest_height: u32,
+        bg_color: u32,
+    );
+
+    fn Image_resize_linear_aspect_fill_c(
+        target: *mut u32,
+        source: *const u32,
+        source_w: u32,
+        source_h: u32,
+        source_stride: u32,
+        dest_width: u32,
+        dest_height: u32,
+        bg_color: u32,
+    );
+
+    fn Image_resize_linear_c(
+        target: *mut u32,
+        source: *const u32,
+        source_w: u32,
+        source_h: u32,
+        source_stride: u32,
+        dest_width: u32,
+        dest_height: u32,
+    );
+}
 
 mod key_mapping;
 
@@ -228,6 +277,8 @@ pub struct Window {
     height: u32, //
 
     scale: i32,
+    bg_color: u32,
+    scale_mode: ScaleMode,
 
     mouse_x: f32,
     mouse_y: f32,
@@ -239,6 +290,7 @@ pub struct Window {
     should_close: bool, // received delete window message from X server
 
     key_handler: KeyHandler,
+    update_rate: UpdateRate,
     menu_counter: MenuHandle,
     menus: Vec<UnixMenu>,
 }
@@ -372,10 +424,13 @@ impl Window {
                 mouse_y: 0.0,
                 scroll_x: 0.0,
                 scroll_y: 0.0,
+                bg_color: 0,
+                scale_mode: opts.scale_mode,
                 buttons: [0, 0, 0],
                 prev_cursor: CursorStyle::Arrow,
                 should_close: false,
                 key_handler: KeyHandler::new(),
+                update_rate: UpdateRate::new(),
                 menu_counter: MenuHandle(0),
                 menus: Vec::new(),
             })
@@ -431,15 +486,16 @@ impl Window {
         };
     }
 
-    pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
-        buffer_helper::check_buffer_size(
-            self.width as usize,
-            self.height as usize,
-            self.scale as usize,
-            buffer,
-        )?;
+    pub fn update_with_buffer_stride(
+        &mut self,
+        buffer: &[u32],
+        buf_width: usize,
+        buf_height: usize,
+        buf_stride: usize,
+    ) -> Result<()> {
+        buffer_helper::check_buffer_size(buf_width, buf_height, buf_stride, buffer)?;
 
-        unsafe { self.raw_blit_buffer(buffer) };
+        unsafe { self.raw_blit_buffer(buffer, buf_width, buf_height, buf_stride) };
 
         self.update();
 
@@ -462,6 +518,11 @@ impl Window {
     #[inline]
     pub fn get_window_handle(&self) -> *mut raw::c_void {
         self.handle as *mut raw::c_void
+    }
+
+    #[inline]
+    pub fn set_background_color(&mut self, bg_color: u32) {
+        self.bg_color = bg_color;
     }
 
     #[inline]
@@ -521,6 +582,16 @@ impl Window {
 
             self.prev_cursor = cursor;
         }
+    }
+
+    #[inline]
+    pub fn set_rate(&mut self, rate: Option<std::time::Duration>) {
+        self.update_rate.set_rate(rate);
+    }
+
+    #[inline]
+    pub fn update_rate(&mut self) {
+        self.update_rate.update();
     }
 
     #[inline]
@@ -639,37 +710,63 @@ impl Window {
 
     ////////////////////////////////////
 
-    unsafe fn raw_blit_buffer(&mut self, buffer: &[u32]) {
-        match self.scale {
-            1 => {
-                // input buffer may be larger than necessary, so get a slice of correct size
-                let src_buf = &buffer[0..self.draw_buffer.len()];
-
-                self.draw_buffer[..].copy_from_slice(src_buf);
+    unsafe fn raw_blit_buffer(
+        &mut self,
+        buffer: &[u32],
+        buf_width: usize,
+        buf_height: usize,
+        buf_stride: usize,
+    ) {
+        match self.scale_mode {
+            ScaleMode::Stretch => {
+                Image_resize_linear_c(
+                    self.draw_buffer.as_mut_ptr(),
+                    buffer.as_ptr(),
+                    buf_width as u32,
+                    buf_height as u32,
+                    buf_stride as u32,
+                    self.width as u32,
+                    self.height as u32,
+                );
             }
 
-            2 => {
-                self.scale_2x(buffer);
+            ScaleMode::AspectRatioStretch => {
+                Image_resize_linear_aspect_fill_c(
+                    self.draw_buffer.as_mut_ptr(),
+                    buffer.as_ptr(),
+                    buf_width as u32,
+                    buf_height as u32,
+                    buf_stride as u32,
+                    self.width as u32,
+                    self.height as u32,
+                    self.bg_color,
+                );
             }
 
-            4 => {
-                self.scale_4x(buffer);
+            ScaleMode::Center => {
+                Image_center(
+                    self.draw_buffer.as_mut_ptr(),
+                    buffer.as_ptr(),
+                    buf_width as u32,
+                    buf_height as u32,
+                    buf_stride as u32,
+                    self.width as u32,
+                    self.height as u32,
+                    self.bg_color,
+                );
             }
 
-            8 => {
-                self.scale_8x(buffer);
-            }
-
-            16 => {
-                self.scale_16x(buffer);
-            }
-
-            32 => {
-                self.scale_32x(buffer);
-            }
-
-            _ => {
-                panic!("bad scale for raw_blit_buffer()");
+            ScaleMode::UpperLeft => {
+                Image_upper_left(
+                    self.draw_buffer.as_mut_ptr(),
+                    buffer.as_ptr(),
+                    buf_width as u32,
+                    buf_height as u32,
+                    buf_stride as u32,
+                    self.width as u32,
+                    self.height as u32,
+                    self.bg_color,
+                );
             }
         }
 
@@ -1001,35 +1098,6 @@ impl Window {
         self.key_handler.set_key_state(key, is_down);
     }
 }
-
-// macro_rules inside impl {} blocks currently not supported
-// https://github.com/rust-lang/rust/issues/37205
-macro_rules! gen_scale_x(
-    ($($fn_name:ident, $x:expr),+$(,)?) => (
-        impl Window {
-            $(unsafe fn $fn_name(&mut self, buffer :  &[u32]) {
-                let w = self.width as usize;
-
-                let bw = (self.width as usize) / $x;
-                let bh = (self.height as usize) / $x;
-
-                for y in 0..bh {
-                    let src = &buffer[y * bw..y * bw + bw];
-
-                    for dy in 0..$x {
-                        let dest = &mut self.draw_buffer[(y * $x + dy) * w..(y * $x + dy) * w + w];
-
-                        for x in 0..bw {
-                            dest[x * $x .. x * $x + $x].copy_from_slice(&[src[x]; $x]);
-                        }
-                    }
-                }
-            })+
-        }
-    )
-);
-
-gen_scale_x!(scale_2x, 2, scale_4x, 4, scale_8x, 8, scale_16x, 16, scale_32x, 32,);
 
 impl Drop for Window {
     fn drop(&mut self) {

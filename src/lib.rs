@@ -98,6 +98,7 @@ mod buffer_helper;
 mod key_handler;
 mod mouse_handler;
 mod os;
+mod rate;
 mod window_flags;
 //mod menu;
 //pub use menu::Menu as Menu;
@@ -133,6 +134,34 @@ impl fmt::Debug for Window {
     }
 }
 
+pub fn clamp<T: PartialOrd>(low: T, value: T, high: T) -> T {
+    if value < low {
+        low
+    } else if value > high {
+        high
+    } else {
+        value
+    }
+}
+
+///
+/// On some OS (X11 for example) it's possible a window can resize even if no resize has been set.
+/// This causes some issues depending on how the content of an input buffer should be displayed then it's possible
+/// to set this scaling mode to get a better behavior.
+///
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ScaleMode {
+    /// Stretch the buffer in the whole window meaning if your buffer is 256x256 and window is 1024x1024 it will be scaled up 4 times
+    Stretch,
+    /// Keep the correct aspect ratio to be displayed while scaling up fully in the other axis. Fill area will be filed with Window::set_bg_color (default 0, 0, 0)
+    AspectRatioStretch,
+    /// Places the buffer in the middle of the window without any scaling. Fills the borders with color set Window::set_bg_color (default 0,0,0)
+    /// If the window is smaller than the buffer the center of the buffer will be displayed
+    Center,
+    /// Same as Center but places the buffer in the upper left corner of the window.
+    UpperLeft,
+}
+
 ///
 /// WindowOptions is creation settings for the window. By default the settings are defined for
 /// displayng a 32-bit buffer (no scaling of window is possible)
@@ -145,8 +174,10 @@ pub struct WindowOptions {
     pub title: bool,
     /// If it should be possible to resize the window (default: false)
     pub resize: bool,
-    /// Scale of the window that used in conjunction with update_with_buffer_size (default: X1)
+    /// Scale of the window that used in conjunction with update_with_buffer (default: X1)
     pub scale: Scale,
+    /// Adjust how the scaling of the buffer used with update_with_buffer should be done.
+    pub scale_mode: ScaleMode,
 }
 
 impl Window {
@@ -172,17 +203,12 @@ impl Window {
     ///
     /// ```no_run
     /// # use minifb::*;
-    /// let mut window = match Window::new("Test", 640, 400,
-    ///                                     WindowOptions {
-    ///                                         resize: true,
-    ///                                         ..WindowOptions::default()
-    ///                                     }) {
-    ///    Ok(win) => win,
-    ///    Err(err) => {
-    ///        println!("Unable to create window {}", err);
-    ///        return;
-    ///    }
-    ///};
+    /// let mut window = Window::new("Test", 640, 400,
+    ///     WindowOptions {
+    ///        resize: true,
+    ///        ..WindowOptions::default()
+    ///  })
+    ///  .expect("Unable to open Window");
     /// ```
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
         imp::Window::new(name, width, height, opts).map(Window)
@@ -234,38 +260,6 @@ impl Window {
     ///     let (r, g, b) = (r as u32, g as u32, b as u32);
     ///     (r << 16) | (g << 8) | b
     /// }
-    /// let azure_blue = from_u8_rgb(0, 127, 255);
-    ///
-    /// let mut buffer: Vec<u32> = vec![azure_blue; 640 * 400];
-    ///
-    /// let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
-    ///
-    /// window.update_with_buffer(&buffer).unwrap();
-    /// ```
-    #[inline]
-    #[deprecated(
-        since = "0.14.0",
-        note = "Please use the update_with_buffer_size instead. This function will be replaced with args given in update_with_buffer_size in the future."
-    )]
-    pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
-        self.0.update_with_buffer(buffer)
-    }
-
-    ///
-    /// Updates the window with a 32-bit pixel buffer. The encoding for each pixel is `0RGB`:
-    /// The upper 8-bits are ignored, the next 8-bits are for the red channel, the next 8-bits
-    /// afterwards for the green channel, and the lower 8-bits for the blue channel.
-    ///
-    /// Notice that the buffer needs to be at least the size of the created window.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use minifb::*;
-    /// fn from_u8_rgb(r: u8, g: u8, b: u8) -> u32 {
-    ///     let (r, g, b) = (r as u32, g as u32, b as u32);
-    ///     (r << 16) | (g << 8) | b
-    /// }
     /// let window_width = 600;
     /// let window_height = 400;
     /// let buffer_width = 600;
@@ -277,12 +271,18 @@ impl Window {
     ///
     /// let mut window = Window::new("Test", window_width, window_height, WindowOptions::default()).unwrap();
     ///
-    /// window.update_with_buffer_size(&buffer, buffer_width, buffer_height).unwrap();
+    /// window.update_with_buffer(&buffer, buffer_width, buffer_height).unwrap();
     /// ```
     #[inline]
-    pub fn update_with_buffer_size(&mut self, buffer: &[u32], _width: usize, _height: usize) -> Result<()> {
-        // currently width / height isn't used but will be soon
-        self.0.update_with_buffer(buffer)
+    pub fn update_with_buffer(
+        &mut self,
+        buffer: &[u32],
+        width: usize,
+        height: usize,
+    ) -> Result<()> {
+        self.0.update_rate();
+        self.0
+            .update_with_buffer_stride(buffer, width, height, width)
     }
 
     ///
@@ -300,6 +300,7 @@ impl Window {
     /// ```
     #[inline]
     pub fn update(&mut self) {
+        self.0.update_rate();
         self.0.update()
     }
 
@@ -338,6 +339,60 @@ impl Window {
     #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
         self.0.set_position(x, y)
+    }
+
+    ///
+    /// Sets the background color that is used with update_with_buffer.
+    /// In some cases there will be a blank area around the buffer depending on the ScaleMode that has been set.
+    /// This color will be used in the in that area.
+    /// The function takes 3 parameters in (red, green, blue) and each value is in the range of 0-255 where 255 is the brightest value
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    /// // Set background color to bright red
+    /// window.set_background_color(255, 0, 0);
+    /// ```
+    ///
+    #[inline]
+    pub fn set_background_color(&mut self, red: usize, green: usize, blue: usize) {
+        let r = clamp(0, red, 255);
+        let g = clamp(0, green, 255);
+        let b = clamp(0, blue, 255);
+        self.0
+            .set_background_color(((r << 16) | (g << 8) | b) as u32);
+    }
+
+    ///
+    /// Limits the update rate of polling for new events in order to reduce CPU usage.
+    /// The problem of having a tight loop that does something like this
+    ///
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    /// loop {
+    ///    window.update();
+    /// }
+    /// ```
+    /// Is that lots of CPU time will be spent calling system functions to check for new events in a tight loop making the CPU time go up.
+    /// Using `limit_update_rate` minifb will check how much time has passed since the last time and if it's less than the selected time it will sleep for the remainder of it.
+    /// This means that if more time has spent than the set time (external code taking longer) minifb will not do any waiting at all so there is no loss in CPU performance with this feature.
+    /// By default it's set to 4 milliseconds. Setting this value to None and no waiting will be done
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    /// // Make sure that at least 4 ms has passed since the last event poll
+    /// window.limit_update_rate(Some(std::time::Duration::from_millis(4)));
+    /// ```
+    ///
+    #[inline]
+    pub fn limit_update_rate(&mut self, time: Option<std::time::Duration>) {
+        self.0.set_rate(time)
     }
 
     ///
@@ -912,6 +967,7 @@ impl Default for WindowOptions {
             title: true,
             resize: false,
             scale: Scale::X1,
+            scale_mode: ScaleMode::Stretch,
         }
     }
 }

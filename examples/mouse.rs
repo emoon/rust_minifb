@@ -13,7 +13,6 @@ fn main() {
         WIDTH,
         HEIGHT,
         WindowOptions {
-            resize: true,
             scale: Scale::X2,
             ..WindowOptions::default()
         },
@@ -31,8 +30,9 @@ fn main() {
         {
             let (new_width, new_height) = window.get_size();
             if new_width != width || new_height != height {
+                // Div by / 2 here as we use 2x scaling for the buffer
                 // copy valid bits of old buffer to new buffer
-                let mut new_buffer = vec![0; new_width * new_height / 2 / 2];
+                let mut new_buffer = vec![0; (new_width / 2) * (new_height / 2)];
                 for y in 0..(height / 2).min(new_height / 2) {
                     for x in 0..(width / 2).min(new_width / 2) {
                         new_buffer[y * (new_width / 2) + x] = buffer[y * (width / 2) + x];
@@ -45,11 +45,7 @@ fn main() {
         }
 
         window.get_mouse_pos(MouseMode::Discard).map(|(x, y)| {
-            let screen_pos = ((y as usize) * width / 2) + x as usize;
-            println!(
-                "{:?}",
-                window.get_unscaled_mouse_pos(MouseMode::Discard).unwrap()
-            );
+            let screen_pos = ((y as usize) * (width / 2)) + x as usize;
 
             if window.get_mouse_down(MouseButton::Left) {
                 buffer[screen_pos] = 0x00ffffff;
@@ -65,6 +61,8 @@ fn main() {
         });
 
         // We unwrap here as we want this code to exit if it fails
-        window.update_with_buffer_size(&buffer, width, height).unwrap();
+        window
+            .update_with_buffer(&buffer, width / 2, height / 2)
+            .unwrap();
     }
 }

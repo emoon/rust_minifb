@@ -8,9 +8,10 @@ const INVALID_ACCEL: usize = 0xffffffff;
 
 use error::Error;
 use key_handler::KeyHandler;
+use rate::UpdateRate;
 use Result;
 use {CursorStyle, MenuHandle, MenuItem, MenuItemHandle};
-use {InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, WindowOptions};
+use {InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions};
 use {MENU_KEY_ALT, MENU_KEY_CTRL, MENU_KEY_SHIFT, MENU_KEY_WIN};
 
 use buffer_helper;
@@ -174,8 +175,7 @@ unsafe extern "system" fn wnd_proc(
     wparam: minwindef::WPARAM,
     lparam: minwindef::LPARAM,
 ) -> minwindef::LRESULT {
-    // This make sure we actually don't do anything before the user data has been setup for the
-    // window
+    // This make sure we actually don't do anything before the user data has been setup for the window
 
     let user_data = get_window_long(window);
 
@@ -186,19 +186,16 @@ unsafe extern "system" fn wnd_proc(
     let mut wnd: &mut Window = mem::transmute(user_data);
 
     match msg {
-        /*
-        winuser::WM_MOUSEMOVE => {
-            let mouse_coords = lparam as u32;
-            let scale = user_data.scale as f32;
-            user_data.mouse.local_x = (((mouse_coords >> 16) & 0xffff) as f32) / scale;
-            user_data.mouse.local_y = ((mouse_coords & 0xffff) as f32) / scale;
-
-            return 0;
-        }
-        */
         winuser::WM_MOUSEWHEEL => {
             let scroll = ((((wparam as u32) >> 16) & 0xffff) as i16) as f32 * 0.1;
             wnd.mouse.scroll = scroll;
+        }
+
+        winuser::WM_SETCURSOR => {
+            if winapi::shared::minwindef::LOWORD(lparam as u32) == winuser::HTCLIENT as u16 {
+                winuser::SetCursor(wnd.cursors[wnd.cursor as usize]);
+                return 1;
+            }
         }
 
         winuser::WM_KEYDOWN => {
@@ -241,6 +238,13 @@ unsafe extern "system" fn wnd_proc(
             }
         }
 
+        /*
+        winuser::WM_ERASEBKGND => {
+            let dc = wnd.dc.unwrap();
+            wingdi::SelectObject(dc, wnd.clear_brush as *mut std::ffi::c_void);
+            wingdi::Rectangle(dc, 0, 0, wnd.width, wnd.height);
+        }
+        */
         winuser::WM_SIZE => {
             let width = (lparam as u32) & 0xffff;
             let height = ((lparam as u32) >> 16) & 0xffff;
@@ -250,7 +254,7 @@ unsafe extern "system" fn wnd_proc(
 
         winuser::WM_PAINT => {
             // if we have nothing to draw here we return the default function
-            if wnd.buffer.len() == 0 {
+            if wnd.draw_params.buffer == std::ptr::null() {
                 return winuser::DefWindowProcW(window, msg, wparam, lparam);
             }
 
@@ -260,23 +264,127 @@ unsafe extern "system" fn wnd_proc(
             bitmap_info.bmi_header.biPlanes = 1;
             bitmap_info.bmi_header.biBitCount = 32;
             bitmap_info.bmi_header.biCompression = wingdi::BI_BITFIELDS;
-            bitmap_info.bmi_header.biWidth = wnd.width;
-            bitmap_info.bmi_header.biHeight = -wnd.height;
+            bitmap_info.bmi_header.biWidth = wnd.draw_params.buffer_width as i32;
+            bitmap_info.bmi_header.biHeight = -(wnd.draw_params.buffer_height as i32);
             bitmap_info.bmi_colors[0].rgbRed = 0xff;
             bitmap_info.bmi_colors[1].rgbGreen = 0xff;
             bitmap_info.bmi_colors[2].rgbBlue = 0xff;
 
+            let buffer_width = wnd.draw_params.buffer_width as i32;
+            let buffer_height = wnd.draw_params.buffer_height as i32;
+            let window_width = wnd.width as i32;
+            let window_height = wnd.height as i32;
+
+            let mut new_height = window_height;
+            let mut new_width = window_width;
+            let mut x_offset = 0;
+            let mut y_offset = 0;
+
+            let dc = wnd.dc.unwrap();
+            wingdi::SelectObject(dc, wnd.clear_brush as *mut std::ffi::c_void);
+
+            match wnd.draw_params.scale_mode {
+                ScaleMode::AspectRatioStretch => {
+                    let buffer_aspect = buffer_width as f32 / buffer_height as f32;
+                    let win_aspect = window_width as f32 / window_height as f32;
+
+                    if buffer_aspect > win_aspect {
+                        new_height = (window_width as f32 / buffer_aspect) as i32;
+                        y_offset = (new_height - window_height) / -2;
+
+                        if y_offset != 0 {
+                            wingdi::Rectangle(dc, 0, 0, window_width, y_offset);
+                            wingdi::Rectangle(
+                                dc,
+                                0,
+                                y_offset + new_height,
+                                window_width,
+                                window_height,
+                            );
+                        }
+                    } else {
+                        new_width = (window_height as f32 * buffer_aspect) as i32;
+                        x_offset = (new_width - window_width) / -2;
+
+                        if x_offset != 0 {
+                            wingdi::Rectangle(dc, 0, 0, x_offset, window_height);
+                            wingdi::Rectangle(
+                                dc,
+                                x_offset + new_width,
+                                0,
+                                window_width,
+                                window_height,
+                            );
+                        }
+                    }
+                }
+
+                ScaleMode::Center => {
+                    new_width = buffer_width;
+                    new_height = buffer_height;
+
+                    if buffer_height > window_height {
+                        y_offset = -(buffer_height - window_height) / 2;
+                    } else {
+                        y_offset = (window_height - buffer_height) / 2;
+                    }
+
+                    if buffer_width > window_width {
+                        x_offset = -(buffer_width - window_width) / 2;
+                    } else {
+                        x_offset = (window_width - buffer_width) / 2;
+                    }
+
+                    if y_offset > 0 {
+                        wingdi::Rectangle(dc, 0, 0, window_width, y_offset);
+                        wingdi::Rectangle(
+                            dc,
+                            0,
+                            y_offset + new_height,
+                            window_width,
+                            window_height,
+                        );
+                    }
+
+                    if x_offset > 0 {
+                        wingdi::Rectangle(dc, 0, y_offset, x_offset, buffer_height + y_offset);
+                        wingdi::Rectangle(
+                            dc,
+                            x_offset + buffer_width,
+                            y_offset,
+                            window_width,
+                            buffer_height + y_offset,
+                        );
+                    }
+                }
+
+                ScaleMode::UpperLeft => {
+                    new_width = buffer_width;
+                    new_height = buffer_height;
+
+                    if buffer_width < window_width {
+                        wingdi::Rectangle(dc, buffer_width, 0, window_width, window_height);
+                    }
+
+                    if buffer_height < window_height {
+                        wingdi::Rectangle(dc, 0, buffer_height, window_width, window_height);
+                    }
+                }
+
+                _ => (),
+            }
+
             wingdi::StretchDIBits(
-                wnd.dc.unwrap(),
+                dc,
+                x_offset,
+                y_offset,
+                new_width,
+                new_height,
                 0,
                 0,
-                wnd.width * wnd.scale_factor,
-                wnd.height * wnd.scale_factor,
-                0,
-                0,
-                wnd.width,
-                wnd.height,
-                mem::transmute(wnd.buffer.as_ptr()),
+                wnd.draw_params.buffer_width as i32,
+                wnd.draw_params.buffer_height as i32,
+                mem::transmute(wnd.draw_params.buffer),
                 mem::transmute(&bitmap_info),
                 wingdi::DIB_RGB_COLORS,
                 wingdi::SRCCOPY,
@@ -291,10 +399,6 @@ unsafe extern "system" fn wnd_proc(
     }
 
     return winuser::DefWindowProcW(window, msg, wparam, lparam);
-}
-
-pub enum MinifbError {
-    UnableToCreateWindow,
 }
 
 fn to_wstring(str: &str) -> Vec<u16> {
@@ -313,29 +417,41 @@ struct MouseData {
     pub scroll: f32,
 }
 
-/*
-struct MenuStore {
-    name: String,
-    menu: HMENU,
-    accel_items: Vec<ACCEL>,
+struct DrawParameters {
+    buffer: *const u32,
+    buffer_width: u32,
+    buffer_height: u32,
+    scale_mode: ScaleMode,
 }
-*/
+
+impl Default for DrawParameters {
+    fn default() -> Self {
+        DrawParameters {
+            buffer: std::ptr::null(),
+            buffer_width: 0,
+            buffer_height: 0,
+            scale_mode: ScaleMode::Stretch,
+        }
+    }
+}
 
 pub struct Window {
     mouse: MouseData,
     dc: Option<windef::HDC>,
     window: Option<windef::HWND>,
-    buffer: Vec<u32>,
+    clear_brush: windef::HBRUSH,
     is_open: bool,
     scale_factor: i32,
     width: i32,
     height: i32,
     menus: Vec<Menu>,
     key_handler: KeyHandler,
+    update_rate: UpdateRate,
     accel_table: windef::HACCEL,
     accel_key: usize,
-    prev_cursor: CursorStyle,
+    cursor: CursorStyle,
     cursors: [windef::HCURSOR; 8],
+    draw_params: DrawParameters,
 }
 
 unsafe impl raw_window_handle::HasRawWindowHandle for Window {
@@ -366,7 +482,7 @@ impl Window {
                 cbWndExtra: 0,
                 hInstance: libloaderapi::GetModuleHandleA(ptr::null()),
                 hIcon: ptr::null_mut(),
-                hCursor: ptr::null_mut(),
+                hCursor: winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_ARROW),
                 hbrBackground: ptr::null_mut(),
                 lpszMenuName: ptr::null(),
                 lpszClassName: class_name.as_ptr(),
@@ -463,16 +579,17 @@ impl Window {
                 mouse: MouseData::default(),
                 dc: Some(winuser::GetDC(handle.unwrap())),
                 window: Some(handle.unwrap()),
-                buffer: Vec::new(),
                 key_handler: KeyHandler::new(),
+                update_rate: UpdateRate::new(),
                 is_open: true,
                 scale_factor: scale_factor,
-                width: width as i32,
-                height: height as i32,
+                width: (width * scale_factor as usize) as i32,
+                height: (height * scale_factor as usize) as i32,
                 menus: Vec::new(),
                 accel_table: ptr::null_mut(),
                 accel_key: INVALID_ACCEL,
-                prev_cursor: CursorStyle::Arrow,
+                cursor: CursorStyle::Arrow,
+                clear_brush: wingdi::CreateSolidBrush(0),
                 cursors: [
                     winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_ARROW),
                     winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_IBEAM),
@@ -483,10 +600,11 @@ impl Window {
                     winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZENS),
                     winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZEALL),
                 ],
+                draw_params: DrawParameters {
+                    scale_mode: opts.scale_mode,
+                    ..DrawParameters::default()
+                },
             };
-
-            // Set arrow as default cursor
-            winuser::SetCursor(window.cursors[0]);
 
             Ok(window)
         }
@@ -561,15 +679,17 @@ impl Window {
 
     #[inline]
     pub fn set_cursor_style(&mut self, cursor: CursorStyle) {
-        unsafe {
-            if self.prev_cursor == cursor {
-                return;
-            }
+        self.cursor = cursor;
+    }
 
-            winuser::SetCursor(self.cursors[cursor as usize]);
+    #[inline]
+    pub fn set_rate(&mut self, rate: Option<std::time::Duration>) {
+        self.update_rate.set_rate(rate);
+    }
 
-            self.prev_cursor = cursor;
-        }
+    #[inline]
+    pub fn update_rate(&mut self) {
+        self.update_rate.update();
     }
 
     #[inline]
@@ -588,7 +708,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_input_callback(&mut self, callback: Box<InputCallback>) {
+    pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>) {
         self.key_handler.set_input_callback(callback)
     }
 
@@ -619,7 +739,8 @@ impl Window {
 
     fn generic_update(&mut self, window: windef::HWND) {
         unsafe {
-            let mut point: windef::POINT = mem::uninitialized();
+            let mut point: windef::POINT = mem::zeroed();
+
             winuser::GetCursorPos(&mut point);
             winuser::ScreenToClient(window, &mut point);
 
@@ -635,7 +756,7 @@ impl Window {
 
     fn message_loop(&self, window: windef::HWND) {
         unsafe {
-            let mut msg = mem::uninitialized();
+            let mut msg = mem::zeroed();
 
             while winuser::PeekMessageW(&mut msg, window, 0, 0, winuser::PM_REMOVE) != 0 {
                 // Make this code a bit nicer
@@ -657,22 +778,35 @@ impl Window {
         }
     }
 
-    pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
+    pub fn set_background_color(&mut self, color: u32) {
+        unsafe {
+            wingdi::DeleteObject(self.clear_brush as *mut std::ffi::c_void);
+            let r = (color >> 16) & 0xff;
+            let g = (color >> 8) & 0xff;
+            let b = (color >> 0) & 0xff;
+            self.clear_brush = wingdi::CreateSolidBrush((b << 16) | (g << 8) | r);
+        }
+    }
+
+    pub fn update_with_buffer_stride(
+        &mut self,
+        buffer: &[u32],
+        buf_width: usize,
+        buf_height: usize,
+        buf_stride: usize,
+    ) -> Result<()> {
         let window = self.window.unwrap();
 
         Self::generic_update(self, window);
 
-        let check_res = buffer_helper::check_buffer_size(
-            self.width as usize,
-            self.height as usize,
-            self.scale_factor as usize,
-            buffer,
-        );
-        if check_res.is_err() {
-            return check_res;
-        }
+        buffer_helper::check_buffer_size(buf_width, buf_height, buf_stride, buffer)?;
 
-        self.buffer = buffer.to_vec();
+        self.draw_params.buffer = buffer.as_ptr();
+        self.draw_params.buffer_width = buf_width as u32;
+        self.draw_params.buffer_height = buf_height as u32;
+        // stride currently not supported
+        //self.draw_params.buffer_stride = buf_stride as u32;
+
         unsafe {
             winuser::InvalidateRect(window, ptr::null_mut(), minwindef::TRUE);
         }
@@ -732,7 +866,7 @@ impl Window {
     // the current client size is preserved and still show all pixels
     //
     unsafe fn adjust_window_size_for_menu(handle: windef::HWND) {
-        let mut rect: windef::RECT = mem::uninitialized();
+        let mut rect: windef::RECT = mem::zeroed();
 
         let menu_height = winuser::GetSystemMetrics(winuser::SM_CYMENU);
 
