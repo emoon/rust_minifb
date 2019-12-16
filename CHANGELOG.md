@@ -6,6 +6,7 @@ This project follows semantic versioning.
 
 - [API BREAKAGE] - update_with_buffer now always take width and height parameters.
 - [added] scale_mode in WindowOptions now allow for aspect correct scaling, center of non-scaled buffers and more.
+- [added] Added limit_update_rate(..) in order to reduce CPU usage and not hammer the native system calls.
 - [changed] x11 now uses C for it's scaling in software mode in order to always have opts on even in debug build.
 - [changed] Several fixes with rescaling on all platforms
 - [fixed] Cursor was behaving bad on Windows. This has now been fixed
