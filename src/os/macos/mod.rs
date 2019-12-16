@@ -4,8 +4,8 @@ extern crate raw_window_handle;
 
 use error::Error;
 use key_handler::KeyHandler;
-use Result;
 use rate::UpdateRate;
+use Result;
 use {Key, KeyRepeat, MouseButton, MouseMode, Scale, WindowOptions};
 // use MenuItem;
 use buffer_helper;
