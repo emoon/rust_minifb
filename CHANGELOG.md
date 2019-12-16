@@ -2,6 +2,15 @@
 
 This project follows semantic versioning.
 
+### v0.15 (2019-12-16)
+
+- [API BREAKAGE] - update_with_buffer now always take width and height parameters.
+- [added] scale_mode in WindowOptions now allow for aspect correct scaling, center of non-scaled buffers and more.
+- [changed] x11 now uses C for it's scaling in software mode in order to always have opts on even in debug build.
+- [changed] Several fixes with rescaling on all platforms
+- [fixed] Cursor was behaving bad on Windows. This has now been fixed
+- [known issues] There are some flickering and various issues when resizing on most platforms. PRs/ideas welcome for this.
+
 ### v0.14 (2019-12-03)
 
 - [changed] Deprecated update_with_buffer on favor of update_with_buffer_size. The idea is that a size in of the buffer will be more robust and allow for aspect scaling as well.
