@@ -9,6 +9,7 @@ This project follows semantic versioning.
 - [added] Added limit_update_rate(..) in order to reduce CPU usage and not hammer the native system calls.
 - [changed] x11 now uses C for it's scaling in software mode in order to always have opts on even in debug build.
 - [changed] Several fixes with rescaling on all platforms
+- [changed] on x11 some window mangers will resize a non-resizable windows and minifb handles this now correctly.
 - [fixed] Cursor was behaving bad on Windows. This has now been fixed
 - [known issues] There are some flickering and various issues when resizing on most platforms. PRs/ideas welcome for this.
 
