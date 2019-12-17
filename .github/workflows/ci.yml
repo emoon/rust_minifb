@@ -28,3 +28,22 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
+    build_text_redox:
+      name: Test Redox
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v1
+        - name: Set nightly default
+          run:  rustup default nightly
+        - name: Update
+          run: sudo apt update
+        - name: install fuse
+          run: sudo apt install libfuse-dev
+        - name: install redoxer
+          run: cargo +nightly install redoxer
+        - name: install redoxer toolchain
+          run: redoxer install
+        - name: redoxer test build
+          run: redoxer build --tests
+        - name: redoxer test
+          run: redoxer test
