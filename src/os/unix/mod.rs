@@ -286,7 +286,7 @@ pub struct Window {
     scroll_y: f32,
     buttons: [u8; 3],
     prev_cursor: CursorStyle,
-
+    update_rate: UpdateRate::new(),
     should_close: bool, // received delete window message from X server
 
     key_handler: KeyHandler,
