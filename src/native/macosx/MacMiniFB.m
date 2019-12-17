@@ -5,10 +5,11 @@
 #include <MetalKit/MetalKit.h>
 #include <unistd.h>
 
-extern id<MTLDevice> g_metal_device;
 extern id<MTLCommandQueue> g_command_queue;
 extern id<MTLLibrary> g_library;
 extern id<MTLRenderPipelineState> g_pipeline_state;
+
+id<MTLDevice> g_metal_device;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -22,17 +23,18 @@ NSString* g_shadersSrc = @
 	"};\n"
 
 	"vertex VertexOutput vertFunc(\n"
-		"unsigned int vID[[vertex_id]])\n"
+		"unsigned int vID[[vertex_id]],\n"
+		"constant float4* vertexArray[[buffer(0)]])\n"
 	"{\n"
 		"VertexOutput out;\n"
 
-		"out.pos.x = (float)(vID / 2) * 4.0 - 1.0;\n"
-		"out.pos.y = (float)(vID % 2) * 4.0 - 1.0;\n"
+		"out.pos.x = (vertexArray[vID].x * 2.0) - 1.0;\n"
+		"out.pos.y = (vertexArray[vID].y * 2.0) - 1.0;\n"
 		"out.pos.z = 0.0;\n"
 		"out.pos.w = 1.0;\n"
 
-		"out.texcoord.x = (float)(vID / 2) * 2.0;\n"
-		"out.texcoord.y = 1.0 - (float)(vID % 2) * 2.0;\n"
+		"out.texcoord.x = vertexArray[vID].w;\n"
+		"out.texcoord.y = vertexArray[vID].z;\n"
 
 		"return out;\n"
 	"}\n"
@@ -159,6 +161,7 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 		[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 		create_standard_menu();
 		cursor_init();
+
 		g_metal_device = MTLCreateSystemDefaultDevice();
 
 		if (!g_metal_device) {
@@ -173,7 +176,7 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 		s_init = true;
 	}
 
-	NSWindowStyleMask styles = NSWindowStyleMaskClosable | NSWindowStyleMaskResizable;
+	NSWindowStyleMask styles = NSWindowStyleMaskClosable;
 
 	if (flags & WINDOW_BORDERLESS)
 		styles |= NSWindowStyleMaskBorderless;
@@ -191,9 +194,9 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 	if (!window)
 		return 0;
 
-	window->draw_buffer = malloc((width * height * 4) * 8);
+	window->draw_parameters = calloc(sizeof(DrawParameters), 1);
 
-	if (!window->draw_buffer)
+	if (!window->draw_parameters)
 		return 0;
 
 	// Setup command queue
@@ -211,18 +214,40 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 	textureDescriptor.width = width;
 	textureDescriptor.height = height;
 
-	// Create the texture from the device by using the descriptor
+	const float scale_t = 1.00f;
+	const float uv_const = 1.0f;
+
+	static const Vertex intial_vertices[] = {
+		{  -1.0f * scale_t,  1.0f * scale_t,  0.0f, 0.0f },
+		{   1.0f * scale_t,  1.0f * scale_t,  uv_const, 0.0f },
+		{   1.0f * scale_t, -1.0f * scale_t,  uv_const, uv_const },
+
+		{  -1.0f * scale_t,  1.0f * scale_t,  0.0f, 0.0f },
+		{   1.0f * scale_t, -1.0f * scale_t,  uv_const, uv_const },
+		{  -1.0f * scale_t, -1.0f * scale_t,  0.0f, uv_const },
+	};
+
+	viewController->m_width = width;
+	viewController->m_height = height;
 
 	for (int i = 0; i < MaxBuffersInFlight; ++i) {
-		viewController->m_texture_buffers[i] = [g_metal_device newTextureWithDescriptor:textureDescriptor];
+		viewController->m_draw_state[i].texture_width = width;
+		viewController->m_draw_state[i].texture_height = height;
+		viewController->m_draw_state[i].texture =
+			[g_metal_device newTextureWithDescriptor:textureDescriptor];
+		viewController->m_draw_state[i].vertex_buffer =
+			[g_metal_device newBufferWithBytes:intial_vertices
+							length:sizeof(intial_vertices)
+							options:MTLResourceStorageModeShared];
+
+		viewController->m_delayed_delete_textures[i].frame_count = -1;
 	}
 
 	// Used for syncing the CPU and GPU
 	viewController->m_semaphore = dispatch_semaphore_create(MaxBuffersInFlight);
-    viewController->m_draw_buffer = window->draw_buffer;
-    viewController->m_width = width;
-    viewController->m_height = height;
-    viewController->m_delayed_delete_count = 0;
+    viewController->m_draw_parameters = window->draw_parameters;
+    //viewController->m_width = width;
+    //viewController->m_height = height;
 
     MTKView* view = [[MTKView alloc] initWithFrame:rectangle];
     view.device = g_metal_device;
@@ -451,20 +476,32 @@ int mfb_update(void* window, void* buffer)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-int mfb_update_with_buffer(void* window, void* buffer)
+int mfb_update_with_buffer(void* window, void* buffer, uint32_t buf_width, uint32_t buf_height, uint32_t buf_stride)
 {
 	OSXWindow* win = (OSXWindow*)window;
 
+	win->draw_parameters->buffer_width = buf_width;
+	win->draw_parameters->buffer_height = buf_height;
+	win->draw_parameters->buffer_stride = buf_stride;
+	win->draw_parameters->scale_mode = 0;
+
 	if (win->shared_data) {
-		SharedData* shared_data = (SharedData*)win->shared_data;
-		memcpy(win->draw_buffer, buffer, shared_data->width * shared_data->height * 4);
+		win->draw_parameters->buffer = buffer;
+		win->draw_parameters->bg_color = win->shared_data->bg_color;
+		win->draw_parameters->scale_mode = win->shared_data->scale_mode;
 	} else {
-		memcpy(win->draw_buffer, buffer, win->width * win->height * 4);
+		win->draw_parameters->scale_mode = 0;
 	}
+
+	//win->draw_parameters->pos_x = 0;
+	//win->draw_parameters->pos_y = 0;
+	//win->draw_parameters->width = buf_width;
+	//win->draw_parameters->height = buf_height;
 
 	int state = generic_update(win);
 
 	[[win contentView] setNeedsDisplay:YES];
+
 	return state;
 }
 
@@ -603,7 +640,7 @@ static CFStringRef create_string_for_key(CGKeyCode keyCode)
 	if (!layoutData)
 		return 0;
 
-    const UCKeyboardLayout *keyboardLayout = (const UCKeyboardLayout *)CFDataGetBytePtr(layoutData);
+    const UCKeyboardLayout* keyboardLayout = (const UCKeyboardLayout*)CFDataGetBytePtr(layoutData);
 
     UInt32 keysDown = 0;
     UniChar chars[4];

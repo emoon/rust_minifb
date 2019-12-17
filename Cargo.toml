@@ -1,20 +1,25 @@
 [package]
-name = "minifb-fix"
-version = "0.14.0"
+name = "minifb"
+version = "0.15.0"
 license = "MIT/Apache-2.0"
 authors = ["Daniel Collin <daniel@collin.com>"]
 description = "Cross-platform window setup with optional bitmap rendering"
 keywords = ["windowing", "window", "framebuffer"]
 categories = ["rendering"]
 repository = "https://github.com/emoon/rust_minifb"
-documentation = "https://docs.rs/minifb/0.12/minifb"
-maintenance = { status = "actively-developed" }
+documentation = "https://docs.rs/minifb/0.15/minifb"
 build = "build.rs"
 readme = "README.md"
 
+exclude = [
+  "resources/"
+]
+
 [badges]
-appveyor = { repository = "emoon/rust-minifb" }
-travis-ci = { repository = "emoon/rust_minifb" }
+maintenance = {status = "actively-developed"}
+
+[dev-dependencies]
+png = "0.15"
 
 [build-dependencies]
 cc = "1.0"
