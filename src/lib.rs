@@ -4,6 +4,8 @@
 //!
 #![deny(missing_debug_implementations)]
 
+extern crate raw_window_handle;
+
 use std::fmt;
 use std::os::raw;
 
@@ -91,6 +93,7 @@ pub trait InputCallback {
 mod error;
 pub use self::error::Error;
 pub type Result<T> = std::result::Result<T, Error>;
+pub use raw_window_handle::HasRawWindowHandle as HasRawWindowHandle;
 
 mod key;
 pub use key::Key;
@@ -131,6 +134,12 @@ pub struct Window(imp::Window);
 impl fmt::Debug for Window {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("Window").field(&format_args!("..")).finish()
+    }
+}
+
+unsafe impl raw_window_handle::HasRawWindowHandle for Window {
+    fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
+        self.0.raw_window_handle()
     }
 }
 
