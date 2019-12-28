@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.15.1 (2019-12-27)
+
+- [fixed] Fixed access to raw_window_handle()
+
 ### v0.15 (2019-12-16)
 
 - [API BREAKAGE] - `update_with_buffer` now always take width and height parameters.
