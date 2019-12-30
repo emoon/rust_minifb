@@ -1,5 +1,3 @@
-extern crate time;
-
 use std::time::Duration;
 
 pub struct UpdateRate {

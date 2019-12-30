@@ -1,6 +1,5 @@
 #![cfg(target_os = "redox")]
 
-extern crate orbclient;
 use os::redox::orbclient::Renderer;
 
 use buffer_helper;
