@@ -8,20 +8,16 @@
 // turn off a gazillion warnings about X keysym names
 #![allow(non_upper_case_globals)]
 
-extern crate cast;
-extern crate raw_window_handle;
-extern crate x11_dl;
+use x11_dl::keysym::*;
+use x11_dl::xcursor;
+use x11_dl::xlib;
+use crate::key_handler::KeyHandler;
+use crate::rate::UpdateRate;
+use crate::{InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions};
 
-use self::x11_dl::keysym::*;
-use self::x11_dl::xcursor;
-use self::x11_dl::xlib;
-use key_handler::KeyHandler;
-use rate::UpdateRate;
-use {InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions};
-
-use error::Error;
-use Result;
-use {CursorStyle, MenuHandle, MenuItem, MenuItemHandle, UnixMenu, UnixMenuItem};
+use crate::error::Error;
+use crate::Result;
+use crate::{CursorStyle, MenuHandle, MenuItem, MenuItemHandle, UnixMenu, UnixMenuItem};
 
 use std::ffi::CString;
 use std::mem;
@@ -29,8 +25,8 @@ use std::os::raw;
 use std::os::raw::{c_char, c_uint};
 use std::ptr;
 
-use buffer_helper;
-use mouse_handler;
+use crate::buffer_helper;
+use crate::mouse_handler;
 
 // NOTE: the x11-dl crate does not define Button6 or Button7
 const Button6: c_uint = xlib::Button5 + 1;

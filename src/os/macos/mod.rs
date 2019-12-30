@@ -1,18 +1,16 @@
 #![cfg(target_os = "macos")]
 
-extern crate raw_window_handle;
-
-use error::Error;
-use key_handler::KeyHandler;
-use rate::UpdateRate;
-use Result;
-use {Key, KeyRepeat, MouseButton, MouseMode, Scale, WindowOptions};
+use crate::error::Error;
+use crate::key_handler::KeyHandler;
+use crate::rate::UpdateRate;
+use crate::Result;
+use crate::{Key, KeyRepeat, MouseButton, MouseMode, Scale, WindowOptions};
 // use MenuItem;
-use buffer_helper;
-use mouse_handler;
-use window_flags;
-use InputCallback;
-use {CursorStyle, MenuHandle, MenuItem, MenuItemHandle};
+use crate::buffer_helper;
+use crate::mouse_handler;
+use crate::window_flags;
+use crate::InputCallback;
+use crate::{CursorStyle, MenuHandle, MenuItem, MenuItemHandle};
 // use menu::Menu;
 
 use std::ffi::CString;

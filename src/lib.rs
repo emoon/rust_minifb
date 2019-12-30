@@ -4,8 +4,6 @@
 //!
 #![deny(missing_debug_implementations)]
 
-extern crate raw_window_handle;
-
 use std::fmt;
 use std::os::raw;
 

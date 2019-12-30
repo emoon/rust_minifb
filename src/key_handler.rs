@@ -1,7 +1,5 @@
-extern crate time;
-
 use std::mem;
-use {InputCallback, Key, KeyRepeat};
+use crate::{InputCallback, Key, KeyRepeat};
 
 pub struct KeyHandler {
     pub key_callback: Option<Box<dyn InputCallback>>,
