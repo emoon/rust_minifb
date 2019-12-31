@@ -3,7 +3,7 @@ use x11_dl::xcursor;
 use x11_dl::xlib;
 use crate::key_handler::KeyHandler;
 use crate::rate::UpdateRate;
-use crate::{InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions};
+use crate::{Key, Scale, ScaleMode, WindowOptions};
 
 use crate::error::Error;
 use crate::Result;
@@ -16,7 +16,6 @@ use std::os::raw::{c_char, c_uint};
 use std::ptr;
 
 use crate::buffer_helper;
-use crate::mouse_handler;
 
 use super::CommonWindowData;
 
@@ -405,6 +404,15 @@ impl Window {
         }
     }
 
+	pub(super) fn get_common_data_mut(&mut self) -> &mut CommonWindowData{
+		&mut self.common
+	}
+
+	pub(super) fn get_common_data(&self) -> &CommonWindowData{
+		&self.common
+	}
+
+
     unsafe fn alloc_image(
         d: &DisplayInfo,
         width: usize,
@@ -489,51 +497,10 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_background_color(&mut self, bg_color: u32) {
-        self.common.bg_color = bg_color;
-    }
-
-    #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
         unsafe {
             (self.d.lib.XMoveWindow)(self.d.display, self.handle, x as i32, y as i32);
             (self.d.lib.XFlush)(self.d.display);
-        }
-    }
-
-    #[inline]
-    pub fn get_size(&self) -> (usize, usize) {
-        (self.common.width as usize, self.common.height as usize)
-    }
-
-    pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
-        let s = self.common.scale as f32;
-        let w = self.common.width as f32;
-        let h = self.common.height as f32;
-
-        mouse_handler::get_pos(mode, self.common.mouse_x, self.common.mouse_y, s, w, h)
-    }
-
-    pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
-        let w = self.common.width as f32;
-        let h = self.common.height as f32;
-
-        mouse_handler::get_pos(mode, self.common.mouse_x, self.common.mouse_y, 1.0, w, h)
-    }
-
-    pub fn get_mouse_down(&self, button: MouseButton) -> bool {
-        match button {
-            MouseButton::Left => self.common.buttons[0] > 0,
-            MouseButton::Middle => self.common.buttons[1] > 0,
-            MouseButton::Right => self.common.buttons[2] > 0,
-        }
-    }
-
-    pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
-        if self.common.scroll_x.abs() > 0.0 || self.common.scroll_y.abs() > 0.0 {
-            Some((self.common.scroll_x, self.common.scroll_y))
-        } else {
-            None
         }
     }
 
@@ -550,61 +517,6 @@ impl Window {
 
             self.common.prev_cursor = cursor;
         }
-    }
-
-    #[inline]
-    pub fn set_rate(&mut self, rate: Option<std::time::Duration>) {
-        self.common.update_rate.set_rate(rate);
-    }
-
-    #[inline]
-    pub fn update_rate(&mut self) {
-        self.common.update_rate.update();
-    }
-
-    #[inline]
-    pub fn get_keys(&self) -> Option<Vec<Key>> {
-        self.common.key_handler.get_keys()
-    }
-
-    #[inline]
-    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
-        self.common.key_handler.get_keys_pressed(repeat)
-    }
-
-    #[inline]
-    pub fn is_key_down(&self, key: Key) -> bool {
-        self.common.key_handler.is_key_down(key)
-    }
-
-    #[inline]
-    pub fn set_key_repeat_delay(&mut self, delay: f32) {
-        self.common.key_handler.set_key_repeat_delay(delay)
-    }
-
-    #[inline]
-    pub fn set_key_repeat_rate(&mut self, rate: f32) {
-        self.common.key_handler.set_key_repeat_rate(rate)
-    }
-
-    #[inline]
-    pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
-        self.common.key_handler.is_key_pressed(key, repeat)
-    }
-
-    #[inline]
-    pub fn is_key_released(&self, key: Key) -> bool {
-        self.common.key_handler.is_key_released(key)
-    }
-
-    #[inline]
-    pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>) {
-        self.common.key_handler.set_input_callback(callback)
-    }
-
-    #[inline]
-    pub fn is_open(&self) -> bool {
-        !self.common.should_close
     }
 
     #[inline]
@@ -662,18 +574,6 @@ impl Window {
         menu.handle = handle;
         self.common.menus.push(menu);
         handle
-    }
-
-    pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
-        Some(&self.common.menus)
-    }
-
-    pub fn remove_menu(&mut self, handle: MenuHandle) {
-        self.common.menus.retain(|ref menu| menu.handle != handle);
-    }
-
-    pub fn is_menu_pressed(&mut self) -> Option<usize> {
-        None
     }
 
     ////////////////////////////////////
