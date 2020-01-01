@@ -25,35 +25,6 @@ const Button7: c_uint = xlib::Button5 + 2;
 // We have these in C so we can always have optimize on (-O3) so they
 // run fast in debug build as well. These functions should be seen as
 // "system" functions that just doesn't exist in X11
-use crate::key_handler::KeyHandler;
-use crate::rate::UpdateRate;
-use crate::{
-    InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions,
-};
-use x11_dl::keysym::*;
-use x11_dl::xcursor;
-use x11_dl::xlib;
-
-use crate::error::Error;
-use crate::Result;
-use crate::{CursorStyle, MenuHandle, MenuItem, MenuItemHandle, UnixMenu, UnixMenuItem};
-
-use std::ffi::CString;
-use std::mem;
-use std::os::raw;
-use std::os::raw::{c_char, c_uint};
-use std::ptr;
-
-use crate::buffer_helper;
-use crate::mouse_handler;
-
-// NOTE: the x11-dl crate does not define Button6 or Button7
-const Button6: c_uint = xlib::Button5 + 1;
-const Button7: c_uint = xlib::Button5 + 2;
-
-// We have these in C so we can always have optimize on (-O3) so they
-// run fast in debug build as well. These functions should be seen as
-// "system" functions that just doesn't exist in X11
 extern "C" {
     fn Image_upper_left(
         target: *mut u32,
