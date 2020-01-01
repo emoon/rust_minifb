@@ -7,7 +7,9 @@ use crate::key_handler::KeyHandler;
 use crate::rate::UpdateRate;
 use crate::Result;
 use crate::{CursorStyle, MenuHandle, MenuItem, MenuItemHandle};
-use crate::{InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions};
+use crate::{
+    InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions,
+};
 use crate::{MENU_KEY_ALT, MENU_KEY_CTRL, MENU_KEY_SHIFT, MENU_KEY_WIN};
 
 use crate::buffer_helper;
