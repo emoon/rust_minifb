@@ -8,12 +8,14 @@
 // turn off a gazillion warnings about X keysym names
 #![allow(non_upper_case_globals)]
 
+use crate::key_handler::KeyHandler;
+use crate::rate::UpdateRate;
+use crate::{
+    InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions,
+};
 use x11_dl::keysym::*;
 use x11_dl::xcursor;
 use x11_dl::xlib;
-use crate::key_handler::KeyHandler;
-use crate::rate::UpdateRate;
-use crate::{InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions};
 
 use crate::error::Error;
 use crate::Result;

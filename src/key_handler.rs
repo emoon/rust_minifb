@@ -1,5 +1,5 @@
-use std::mem;
 use crate::{InputCallback, Key, KeyRepeat};
+use std::mem;
 
 pub struct KeyHandler {
     pub key_callback: Option<Box<dyn InputCallback>>,
