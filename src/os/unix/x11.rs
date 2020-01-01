@@ -3,7 +3,7 @@ use x11_dl::xcursor;
 use x11_dl::xlib;
 use crate::key_handler::KeyHandler;
 use crate::rate::UpdateRate;
-use crate::{Key, Scale, ScaleMode, WindowOptions};
+use crate::{InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions};
 
 use crate::error::Error;
 use crate::Result;
@@ -16,8 +16,7 @@ use std::os::raw::{c_char, c_uint};
 use std::ptr;
 
 use crate::buffer_helper;
-
-use super::CommonWindowData;
+use crate::mouse_handler;
 
 // NOTE: the x11-dl crate does not define Button6 or Button7
 const Button6: c_uint = xlib::Button5 + 1;
@@ -253,11 +252,31 @@ enum ProcessEventResult {
 
 pub struct Window {
     d: DisplayInfo,
-	common: CommonWindowData,
 
     handle: xlib::Window,
     ximage: *mut xlib::XImage,
-    draw_buffer: Vec<u32>
+    draw_buffer: Vec<u32>,
+
+    width: u32,  // this is the *scaled* size
+    height: u32, //
+
+    scale: i32,
+    bg_color: u32,
+    scale_mode: ScaleMode,
+
+    mouse_x: f32,
+    mouse_y: f32,
+    scroll_x: f32,
+    scroll_y: f32,
+    buttons: [u8; 3],
+    prev_cursor: CursorStyle,
+
+    should_close: bool, // received delete window message from X server
+
+    key_handler: KeyHandler,
+    update_rate: UpdateRate,
+    menu_counter: MenuHandle,
+    menus: Vec<UnixMenu>,
 }
 
 unsafe impl raw_window_handle::HasRawWindowHandle for Window {
@@ -379,39 +398,28 @@ impl Window {
 
             Ok(Window {
                 d,
-                common: CommonWindowData{
-					width: width as u32,
-                	height: height as u32,
-                	scale: scale as i32,
-                	mouse_x: 0.0,
-                	mouse_y: 0.0,
-                	scroll_x: 0.0,
-                	scroll_y: 0.0,
-                	bg_color: 0,
-                	scale_mode: opts.scale_mode,
-                	buttons: [0, 0, 0],
-                	prev_cursor: CursorStyle::Arrow,
-                	should_close: false,
-                	key_handler: KeyHandler::new(),
-                	update_rate: UpdateRate::new(),
-                	menu_counter: MenuHandle(0),
-                	menus: Vec::new(),
-				},
-				handle,
+                handle,
                 ximage,
                 draw_buffer,
+                width: width as u32,
+                height: height as u32,
+                scale: scale as i32,
+                mouse_x: 0.0,
+                mouse_y: 0.0,
+                scroll_x: 0.0,
+                scroll_y: 0.0,
+                bg_color: 0,
+                scale_mode: opts.scale_mode,
+                buttons: [0, 0, 0],
+                prev_cursor: CursorStyle::Arrow,
+                should_close: false,
+                key_handler: KeyHandler::new(),
+                update_rate: UpdateRate::new(),
+                menu_counter: MenuHandle(0),
+                menus: Vec::new(),
             })
         }
     }
-
-	pub(super) fn get_common_data_mut(&mut self) -> &mut CommonWindowData{
-		&mut self.common
-	}
-
-	pub(super) fn get_common_data(&self) -> &CommonWindowData{
-		&self.common
-	}
-
 
     unsafe fn alloc_image(
         d: &DisplayInfo,
@@ -479,11 +487,11 @@ impl Window {
     }
 
     pub fn update(&mut self) {
-        self.common.key_handler.update();
+        self.key_handler.update();
 
         // clear before processing new events
-        self.common.scroll_x = 0.0;
-        self.common.scroll_y = 0.0;
+        self.scroll_x = 0.0;
+        self.scroll_y = 0.0;
 
         unsafe {
             self.raw_get_mouse_pos();
@@ -497,6 +505,11 @@ impl Window {
     }
 
     #[inline]
+    pub fn set_background_color(&mut self, bg_color: u32) {
+        self.bg_color = bg_color;
+    }
+
+    #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
         unsafe {
             (self.d.lib.XMoveWindow)(self.d.display, self.handle, x as i32, y as i32);
@@ -505,8 +518,44 @@ impl Window {
     }
 
     #[inline]
+    pub fn get_size(&self) -> (usize, usize) {
+        (self.width as usize, self.height as usize)
+    }
+
+    pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
+        let s = self.scale as f32;
+        let w = self.width as f32;
+        let h = self.height as f32;
+
+        mouse_handler::get_pos(mode, self.mouse_x, self.mouse_y, s, w, h)
+    }
+
+    pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
+        let w = self.width as f32;
+        let h = self.height as f32;
+
+        mouse_handler::get_pos(mode, self.mouse_x, self.mouse_y, 1.0, w, h)
+    }
+
+    pub fn get_mouse_down(&self, button: MouseButton) -> bool {
+        match button {
+            MouseButton::Left => self.buttons[0] > 0,
+            MouseButton::Middle => self.buttons[1] > 0,
+            MouseButton::Right => self.buttons[2] > 0,
+        }
+    }
+
+    pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
+        if self.scroll_x.abs() > 0.0 || self.scroll_y.abs() > 0.0 {
+            Some((self.scroll_x, self.scroll_y))
+        } else {
+            None
+        }
+    }
+
+    #[inline]
     pub fn set_cursor_style(&mut self, cursor: CursorStyle) {
-        if self.common.prev_cursor != cursor {
+        if self.prev_cursor != cursor {
             unsafe {
                 (self.d.lib.XDefineCursor)(
                     self.d.display,
@@ -515,8 +564,63 @@ impl Window {
                 );
             }
 
-            self.common.prev_cursor = cursor;
+            self.prev_cursor = cursor;
         }
+    }
+
+    #[inline]
+    pub fn set_rate(&mut self, rate: Option<std::time::Duration>) {
+        self.update_rate.set_rate(rate);
+    }
+
+    #[inline]
+    pub fn update_rate(&mut self) {
+        self.update_rate.update();
+    }
+
+    #[inline]
+    pub fn get_keys(&self) -> Option<Vec<Key>> {
+        self.key_handler.get_keys()
+    }
+
+    #[inline]
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
+        self.key_handler.get_keys_pressed(repeat)
+    }
+
+    #[inline]
+    pub fn is_key_down(&self, key: Key) -> bool {
+        self.key_handler.is_key_down(key)
+    }
+
+    #[inline]
+    pub fn set_key_repeat_delay(&mut self, delay: f32) {
+        self.key_handler.set_key_repeat_delay(delay)
+    }
+
+    #[inline]
+    pub fn set_key_repeat_rate(&mut self, rate: f32) {
+        self.key_handler.set_key_repeat_rate(rate)
+    }
+
+    #[inline]
+    pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
+        self.key_handler.is_key_pressed(key, repeat)
+    }
+
+    #[inline]
+    pub fn is_key_released(&self, key: Key) -> bool {
+        self.key_handler.is_key_released(key)
+    }
+
+    #[inline]
+    pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>) {
+        self.key_handler.set_input_callback(callback)
+    }
+
+    #[inline]
+    pub fn is_open(&self) -> bool {
+        !self.should_close
     }
 
     #[inline]
@@ -563,8 +667,8 @@ impl Window {
     }
 
     fn next_menu_handle(&mut self) -> MenuHandle {
-        let handle = self.common.menu_counter;
-        self.common.menu_counter.0 += 1;
+        let handle = self.menu_counter;
+        self.menu_counter.0 += 1;
         handle
     }
 
@@ -572,8 +676,20 @@ impl Window {
         let handle = self.next_menu_handle();
         let mut menu = menu.internal.clone();
         menu.handle = handle;
-        self.common.menus.push(menu);
+        self.menus.push(menu);
         handle
+    }
+
+    pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
+        Some(&self.menus)
+    }
+
+    pub fn remove_menu(&mut self, handle: MenuHandle) {
+        self.menus.retain(|ref menu| menu.handle != handle);
+    }
+
+    pub fn is_menu_pressed(&mut self) -> Option<usize> {
+        None
     }
 
     ////////////////////////////////////
@@ -585,7 +701,7 @@ impl Window {
         buf_height: usize,
         buf_stride: usize,
     ) {
-        match self.common.scale_mode {
+        match self.scale_mode {
             ScaleMode::Stretch => {
                 Image_resize_linear_c(
                     self.draw_buffer.as_mut_ptr(),
@@ -593,8 +709,8 @@ impl Window {
                     buf_width as u32,
                     buf_height as u32,
                     buf_stride as u32,
-                    self.common.width as u32,
-                    self.common.height as u32,
+                    self.width as u32,
+                    self.height as u32,
                 );
             }
 
@@ -605,9 +721,9 @@ impl Window {
                     buf_width as u32,
                     buf_height as u32,
                     buf_stride as u32,
-                    self.common.width as u32,
-                    self.common.height as u32,
-                    self.common.bg_color,
+                    self.width as u32,
+                    self.height as u32,
+                    self.bg_color,
                 );
             }
 
@@ -618,9 +734,9 @@ impl Window {
                     buf_width as u32,
                     buf_height as u32,
                     buf_stride as u32,
-                    self.common.width as u32,
-                    self.common.height as u32,
-                    self.common.bg_color,
+                    self.width as u32,
+                    self.height as u32,
+                    self.bg_color,
                 );
             }
 
@@ -631,9 +747,9 @@ impl Window {
                     buf_width as u32,
                     buf_height as u32,
                     buf_stride as u32,
-                    self.common.width as u32,
-                    self.common.height as u32,
-                    self.common.bg_color,
+                    self.width as u32,
+                    self.height as u32,
+                    self.bg_color,
                 );
             }
         }
@@ -647,8 +763,8 @@ impl Window {
             0,
             0,
             0,
-            self.common.width,
-            self.common.height,
+            self.width,
+            self.height,
         );
         (self.d.lib.XFlush)(self.d.display);
     }
@@ -676,8 +792,8 @@ impl Window {
             &mut mask,
         ) != xlib::False
         {
-            self.common.mouse_x = child_x as f32;
-            self.common.mouse_y = child_y as f32;
+            self.mouse_x = child_x as f32;
+            self.mouse_y = child_y as f32;
         }
     }
 
@@ -708,7 +824,7 @@ impl Window {
                 if ev.client_message.format == 32 /* i.e. longs */ &&
                    ev.client_message.data.get_long(0) as xlib::Atom == self.d.wm_delete_window
                 {
-                    self.common.should_close = true;
+                    self.should_close = true;
                     return ProcessEventResult::Termination;
                 }
             }
@@ -731,13 +847,13 @@ impl Window {
 
             xlib::ConfigureNotify => {
                 // TODO : pass this onto the application
-                self.common.width = ev.configure.width as u32;
-                self.common.height = ev.configure.height as u32;
+                self.width = ev.configure.width as u32;
+                self.height = ev.configure.height as u32;
                 self.free_image();
                 self.ximage = Self::alloc_image(
                     &self.d,
-                    cast::usize(self.common.width),
-                    cast::usize(self.common.height),
+                    cast::usize(self.width),
+                    cast::usize(self.height),
                     &mut self.draw_buffer,
                 )
                 .expect("todo");
@@ -800,7 +916,7 @@ impl Window {
                 return;
             }
 
-            if let Some(ref mut callback) = self.common.key_handler.key_callback {
+            if let Some(ref mut callback) = self.key_handler.key_callback {
                 callback.add_char(code_point);
             }
         }
@@ -809,15 +925,15 @@ impl Window {
     unsafe fn process_button(&mut self, ev: xlib::XEvent, is_down: bool) {
         match ev.button.button {
             xlib::Button1 => {
-                self.common.buttons[0] = if is_down { 1 } else { 0 };
+                self.buttons[0] = if is_down { 1 } else { 0 };
                 return;
             }
             xlib::Button2 => {
-                self.common.buttons[1] = if is_down { 1 } else { 0 };
+                self.buttons[1] = if is_down { 1 } else { 0 };
                 return;
             }
             xlib::Button3 => {
-                self.common.buttons[2] = if is_down { 1 } else { 0 };
+                self.buttons[2] = if is_down { 1 } else { 0 };
                 return;
             }
 
@@ -838,8 +954,8 @@ impl Window {
             }
         };
 
-        self.common.scroll_x += scroll.0 as f32 * 0.1;
-        self.common.scroll_y += scroll.1 as f32 * 0.1;
+        self.scroll_x += scroll.0 as f32 * 0.1;
+        self.scroll_y += scroll.1 as f32 * 0.1;
     }
 
     fn update_key_state(&mut self, sym: xlib::KeySym, is_down: bool) {
@@ -963,7 +1079,7 @@ impl Window {
             }
         };
 
-        self.common.key_handler.set_key_state(key, is_down);
+        self.key_handler.set_key_state(key, is_down);
     }
 }
 
