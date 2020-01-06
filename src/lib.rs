@@ -4,6 +4,7 @@
 //!
 #![deny(missing_debug_implementations)]
 
+#[cfg(not(target_os = "redox"))]
 extern crate raw_window_handle;
 
 use std::fmt;
@@ -137,6 +138,7 @@ impl fmt::Debug for Window {
     }
 }
 
+#[cfg(not(target_os = "redox"))]
 unsafe impl raw_window_handle::HasRawWindowHandle for Window {
     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
         self.0.raw_window_handle()
