@@ -27,6 +27,8 @@ cc = "1.0"
 [dependencies]
 cast = "0.2"
 time = { git = "https://gitlab.redox-os.org/redox-os/time", branch = "redox-unix" } 
+
+[target.'cfg(all(not(target_os = "redox")))'.dependencies]
 raw-window-handle = "0.3.3"
 
 [target.'cfg(windows)'.dependencies.winapi]

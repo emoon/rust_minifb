@@ -2,7 +2,7 @@
 
 extern crate orbclient;
 use os::redox::orbclient::Renderer;
-extern crate raw_window_handle;
+// extern crate raw_window_handle;
 
 use buffer_helper;
 use error::Error;
@@ -37,15 +37,15 @@ pub struct Window {
 }
 
 // workaround, todo add redox / orbital support to raw-window-handle
-unsafe impl raw_window_handle::HasRawWindowHandle for Window {
-    fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-        let handle = raw_window_handle::web::WebHandle {
-            id: 0,
-            ..raw_window_handle::web::WebHandle::empty()
-        };
-        raw_window_handle::RawWindowHandle::Web(handle)
-    }
-}
+// unsafe impl raw_window_handle::HasRawWindowHandle for Window {
+//     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
+//         let handle = raw_window_handle::web::WebHandle {
+//             id: 0,
+//             ..raw_window_handle::web::WebHandle::empty()
+//         };
+//         raw_window_handle::RawWindowHandle::Web(handle)
+//     }
+// }
 
 impl Window {
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
