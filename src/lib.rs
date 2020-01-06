@@ -94,6 +94,8 @@ pub trait InputCallback {
 mod error;
 pub use self::error::Error;
 pub type Result<T> = std::result::Result<T, Error>;
+
+#[cfg(not(target_os = "redox"))]
 pub use raw_window_handle::HasRawWindowHandle as HasRawWindowHandle;
 
 mod key;
