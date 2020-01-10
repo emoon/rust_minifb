@@ -12,19 +12,19 @@ use crate::WindowOptions;
 //
 #[allow(dead_code)]
 pub fn get_flags(opts: WindowOptions) -> u32 {
-	let mut flags = 0u32;
+    let mut flags = 0u32;
 
-	if opts.borderless {
-		flags |= WINDOW_BORDERLESS;
-	}
+    if opts.borderless {
+        flags |= WINDOW_BORDERLESS;
+    }
 
-	if opts.title {
-		flags |= WINDOW_TITLE;
-	}
+    if opts.title {
+        flags |= WINDOW_TITLE;
+    }
 
-	if opts.resize {
-		flags |= WINDOW_RESIZE;
-	}
+    if opts.resize {
+        flags |= WINDOW_RESIZE;
+    }
 
-	flags
+    flags
 }
