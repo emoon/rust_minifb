@@ -290,7 +290,7 @@ impl Window {
 
             Ok(Window {
                 window_handle: handle,
-                scale_factor: scale_factor,
+                scale_factor,
                 shared_data: SharedData {
                     bg_color: 0,
                     scale_mode: opts.scale_mode as u32,

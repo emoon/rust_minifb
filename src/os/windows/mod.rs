@@ -580,7 +580,7 @@ impl Window {
                 key_handler: KeyHandler::new(),
                 update_rate: UpdateRate::new(),
                 is_open: true,
-                scale_factor: scale_factor,
+                scale_factor,
                 width: (width * scale_factor as usize) as i32,
                 height: (height * scale_factor as usize) as i32,
                 menus: Vec::new(),
