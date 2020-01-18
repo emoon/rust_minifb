@@ -8,7 +8,7 @@
 // turn off a gazillion warnings about X keysym names
 #![allow(non_upper_case_globals)]
 
-//mod wayland;
+mod wayland;
 mod key_mapping;
 mod x11;
 
