@@ -1,5 +1,6 @@
 use crate::{CursorStyle, MenuHandle, MenuItem, MenuItemHandle, UnixMenu, UnixMenuItem};
 use crate::{InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions};
+use crate::{Error, Result};
 use crate::rate::UpdateRate;
 use crate::key_handler::KeyHandler;
 
@@ -7,37 +8,6 @@ use wayland_client::protocol::{wl_display::WlDisplay, wl_compositor::WlComposito
 use wayland_client::{EventQueue, ProtocolError, ConnectError, GlobalError, GlobalManager};
 use wayland_client::{Main, Attached};
 use wayland_protocols::xdg_shell::client::xdg_wm_base::XdgWmBase;
-
-pub enum WlError{
-	Io(std::io::Error),
-	Prot(ProtocolError),
-	Global(GlobalError),
-	Connect(ConnectError)
-}
-
-impl From<ConnectError> for WlError{
-	fn from(e: ConnectError) -> Self{
-		WlError::Connect(e)
-	}
-}
-
-impl From<std::io::Error> for WlError{
-	fn from(e: std::io::Error) -> Self{
-		WlError::Io(e)
-	}
-}
-
-impl From<ProtocolError> for WlError{
-	fn from(e: ProtocolError) -> Self{
-		WlError::Prot(e)
-	}
-}
-
-impl From<GlobalError> for WlError{
-	fn from(e: GlobalError) -> Self{
-		WlError::Global(e)
-	}
-}
 
 
 pub struct DisplayInfo{
@@ -53,26 +23,26 @@ pub struct DisplayInfo{
 }
 
 impl DisplayInfo{
-	pub fn new(size: (usize, usize)) -> Result<Self, WlError>{
+	pub fn new(size: (usize, usize)) -> Result<Self>{
 		use std::os::unix::io::AsRawFd;
 
-		let display = wayland_client::Display::connect_to_env()?;
+		let display = wayland_client::Display::connect_to_env().map_err(|e| Error::WindowCreate(format!("Failed connecting to the Wayland Display: {:?}", e)))?;
 		let mut event_q = display.create_event_queue();
 		let tkn = event_q.get_token();
 		let wl_display = (*display).clone().attach(tkn);
 		let global_man = GlobalManager::new(&wl_display);
 
-		event_q.sync_roundtrip(|_, _|{ unreachable!() })?;
+		event_q.sync_roundtrip(|_, _|{ unreachable!() }).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
 
 		let list = global_man.list();
-		let comp = global_man.instantiate_exact::<WlCompositor>(1)?;
-		let shm = global_man.instantiate_exact::<WlShm>(1)?;
+		let comp = global_man.instantiate_exact::<WlCompositor>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the compositor: {:?}", e)))?;
+		let shm = global_man.instantiate_exact::<WlShm>(1).map_err(|e| Error::WindowCreate(format!("Failed creating the shared memory: {:?}", e)))?;
 		let surface = comp.create_surface();
-		let tmp_f = tempfile::tempfile()?;
+		let tmp_f = tempfile::tempfile().map_err(|e| Error::WindowCreate(format!("Failed creating the temporary file: {:?}", e)))?;
 		let shm_pool = shm.create_pool(tmp_f.as_raw_fd(), size.0 as i32*size.1 as i32*4);
 		let buffer = shm_pool.create_buffer(0, size.0 as i32, size.1 as i32, size.0 as i32*4, Format::Argb8888);
-		let xdg_wm_base = global_man.instantiate_exact::<XdgWmBase>(1)?;
+		let xdg_wm_base = global_man.instantiate_exact::<XdgWmBase>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the XdgWmBase: {:?}", e)))?;
 
 
 		Ok(Self{
@@ -93,8 +63,8 @@ impl DisplayInfo{
 pub struct Window{
 	display: DisplayInfo,
 
-	width: u32,
-	height: u32,
+	width: i32,
+	height: i32,
 	
 	scale: i32,
 	bg_color: u32,
@@ -117,10 +87,36 @@ pub struct Window{
 
 
 impl Window{
-	pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Self, WlError>{
+	pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Self>{
 		let dsp = DisplayInfo::new((width, height))?;
+
+		unimplemented!();
+
+		Ok(Self{
+			display: dsp,
+
+			width: width as i32,
+			height: height as i32,
 	
-		unimplemented!()
+			//TODO
+			scale: 0,
+			bg_color: 0,
+			scale_mode: opts.scale_mode,
+
+			mouse_x: 0.,
+			mouse_y: 0.,
+			scroll_x: 0.,
+			scroll_y: 0.,
+			buttons: [0; 3],
+			prev_cursor: CursorStyle::Arrow,
+
+			should_close: false,
+
+			key_handler: KeyHandler::new(),
+			update_rate: UpdateRate::new(),
+			menu_counter: MenuHandle(0),
+			menus: Vec::new()
+		})
 	}
 }
 
