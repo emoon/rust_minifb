@@ -22,12 +22,16 @@ use std::os::raw;
 //Differentiate between Wayland and X11 at run-time
 pub enum Window {
     X11(x11::Window),
-    Wayland(()), //WlWindow
+    Wayland(wayland::Window),
 }
 
 impl Window {
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
-        //TODO: Try to create Wayland display first
+        //Try to create Wayland display first
+		let window = wayland::Window::new(name, width, height, opts);
+		if let Ok(w) = window{
+			return Ok(Window::Wayland(w));
+		}	
 
         //Create X11 Window when Wayland fails
         let window = Window::X11(x11::Window::new(name, width, height, opts)?);
