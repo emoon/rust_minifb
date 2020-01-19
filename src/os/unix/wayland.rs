@@ -4,10 +4,10 @@ use crate::{Error, Result};
 use crate::rate::UpdateRate;
 use crate::key_handler::KeyHandler;
 
-use wayland_client::protocol::{wl_display::WlDisplay, wl_compositor::WlCompositor, wl_shm::{WlShm, Format}, wl_shm_pool::WlShmPool, wl_buffer::WlBuffer};
+use wayland_client::protocol::{wl_display::WlDisplay, wl_compositor::WlCompositor, wl_shm::{WlShm, Format}, wl_shm_pool::WlShmPool, wl_buffer::WlBuffer, wl_surface::WlSurface};
 use wayland_client::{EventQueue, ProtocolError, ConnectError, GlobalError, GlobalManager};
 use wayland_client::{Main, Attached};
-use wayland_protocols::xdg_shell::client::xdg_wm_base::XdgWmBase;
+use wayland_protocols::xdg_shell::client::{xdg_wm_base::XdgWmBase, xdg_surface::XdgSurface, xdg_toplevel::XdgToplevel};
 
 
 pub struct DisplayInfo{
@@ -15,6 +15,9 @@ pub struct DisplayInfo{
 	wl_display: Attached<WlDisplay>,
 	comp: Main<WlCompositor>,
 	base: Main<XdgWmBase>,
+	surface: Main<WlSurface>,
+	xdg_surface: Main<XdgSurface>,
+	toplevel: Main<XdgToplevel>,
 	shm: Main<WlShm>,
 	shm_pool: Main<WlShmPool>,
 	buf: Main<WlBuffer>,
@@ -23,6 +26,8 @@ pub struct DisplayInfo{
 }
 
 impl DisplayInfo{
+
+	//TODO: more docs
 	pub fn new(size: (usize, usize)) -> Result<Self>{
 		use std::os::unix::io::AsRawFd;
 
@@ -43,6 +48,36 @@ impl DisplayInfo{
 		let shm_pool = shm.create_pool(tmp_f.as_raw_fd(), size.0 as i32*size.1 as i32*4);
 		let buffer = shm_pool.create_buffer(0, size.0 as i32, size.1 as i32, size.0 as i32*4, Format::Argb8888);
 		let xdg_wm_base = global_man.instantiate_exact::<XdgWmBase>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the XdgWmBase: {:?}", e)))?;
+		//Ping Pong
+		xdg_wm_base.assign_mono(|xdg_wm_base, event|{
+			use wayland_protocols::xdg_shell::client::xdg_wm_base::Event;
+
+			if let Event::Ping{serial} = event{
+				xdg_wm_base.pong(serial);
+			}
+		});
+
+		let xdg_surface = xdg_wm_base.get_xdg_surface(&surface);
+		let _surface = surface.clone();
+		//Ping Pong
+		xdg_surface.assign_mono(move |xdg_surface, event|{
+			use wayland_protocols::xdg_shell::client::xdg_surface::Event;
+
+			if let Event::Configure{serial} = event{
+				xdg_surface.ack_configure(serial);
+				_surface.commit();
+			}
+		});
+
+		let _xdg_toplevel = xdg_surface.get_toplevel();
+		surface.commit();
+
+		event_q.sync_roundtrip(|_, _|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
+
+		surface.attach(Some(&buffer), 0, 0);
+		surface.commit();
+
+		event_q.sync_roundtrip(|_, _|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
 
 		Ok(Self{
@@ -50,6 +85,9 @@ impl DisplayInfo{
 			wl_display,
 			comp,
 			base: xdg_wm_base,
+			surface,
+			xdg_surface,
+			toplevel: _xdg_toplevel,
 			shm_pool,
 			shm,
 			buf: buffer,
