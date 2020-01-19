@@ -30,24 +30,33 @@ impl DisplayInfo{
 	//TODO: more docs
 	pub fn new(size: (usize, usize)) -> Result<Self>{
 		use std::os::unix::io::AsRawFd;
-
+		
+		//Get the wayland display
 		let display = wayland_client::Display::connect_to_env().map_err(|e| Error::WindowCreate(format!("Failed connecting to the Wayland Display: {:?}", e)))?;
 		let mut event_q = display.create_event_queue();
 		let tkn = event_q.get_token();
+		//Access internal WlDisplay with a token
 		let wl_display = (*display).clone().attach(tkn);
 		let global_man = GlobalManager::new(&wl_display);
 
+		//wait the wayland server to process all events
 		event_q.sync_roundtrip(|_, _|{ unreachable!() }).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
 
 		let list = global_man.list();
+		//retrieve some types from globals
 		let comp = global_man.instantiate_exact::<WlCompositor>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the compositor: {:?}", e)))?;
 		let shm = global_man.instantiate_exact::<WlShm>(1).map_err(|e| Error::WindowCreate(format!("Failed creating the shared memory: {:?}", e)))?;
 		let surface = comp.create_surface();
+		//temporary file used as framebuffer
 		let tmp_f = tempfile::tempfile().map_err(|e| Error::WindowCreate(format!("Failed creating the temporary file: {:?}", e)))?;
+		
+		//create a shared memory
 		let shm_pool = shm.create_pool(tmp_f.as_raw_fd(), size.0 as i32*size.1 as i32*4);
 		let buffer = shm_pool.create_buffer(0, size.0 as i32, size.1 as i32, size.0 as i32*4, Format::Argb8888);
+		
 		let xdg_wm_base = global_man.instantiate_exact::<XdgWmBase>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the XdgWmBase: {:?}", e)))?;
+		
 		//Ping Pong
 		xdg_wm_base.assign_mono(|xdg_wm_base, event|{
 			use wayland_protocols::xdg_shell::client::xdg_wm_base::Event;
@@ -68,12 +77,13 @@ impl DisplayInfo{
 				_surface.commit();
 			}
 		});
-
+		//Assigns the toplevel role and commit
 		let _xdg_toplevel = xdg_surface.get_toplevel();
 		surface.commit();
 
 		event_q.sync_roundtrip(|_, _|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
+		//give the surface the buffer and commit
 		surface.attach(Some(&buffer), 0, 0);
 		surface.commit();
 
