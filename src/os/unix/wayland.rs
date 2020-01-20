@@ -8,7 +8,9 @@ use wayland_client::protocol::{wl_display::WlDisplay, wl_compositor::WlComposito
 use wayland_client::{EventQueue, ProtocolError, ConnectError, GlobalError, GlobalManager};
 use wayland_client::{Main, Attached};
 use wayland_protocols::xdg_shell::client::{xdg_wm_base::XdgWmBase, xdg_surface::XdgSurface, xdg_toplevel::XdgToplevel};
-
+use byteorder::WriteBytesExt;
+use byteorder::NativeEndian;
+use std::io::Write;
 
 pub struct DisplayInfo{
 	display: wayland_client::Display,
@@ -26,8 +28,6 @@ pub struct DisplayInfo{
 }
 
 impl DisplayInfo{
-
-	//TODO: more docs
 	pub fn new(size: (usize, usize)) -> Result<Self>{
 		use std::os::unix::io::AsRawFd;
 		
@@ -49,8 +49,14 @@ impl DisplayInfo{
 		let shm = global_man.instantiate_exact::<WlShm>(1).map_err(|e| Error::WindowCreate(format!("Failed creating the shared memory: {:?}", e)))?;
 		let surface = comp.create_surface();
 		//temporary file used as framebuffer
-		let tmp_f = tempfile::tempfile().map_err(|e| Error::WindowCreate(format!("Failed creating the temporary file: {:?}", e)))?;
-		
+		let mut tmp_f = tempfile::tempfile().map_err(|e| Error::WindowCreate(format!("Failed creating the temporary file: {:?}", e)))?;
+
+		//Add a black canvas into the framebuffer
+		for i in 0..(size.0 * size.1){
+			let _ = tmp_f.write_u32::<NativeEndian>(0xFF000000);
+		}
+		let _ = tmp_f.flush();
+
 		//create a shared memory
 		let shm_pool = shm.create_pool(tmp_f.as_raw_fd(), size.0 as i32*size.1 as i32*4);
 		let buffer = shm_pool.create_buffer(0, size.0 as i32, size.1 as i32, size.0 as i32*4, Format::Argb8888);
@@ -138,7 +144,7 @@ impl Window{
 	pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Self>{
 		let dsp = DisplayInfo::new((width, height))?;
 
-		unimplemented!();
+		//unimplemented!();
 
 		Ok(Self{
 			display: dsp,
