@@ -71,7 +71,7 @@ impl Window {
     pub fn get_window_handle(&self) -> *mut raw::c_void {
         match *self {
             Window::X11(ref w) => w.get_window_handle(),
-            Window::Wayland(ref _w) => unimplemented!(),
+            Window::Wayland(ref w) => w.get_window_handle(),
         }
     }
 
@@ -204,7 +204,7 @@ impl Window {
     pub fn is_open(&self) -> bool {
         match *self {
             Window::X11(ref w) => w.is_open(),
-            Window::Wayland(ref _w) => unimplemented!(),
+            Window::Wayland(ref w) => w.is_open(),
         }
     }
 

@@ -8,9 +8,10 @@ use wayland_client::protocol::{wl_display::WlDisplay, wl_compositor::WlComposito
 use wayland_client::{EventQueue, ProtocolError, ConnectError, GlobalError, GlobalManager};
 use wayland_client::{Main, Attached};
 use wayland_protocols::xdg_shell::client::{xdg_wm_base::XdgWmBase, xdg_surface::XdgSurface, xdg_toplevel::XdgToplevel};
-use byteorder::WriteBytesExt;
-use byteorder::NativeEndian;
+use byteorder::{WriteBytesExt, NativeEndian};
 use std::io::Write;
+use std::ffi::c_void;
+
 
 pub struct DisplayInfo{
 	display: wayland_client::Display,
@@ -192,6 +193,14 @@ impl Window{
 
 	pub fn set_title(&mut self, title: &str){
 		self.display.set_title(title);
+	}
+
+	pub fn is_open(&self) -> bool{
+		!self.should_close
+	}
+
+	pub fn get_window_handle(&self) -> *mut c_void{
+		self.display.surface.as_ref().c_ptr() as *mut c_void
 	}
 }
 
