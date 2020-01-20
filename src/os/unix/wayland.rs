@@ -113,6 +113,10 @@ impl DisplayInfo{
 		})
 	}
 
+	fn set_geometry(&self, pos: (i32, i32), size: (i32, i32)){
+		self.xdg_surface.set_window_geometry(pos.0, pos.1, size.0, size.1);
+	}
+
 	fn set_title(&self, title: &str){
 		self.toplevel.set_title(title.to_owned());
 	}
@@ -201,6 +205,14 @@ impl Window{
 
 	pub fn get_window_handle(&self) -> *mut c_void{
 		self.display.surface.as_ref().c_ptr() as *mut c_void
+	}
+
+	pub fn get_size(&self) -> (usize, usize){
+		(self.width as usize, self.height as usize)
+	}
+
+	pub fn set_position(&mut self, x: isize, y: isize){
+		self.display.set_geometry((x as i32, y as i32), (self.width, self.height));
 	}
 }
 

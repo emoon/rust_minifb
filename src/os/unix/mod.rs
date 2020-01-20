@@ -92,7 +92,7 @@ impl Window {
     pub fn get_size(&self) -> (usize, usize) {
         match *self {
             Window::X11(ref w) => w.get_size(),
-            Window::Wayland(ref _w) => unimplemented!(),
+            Window::Wayland(ref w) => w.get_size(),
         }
     }
 
