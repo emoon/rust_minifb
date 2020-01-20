@@ -42,7 +42,7 @@ impl Window {
     pub fn set_title(&mut self, title: &str) {
         match *self {
             Window::X11(ref mut w) => w.set_title(title),
-            Window::Wayland(ref mut _w) => unimplemented!(),
+            Window::Wayland(ref mut w) => w.set_title(title),
         }
     }
 

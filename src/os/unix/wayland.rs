@@ -111,6 +111,14 @@ impl DisplayInfo{
 			fd: tmp_f
 		})
 	}
+
+	fn set_title(&self, title: &str){
+		self.toplevel.set_title(title.to_owned());
+	}
+	fn set_no_resize(&self, size: (i32, i32)){
+		self.toplevel.set_max_size(size.0, size.1);
+		self.toplevel.set_min_size(size.0, size.1);
+	}
 }
 
 
@@ -142,9 +150,18 @@ pub struct Window{
 
 impl Window{
 	pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Self>{
-		let dsp = DisplayInfo::new((width, height))?;
+		let mut dsp = DisplayInfo::new((width, height))?;
 
-		//unimplemented!();
+		if opts.borderless{
+	
+		}
+		if opts.title{
+			dsp.set_title(name);
+		}
+		if !opts.resize{
+			dsp.set_no_resize((width as i32, height as i32));	
+		}
+		//TODO: opts.scale
 
 		Ok(Self{
 			display: dsp,
@@ -171,6 +188,10 @@ impl Window{
 			menu_counter: MenuHandle(0),
 			menus: Vec::new()
 		})
+	}
+
+	pub fn set_title(&mut self, title: &str){
+		self.display.set_title(title);
 	}
 }
 
