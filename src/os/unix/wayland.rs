@@ -199,8 +199,8 @@ impl Window{
 		self.display.set_title(title);
 	}
 
-    pub fn set_background_color(red: usize, green: usize, blue: usize){
-        self.bg_color = red as u32 << 16 + green as u32 << 8 + blue as u32;
+    pub fn set_background_color(&mut self, bg_color: u32){
+        self.bg_color = bg_color;
     }
 
     pub fn is_open(&self) -> bool{
@@ -221,16 +221,31 @@ impl Window{
 
     //WIP
     pub fn update(&mut self){
-		self.display.event_queue.sync_roundtrip(|_, _|{ unreachable!() }).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e))).unwrap();
+		self.display.event_queue.sync_roundtrip(|event, object|{
+		//TODO
+		}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e))).unwrap();
     }
 
     //WIP
-    pub fn update_with_buffer_stride(&mut self, buffer: &[u32], buf_width: usize, buf_height: usize, buf_stride: usize){
+    pub fn update_with_buffer_stride(&mut self, buffer: &[u32], buf_width: usize, buf_height: usize, buf_stride: usize) -> Result<()>{
         //TODO: stride
-        for i in 0..(buf_width*buf_height){
-            let color = 0x00FFFFFF & buffer[i];
-            self.display.fd.write_u32::<NativeEndian>(color);
-        }
+		if buffer.len() < buf_width*buf_height{
+			return Err(Error::UpdateFailed("Buffer size lower than given sizes".to_owned()));
+		}
+		else{
+			use std::io::{Seek, SeekFrom};
+
+			self.display.fd.seek(SeekFrom::Start(0));
+
+			for i in 0..(buf_width*buf_height){
+				let color = 0xFFFFFFFF & buffer[i];
+				self.display.fd.write_u32::<NativeEndian>(color);
+			}
+		}
+
+		self.update();
+
+		Ok(())
     }
 }
 
