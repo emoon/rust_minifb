@@ -85,7 +85,7 @@ impl Window {
     pub fn set_position(&mut self, x: isize, y: isize) {
         match *self {
             Window::X11(ref mut w) => w.set_position(x, y),
-            Window::Wayland(ref mut _w) => unimplemented!(),
+            Window::Wayland(ref mut w) => w.set_position(x, y),
         }
     }
 
