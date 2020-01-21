@@ -215,6 +215,26 @@ impl Window{
 		(self.width as usize, self.height as usize)
 	}
 
+	pub fn get_keys(&self) -> Option<Vec<Key>>{
+		self.key_handler.get_keys()
+	}
+
+	pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>>{
+		self.key_handler.get_keys_pressed(repeat)
+	}
+
+	pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)>{
+		Some((self.mouse_x, self.mouse_y))
+	}
+
+	pub fn get_scroll_wheel(&self) -> Option<(f32, f32)>{
+		Some((self.scroll_x, self.scroll_y))
+	}
+
+	pub fn is_key_down(&self, key: Key) -> bool{
+		self.key_handler.is_key_down(key)
+	}
+
 	pub fn set_position(&mut self, x: isize, y: isize){
 		self.display.set_geometry((x as i32, y as i32), (self.width, self.height));
 	}

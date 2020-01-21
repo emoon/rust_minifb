@@ -78,7 +78,7 @@ impl Window {
     pub fn set_background_color(&mut self, bg_color: u32) {
         match *self {
             Window::X11(ref mut w) => w.set_background_color(bg_color),
-            Window::Wayland(ref mut _w) => unimplemented!(),
+            Window::Wayland(ref mut w) => w.set_background_color(bg_color),
         }
     }
 
@@ -99,7 +99,7 @@ impl Window {
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         match *self {
             Window::X11(ref w) => w.get_mouse_pos(mode),
-            Window::Wayland(ref _w) => unimplemented!(),
+            Window::Wayland(ref w) => w.get_mouse_pos(mode),
         }
     }
 
@@ -120,7 +120,7 @@ impl Window {
     pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
         match *self {
             Window::X11(ref w) => w.get_scroll_wheel(),
-            Window::Wayland(ref _w) => unimplemented!(),
+            Window::Wayland(ref w) => w.get_scroll_wheel(),
         }
     }
 
@@ -149,21 +149,21 @@ impl Window {
     pub fn get_keys(&self) -> Option<Vec<Key>> {
         match *self {
             Window::X11(ref w) => w.get_keys(),
-            Window::Wayland(ref _w) => unimplemented!(),
+            Window::Wayland(ref w) => w.get_keys(),
         }
     }
 
     pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
         match *self {
             Window::X11(ref w) => w.get_keys_pressed(repeat),
-            Window::Wayland(ref _w) => unimplemented!(),
+            Window::Wayland(ref w) => w.get_keys_pressed(repeat),
         }
     }
 
     pub fn is_key_down(&self, key: Key) -> bool {
         match *self {
             Window::X11(ref w) => w.is_key_down(key),
-            Window::Wayland(ref _w) => unimplemented!(),
+            Window::Wayland(ref w) => w.is_key_down(key),
         }
     }
 
