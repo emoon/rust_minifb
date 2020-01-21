@@ -199,7 +199,11 @@ impl Window{
 		self.display.set_title(title);
 	}
 
-	pub fn is_open(&self) -> bool{
+    pub fn set_background_color(red: usize, green: usize, blue: usize){
+        self.bg_color = red as u32 << 16 + green as u32 << 8 + blue as u32;
+    }
+
+    pub fn is_open(&self) -> bool{
 		!self.should_close
 	}
 
@@ -214,5 +218,19 @@ impl Window{
 	pub fn set_position(&mut self, x: isize, y: isize){
 		self.display.set_geometry((x as i32, y as i32), (self.width, self.height));
 	}
+
+    //WIP
+    pub fn update(&mut self){
+		self.display.event_queue.sync_roundtrip(|_, _|{ unreachable!() }).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e))).unwrap();
+    }
+
+    //WIP
+    pub fn update_with_buffer_stride(&mut self, buffer: &[u32], buf_width: usize, buf_height: usize, buf_stride: usize){
+        //TODO: stride
+        for i in 0..(buf_width*buf_height){
+            let color = 0x00FFFFFF & buffer[i];
+            self.display.fd.write_u32::<NativeEndian>(color);
+        }
+    }
 }
 

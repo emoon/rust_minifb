@@ -57,14 +57,14 @@ impl Window {
             Window::X11(ref mut w) => {
                 w.update_with_buffer_stride(buffer, buf_width, buf_height, buf_stride)
             }
-            Window::Wayland(ref mut _w) => unimplemented!(),
+            Window::Wayland(ref mut w) => w.update_with_buffer_stride(buffer, buf_width, buf_height, buf_stride),
         }
     }
 
     pub fn update(&mut self) {
         match *self {
             Window::X11(ref mut w) => w.update(),
-            Window::Wayland(ref mut _w) => unimplemented!(),
+            Window::Wayland(ref mut w) => w.update(),
         }
     }
 
@@ -141,7 +141,8 @@ impl Window {
     pub fn update_rate(&mut self) {
         match *self {
             Window::X11(ref mut w) => w.update_rate(),
-            Window::Wayland(ref mut _w) => unimplemented!(),
+            //TODO
+            Window::Wayland(ref mut w) => (),
         }
     }
 
