@@ -150,7 +150,7 @@ static bool create_shaders() {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void* mfb_open(const char* name, int width, int height, uint32_t flags, int scale)
+void* mfb_open(const char* name, int width, int height, uint32_t flags, int scale, void** view_handle)
 {
 	bool prev_init = s_init;
 
@@ -282,6 +282,8 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 
 	if (!prev_init)
 		[NSApp finishLaunching];
+
+	*view_handle = (void*)view;
 
 	//[pool drain];
 

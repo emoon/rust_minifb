@@ -94,8 +94,8 @@ impl Window {
                 is_active: true,
                 buffer_width: width,
                 buffer_height: height,
-                window: window,
-                window_scale: window_scale,
+                window,
+                window_scale,
                 key_handler: KeyHandler::new(),
                 update_rate: UpdateRate::new(),
                 menu_counter: MenuHandle(0),
@@ -456,7 +456,7 @@ impl Menu {
         let handle = self.next_item_handle();
         self.internal.items.push(UnixMenuItem {
             label: name.to_owned(),
-            handle: handle,
+            handle,
             sub_menu: Some(Box::new(sub_menu.internal.clone())),
             id: 0,
             enabled: true,

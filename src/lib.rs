@@ -834,7 +834,7 @@ impl Menu {
     /// ```
     pub fn add_item(&mut self, name: &str, id: usize) -> MenuItem {
         MenuItem {
-            id: id,
+            id,
             label: name.to_owned(),
             menu: Some(self),
             ..MenuItem::default()
@@ -892,7 +892,7 @@ impl<'a> MenuItem<'a> {
     /// Creates a new menu item
     pub fn new(name: &str, id: usize) -> MenuItem {
         MenuItem {
-            id: id,
+            id,
             label: name.to_owned(),
             ..MenuItem::default()
         }
@@ -910,8 +910,8 @@ impl<'a> MenuItem<'a> {
     /// ```
     pub fn shortcut(self, key: Key, modifier: usize) -> Self {
         MenuItem {
-            key: key,
-            modifier: modifier,
+            key,
+            modifier,
             ..self
         }
     }
@@ -945,10 +945,7 @@ impl<'a> MenuItem<'a> {
     /// # ;
     /// ```
     pub fn enabled(self, enabled: bool) -> Self {
-        MenuItem {
-            enabled: enabled,
-            ..self
-        }
+        MenuItem { enabled, ..self }
     }
     #[inline]
     /// Must be called to finalize building of a menu item when started with ```menu.add_item()```
