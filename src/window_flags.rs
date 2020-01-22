@@ -5,7 +5,7 @@ const WINDOW_RESIZE: u32 = 1 << 2;
 #[allow(dead_code)]
 const WINDOW_TITLE: u32 = 1 << 3;
 
-use WindowOptions;
+use crate::WindowOptions;
 
 //
 // Construct a bitmask of flags (sent to backends) from WindowOpts

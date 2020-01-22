@@ -1,35 +1,33 @@
 #![cfg(target_os = "windows")]
 
-extern crate raw_window_handle;
-extern crate time;
-extern crate winapi;
-
 const INVALID_ACCEL: usize = 0xffffffff;
 
-use error::Error;
-use key_handler::KeyHandler;
-use rate::UpdateRate;
-use Result;
-use {CursorStyle, MenuHandle, MenuItem, MenuItemHandle};
-use {InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions};
-use {MENU_KEY_ALT, MENU_KEY_CTRL, MENU_KEY_SHIFT, MENU_KEY_WIN};
+use crate::error::Error;
+use crate::key_handler::KeyHandler;
+use crate::rate::UpdateRate;
+use crate::Result;
+use crate::{CursorStyle, MenuHandle, MenuItem, MenuItemHandle};
+use crate::{
+    InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions,
+};
+use crate::{MENU_KEY_ALT, MENU_KEY_CTRL, MENU_KEY_SHIFT, MENU_KEY_WIN};
 
-use buffer_helper;
-use mouse_handler;
+use crate::buffer_helper;
+use crate::mouse_handler;
 use std::ffi::OsStr;
 use std::mem;
 use std::os::raw;
 use std::os::windows::ffi::OsStrExt;
 use std::ptr;
 
-use self::winapi::shared::basetsd;
-use self::winapi::shared::minwindef;
-use self::winapi::shared::ntdef;
-use self::winapi::shared::windef;
-use self::winapi::um::errhandlingapi;
-use self::winapi::um::libloaderapi;
-use self::winapi::um::wingdi;
-use self::winapi::um::winuser;
+use winapi::shared::basetsd;
+use winapi::shared::minwindef;
+use winapi::shared::ntdef;
+use winapi::shared::windef;
+use winapi::um::errhandlingapi;
+use winapi::um::libloaderapi;
+use winapi::um::wingdi;
+use winapi::um::winuser;
 
 // Wrap this so we can have a proper numbef of bmiColors to write in
 #[repr(C)]

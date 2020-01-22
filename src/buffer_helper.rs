@@ -1,5 +1,5 @@
-use error::Error;
-use Result;
+use crate::error::Error;
+use crate::Result;
 
 pub fn check_buffer_size(
     buffer_width: usize,
