@@ -134,15 +134,14 @@ impl Window {
     pub fn set_rate(&mut self, rate: Option<std::time::Duration>) {
         match *self {
             Window::X11(ref mut w) => w.set_rate(rate),
-            Window::Wayland(ref mut _w) => unimplemented!(),
+            Window::Wayland(ref mut w) => w.set_rate(rate),
         }
     }
 
     pub fn update_rate(&mut self) {
         match *self {
             Window::X11(ref mut w) => w.update_rate(),
-            //TODO
-            Window::Wayland(ref mut w) => (),
+            Window::Wayland(ref mut w) => w.update_rate(),
         }
     }
 

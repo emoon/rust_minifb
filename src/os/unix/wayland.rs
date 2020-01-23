@@ -312,6 +312,14 @@ impl Window{
 		self.display.set_geometry((x as i32, y as i32), (self.width, self.height));
 	}
 
+	pub fn set_rate(&mut self, rate: Option<std::time::Duration>){
+		self.update_rate.set_rate(rate);
+	}
+
+	pub fn update_rate(&mut self){
+		self.update_rate.update();
+	}
+
     //WIP
     pub fn update(&mut self){
 		self.display.event_queue.sync_roundtrip(|event, object|{
