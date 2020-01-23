@@ -211,7 +211,7 @@ impl Window {
     pub fn is_active(&mut self) -> bool {
         match *self {
             Window::X11(ref mut w) => w.is_active(),
-            Window::Wayland(ref mut _w) => unimplemented!(),
+            Window::Wayland(ref mut w) => w.is_active(),
         }
     }
 

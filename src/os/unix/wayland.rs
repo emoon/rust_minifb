@@ -203,6 +203,7 @@ pub struct Window{
 	prev_cursor: CursorStyle,
 
 	should_close: bool,
+	active: bool,
 
 	key_handler: KeyHandler,
 	update_rate: UpdateRate,
@@ -245,6 +246,7 @@ impl Window{
 			prev_cursor: CursorStyle::Arrow,
 
 			should_close: false,
+			active: false,
 
 			key_handler: KeyHandler::new(),
 			update_rate: UpdateRate::new(),
@@ -318,6 +320,10 @@ impl Window{
 
 	pub fn update_rate(&mut self){
 		self.update_rate.update();
+	}
+
+	pub fn is_active(&self) -> bool{
+		self.active
 	}
 
     //WIP
