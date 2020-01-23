@@ -101,7 +101,30 @@ impl DisplayInfo{
 		event_q.sync_roundtrip(|_, _|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
 		
-		let seat = global_man.instantiate_exact::<WlSeat>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the WlSeat: {:?}", e)))?;
+		let seat = global_man.instantiate_exact::<WlSeat>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the WlSeat: {:?}", e)))?;	
+
+		let (keyboard, pointer) = Self::get_input_devs(&seat, &mut event_q)?;
+
+		Ok(Self{
+			display,
+			wl_display,
+			comp,
+			base: xdg_wm_base,
+			surface,
+			xdg_surface,
+			toplevel: _xdg_toplevel,
+			shm_pool,
+			shm,
+			buf: buffer,
+			event_queue: event_q,
+			fd: tmp_f,
+			seat,
+			keyboard,
+			pointer,
+		})
+	}
+
+	fn get_input_devs(seat: &Main<WlSeat>, event_queue: &mut EventQueue) -> Result<(Option<Main<WlKeyboard>>, Option<Main<WlPointer>>)>{
 		use std::sync::atomic::{AtomicBool, Ordering};
 		use std::sync::Arc;
 		
@@ -127,7 +150,7 @@ impl DisplayInfo{
 			});
 		}
 
-		event_q.sync_roundtrip(|_, _|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
+		event_queue.sync_roundtrip(|_, _|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
 		//retrieve keyboard and pointer
 		let keyboard = if keyboard_fl.load(Ordering::SeqCst){
@@ -144,23 +167,7 @@ impl DisplayInfo{
 			None
 		};
 
-		Ok(Self{
-			display,
-			wl_display,
-			comp,
-			base: xdg_wm_base,
-			surface,
-			xdg_surface,
-			toplevel: _xdg_toplevel,
-			shm_pool,
-			shm,
-			buf: buffer,
-			event_queue: event_q,
-			fd: tmp_f,
-			seat,
-			keyboard,	
-			pointer,
-		})
+		Ok((keyboard, pointer))
 	}
 
 	fn set_geometry(&self, pos: (i32, i32), size: (i32, i32)){
