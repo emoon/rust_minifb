@@ -34,7 +34,7 @@ impl Window {
 			Err(e) => {
 				//Create X11 Window when Wayland fails
         		let window = Window::X11(x11::Window::new(name, width, height, opts)?);
-            	Ok(window)
+				Ok(window)
 			}
 		}
     }

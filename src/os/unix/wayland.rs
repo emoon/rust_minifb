@@ -4,8 +4,8 @@ use crate::{Error, Result};
 use crate::rate::UpdateRate;
 use crate::key_handler::KeyHandler;
 
-use wayland_client::protocol::{wl_display::WlDisplay, wl_compositor::WlCompositor, wl_shm::{WlShm, Format}, wl_shm_pool::WlShmPool, wl_buffer::WlBuffer, wl_surface::WlSurface};
-use wayland_client::{EventQueue, ProtocolError, ConnectError, GlobalError, GlobalManager};
+use wayland_client::protocol::{wl_display::WlDisplay, wl_compositor::WlCompositor, wl_shm::{WlShm, Format}, wl_shm_pool::WlShmPool, wl_buffer::WlBuffer, wl_surface::WlSurface, wl_seat::WlSeat, wl_keyboard::WlKeyboard, wl_pointer::WlPointer};
+use wayland_client::{EventQueue, GlobalManager};
 use wayland_client::{Main, Attached};
 use wayland_protocols::xdg_shell::client::{xdg_wm_base::XdgWmBase, xdg_surface::XdgSurface, xdg_toplevel::XdgToplevel};
 use byteorder::{WriteBytesExt, NativeEndian};
@@ -25,7 +25,11 @@ pub struct DisplayInfo{
 	shm_pool: Main<WlShmPool>,
 	buf: Main<WlBuffer>,
 	event_queue: EventQueue,
-	fd: std::fs::File
+	fd: std::fs::File,
+	seat: Main<WlSeat>,
+	pointer: Option<Main<WlPointer>>,
+	keyboard: Option<Main<WlKeyboard>>
+
 }
 
 impl DisplayInfo{
@@ -96,6 +100,49 @@ impl DisplayInfo{
 
 		event_q.sync_roundtrip(|_, _|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
+		
+		let seat = global_man.instantiate_exact::<WlSeat>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the WlSeat: {:?}", e)))?;
+		use std::sync::atomic::{AtomicBool, Ordering};
+		use std::sync::Arc;
+		
+		let keyboard_fl = Arc::new(AtomicBool::new(false));
+		let pointer_fl = Arc::new(AtomicBool::new(false));
+
+		{
+			let keyboard_fl = keyboard_fl.clone();
+			let pointer_fl = pointer_fl.clone();
+		
+			//check pointer and mouse capability
+			seat.assign_mono(move |seat, event|{
+				use wayland_client::protocol::wl_seat::{Event, Capability};
+
+				if let Event::Capabilities{capabilities} = event{
+					if !pointer_fl.load(Ordering::SeqCst) && capabilities.contains(Capability::Pointer){
+						pointer_fl.store(true, Ordering::SeqCst);
+					}
+					if !keyboard_fl.load(Ordering::SeqCst) && capabilities.contains(Capability::Keyboard){
+						keyboard_fl.store(true, Ordering::SeqCst);
+					}
+				}
+			});
+		}
+
+		event_q.sync_roundtrip(|_, _|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
+
+		//retrieve keyboard and pointer
+		let keyboard = if keyboard_fl.load(Ordering::SeqCst){
+			Some(seat.get_keyboard())
+		}
+		else{
+			None
+		};
+
+		let pointer = if pointer_fl.load(Ordering::SeqCst){
+			Some(seat.get_pointer())
+		}
+		else{
+			None
+		};
 
 		Ok(Self{
 			display,
@@ -109,7 +156,10 @@ impl DisplayInfo{
 			shm,
 			buf: buffer,
 			event_queue: event_q,
-			fd: tmp_f
+			fd: tmp_f,
+			seat,
+			keyboard,	
+			pointer,
 		})
 	}
 
@@ -155,7 +205,7 @@ pub struct Window{
 
 impl Window{
 	pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Self>{
-		let mut dsp = DisplayInfo::new((width, height))?;
+		let dsp = DisplayInfo::new((width, height))?;
 
 		if opts.borderless{
 	
