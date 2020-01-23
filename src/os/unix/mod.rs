@@ -249,7 +249,7 @@ unsafe impl raw_window_handle::HasRawWindowHandle for Window {
     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
         match *self {
             Window::X11(ref w) => w.raw_window_handle(),
-            Window::Wayland(ref _w) => unimplemented!(),
+            Window::Wayland(ref w) => w.raw_window_handle(),
         }
     }
 }

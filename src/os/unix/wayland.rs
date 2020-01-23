@@ -334,11 +334,22 @@ impl Window{
 				let color = 0xFFFFFFFF & buffer[i];
 				self.display.fd.write_u32::<NativeEndian>(color);
 			}
+			self.display.fd.flush();
 		}
 
 		self.update();
 
 		Ok(())
     }
+}
+
+
+unsafe impl raw_window_handle::HasRawWindowHandle for Window{
+	fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle{
+		let mut handle = raw_window_handle::unix::WaylandHandle::empty();
+		handle.surface = self.display.surface.as_ref().c_ptr() as *mut _ as *mut c_void;
+		handle.display = self.display.wl_display.clone().detach().as_ref().c_ptr() as *mut _ as *mut c_void;
+		raw_window_handle::RawWindowHandle::Wayland(handle)
+	}
 }
 
