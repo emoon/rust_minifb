@@ -106,7 +106,7 @@ impl Window {
     pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         match *self {
             Window::X11(ref w) => w.get_unscaled_mouse_pos(mode),
-            Window::Wayland(ref _w) => unimplemented!(),
+            Window::Wayland(ref w) => w.get_unscaled_mouse_pos(mode),
         }
     }
 

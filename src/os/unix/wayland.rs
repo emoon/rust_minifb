@@ -3,6 +3,7 @@ use crate::{InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleM
 use crate::{Error, Result};
 use crate::rate::UpdateRate;
 use crate::key_handler::KeyHandler;
+use crate::mouse_handler;
 
 use wayland_client::protocol::{wl_display::WlDisplay, wl_compositor::WlCompositor, wl_shm::{WlShm, Format}, wl_shm_pool::WlShmPool, wl_buffer::WlBuffer, wl_surface::WlSurface, wl_seat::WlSeat, wl_keyboard::WlKeyboard, wl_pointer::WlPointer};
 use wayland_client::{EventQueue, GlobalManager};
@@ -281,7 +282,17 @@ impl Window{
 	}
 
 	pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)>{
-		Some((self.mouse_x, self.mouse_y))
+		match self.display.pointer{
+			Some(_) => mouse_handler::get_pos(mode, self.mouse_x, self.mouse_y, self.scale as f32, self.width as f32, self.height as f32),
+			None => None,
+		}
+	}
+
+	pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)>{
+		match self.display.pointer{
+			Some(_) => mouse_handler::get_pos(mode, self.mouse_x, self.mouse_y, 1.0, self.width as f32, self.height as f32),
+			None => None,
+		}
 	}
 
 	pub fn get_scroll_wheel(&self) -> Option<(f32, f32)>{
