@@ -318,6 +318,22 @@ impl Window{
 		self.update_rate.set_rate(rate);
 	}
 
+	pub fn set_key_repeat_rate(&mut self, rate: f32){
+		self.key_handler.set_key_repeat_delay(rate);
+	}
+
+	pub fn set_key_repeat_delay(&mut self, delay: f32){
+		self.key_handler.set_key_repeat_delay(delay);
+	}
+
+	pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool{
+		self.key_handler.is_key_pressed(key, repeat)
+	}
+
+	pub fn is_key_released(&self, key: Key) -> bool{
+		!self.key_handler.is_key_released(key)
+	}
+
 	pub fn update_rate(&mut self){
 		self.update_rate.update();
 	}

@@ -169,28 +169,28 @@ impl Window {
     pub fn set_key_repeat_delay(&mut self, delay: f32) {
         match *self {
             Window::X11(ref mut w) => w.set_key_repeat_delay(delay),
-            Window::Wayland(ref mut _w) => unimplemented!(),
+            Window::Wayland(ref mut w) => w.set_key_repeat_delay(delay),
         }
     }
 
     pub fn set_key_repeat_rate(&mut self, rate: f32) {
         match *self {
             Window::X11(ref mut w) => w.set_key_repeat_rate(rate),
-            Window::Wayland(ref mut _w) => unimplemented!(),
+            Window::Wayland(ref mut w) => w.set_key_repeat_rate(rate),
         }
     }
 
     pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
         match *self {
             Window::X11(ref w) => w.is_key_pressed(key, repeat),
-            Window::Wayland(ref _w) => unimplemented!(),
+            Window::Wayland(ref w) => w.is_key_pressed(key, repeat),
         }
     }
 
     pub fn is_key_released(&self, key: Key) -> bool {
         match *self {
             Window::X11(ref w) => w.is_key_released(key),
-            Window::Wayland(ref _w) => unimplemented!(),
+            Window::Wayland(ref w) => w.is_key_released(key),
         }
     }
 
