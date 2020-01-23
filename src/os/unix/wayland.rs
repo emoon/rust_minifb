@@ -296,7 +296,12 @@ impl Window{
 	}
 
 	pub fn get_scroll_wheel(&self) -> Option<(f32, f32)>{
-		Some((self.scroll_x, self.scroll_y))
+		if self.scroll_x.abs() > 0.0 || self.scroll_y > 0.0{
+			Some((self.scroll_x, self.scroll_y))
+		}
+		else{
+			None
+		}
 	}
 
 	pub fn is_key_down(&self, key: Key) -> bool{
