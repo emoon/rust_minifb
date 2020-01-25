@@ -344,10 +344,91 @@ impl Window{
 
     //WIP
     pub fn update(&mut self){
-		self.display.event_queue.sync_roundtrip(|event, object|{
-		//TODO
-		}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e))).unwrap();
-    }
+		use std::cell::RefCell;
+		use std::rc::Rc;
+
+		let mut events_kb = Rc::new(RefCell::new(Vec::new()));
+
+		{
+			let mut events_kb = events_kb.clone();
+			if let Some(ref keyboard) = self.display.keyboard{
+				//Handle keyboard events
+				keyboard.assign_mono(move |keyboard, event|{
+					(*events_kb.borrow_mut()).push(event);
+				});
+			}
+		}
+	
+		let mut events_pt = Rc::new(RefCell::new(Vec::new()));
+
+		{
+			let mut events_pt = events_pt.clone();
+
+			if let Some(ref pointer) = self.display.pointer{
+				//Handle pointer events
+				pointer.assign_mono(move |pointer, event|{
+					(*events_pt.borrow_mut()).push(event);
+				});
+			}
+		}
+		
+		
+		self.display.event_queue.sync_roundtrip(|event, object|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e))).unwrap();
+	
+		for event in events_kb.borrow().iter(){
+			use wayland_client::protocol::wl_keyboard::Event;
+			match event{
+				Event::Enter{serial, surface, keys} => {
+						
+				},
+				Event::Leave{serial, surface} => {
+						
+				},
+				Event::Key{serial, time, key, state} => {
+						
+				},
+				Event::Modifiers{serial, mods_depressed, mods_latched, mods_locked, group} => {
+	
+				},
+				_ => {}
+			}
+		}
+
+		for event in events_pt.borrow().iter(){
+			use wayland_client::protocol::wl_pointer::Event;
+			match event{
+				Event::Enter{serial, surface, surface_x, surface_y} => {
+					self.mouse_x = *surface_x as f32;
+					self.mouse_y = *surface_y as f32;
+				},
+				Event::Leave{serial, surface} => {
+					
+				},
+				Event::Motion{time, surface_x, surface_y} => {
+	
+				},
+				Event::Button{serial, time, button, state} => {
+	
+				},
+				Event::Axis{time, axis, value} => {
+	
+				},
+				Event::Frame{} => {
+	
+				},
+				Event::AxisSource{axis_source} => {
+	
+				},
+				Event::AxisStop{time, axis} => {
+	
+				},
+				Event::AxisDiscrete{axis, discrete} => {
+	
+				},
+				_ => {}
+			}
+		}
+	}
 
     //WIP
     pub fn update_with_buffer_stride(&mut self, buffer: &[u32], buf_width: usize, buf_height: usize, buf_stride: usize) -> Result<()>{
