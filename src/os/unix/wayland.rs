@@ -181,6 +181,7 @@ impl DisplayInfo{
 	fn set_title(&self, title: &str){
 		self.toplevel.set_title(title.to_owned());
 	}
+
 	fn set_no_resize(&self, size: (i32, i32)){
 		self.toplevel.set_max_size(size.0, size.1);
 		self.toplevel.set_min_size(size.0, size.1);
@@ -246,7 +247,7 @@ impl Window{
 		let dsp = DisplayInfo::new((width, height))?;
         let scale;
 		if opts.borderless{
-	
+            //TODO
 		}
 		if opts.title{
 			dsp.set_title(name);
@@ -475,7 +476,7 @@ impl Window{
 				_ => {}
 			}
 		}
-	}
+    }
 
     //WIP
     pub fn update_with_buffer_stride(&mut self, buffer: &[u32], buf_width: usize, buf_height: usize, buf_stride: usize) -> Result<()>{
