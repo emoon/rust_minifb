@@ -5,13 +5,17 @@ use crate::rate::UpdateRate;
 use crate::key_handler::KeyHandler;
 use crate::mouse_handler;
 
-use wayland_client::protocol::{wl_display::WlDisplay, wl_compositor::WlCompositor, wl_shm::{WlShm, Format}, wl_shm_pool::WlShmPool, wl_buffer::WlBuffer, wl_surface::WlSurface, wl_seat::WlSeat, wl_keyboard::WlKeyboard, wl_pointer::WlPointer};
+use wayland_client::protocol::{wl_display::WlDisplay, wl_compositor::WlCompositor, wl_shm::{WlShm, Format}, wl_shm_pool::WlShmPool, wl_buffer::WlBuffer, wl_surface::WlSurface, wl_seat::WlSeat, wl_keyboard::WlKeyboard, wl_pointer::WlPointer, wl_output::WlOutput};
 use wayland_client::{EventQueue, GlobalManager};
 use wayland_client::{Main, Attached};
 use wayland_protocols::xdg_shell::client::{xdg_wm_base::XdgWmBase, xdg_surface::XdgSurface, xdg_toplevel::XdgToplevel};
+
 use byteorder::{WriteBytesExt, NativeEndian};
+
 use std::io::Write;
 use std::ffi::c_void;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 
 pub struct DisplayInfo{
