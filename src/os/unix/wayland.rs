@@ -29,8 +29,8 @@ pub struct DisplayInfo{
 	fd: std::fs::File,
 	seat: Main<WlSeat>,
 	pointer: Option<Main<WlPointer>>,
-	keyboard: Option<Main<WlKeyboard>>
-
+	keyboard: Option<Main<WlKeyboard>>,
+    globals: GlobalManager
 }
 
 impl DisplayInfo{
@@ -48,8 +48,6 @@ impl DisplayInfo{
 		//wait the wayland server to process all events
 		event_q.sync_roundtrip(|_, _|{ unreachable!() }).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
-
-		let list = global_man.list();
 		//retrieve some types from globals
 		let comp = global_man.instantiate_exact::<WlCompositor>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the compositor: {:?}", e)))?;
 		let shm = global_man.instantiate_exact::<WlShm>(1).map_err(|e| Error::WindowCreate(format!("Failed creating the shared memory: {:?}", e)))?;
@@ -122,6 +120,7 @@ impl DisplayInfo{
 			seat,
 			keyboard,
 			pointer,
+            globals: global_man
 		})
 	}
 
@@ -182,6 +181,31 @@ impl DisplayInfo{
 		self.toplevel.set_max_size(size.0, size.1);
 		self.toplevel.set_min_size(size.0, size.1);
 	}
+
+    fn set_scale(&self, scale: i32){
+        self.surface.set_buffer_scale(scale);
+        self.surface.commit();
+    }
+
+    fn get_display_size(&self) -> Rc<RefCell<(i32, i32)>>{
+		let output = self.globals.instantiate_exact::<WlOutput>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the XdgWmBase: {:?}", e))).unwrap();
+
+        let mut size = Rc::new(RefCell::new((0, 0)));
+
+        {
+            let mut size = size.clone();
+            output.assign_mono(move |output, event|{
+                use wayland_client::protocol::wl_output::Event;
+
+                if let Event::Mode{width, height, ..} = event{
+                    (*size.borrow_mut()).0 = width;
+                    (*size.borrow_mut()).1 = height;
+                }
+            });
+        }
+
+        size
+    }
 }
 
 
