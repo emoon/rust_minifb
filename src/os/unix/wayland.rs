@@ -240,7 +240,7 @@ pub struct Window{
 impl Window{
 	pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Self>{
 		let dsp = DisplayInfo::new((width, height))?;
-
+        let scale;
 		if opts.borderless{
 	
 		}
@@ -250,7 +250,30 @@ impl Window{
 		if !opts.resize{
 			dsp.set_no_resize((width as i32, height as i32));	
 		}
-		//TODO: opts.scale
+        match opts.scale{
+            Scale::FitScreen => {
+               //TODO
+               scale=1;
+            }
+            Scale::X1 => {
+                scale = 1;
+            }
+            Scale::X2 => {
+                scale = 2;
+            }
+            Scale::X4 => {
+                scale = 4;
+            }
+            Scale::X8 => {
+                scale = 8;
+            }
+            Scale::X16 => {
+                scale = 16;
+            }
+            Scale::X32 => {
+                scale = 32;
+            }
+        }
 
         let mut events_kb = Rc::new(RefCell::new(Vec::new()));
 
@@ -282,7 +305,7 @@ impl Window{
 			height: height as i32,
 	
 			//TODO
-			scale: 0,
+			scale,
 			bg_color: 0,
 			scale_mode: opts.scale_mode,
 
