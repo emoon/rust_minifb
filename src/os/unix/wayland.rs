@@ -232,7 +232,8 @@ pub struct Window{
 	key_handler: KeyHandler,
 	update_rate: UpdateRate,
 	menu_counter: MenuHandle,
-	menus: Vec<UnixMenu>
+	menus: Vec<UnixMenu>,
+    events: (Rc<RefCell<Vec<wayland_client::protocol::wl_keyboard::Event>>>, Rc<RefCell<Vec<wayland_client::protocol::wl_pointer::Event>>>)
 }
 
 
@@ -250,6 +251,29 @@ impl Window{
 			dsp.set_no_resize((width as i32, height as i32));	
 		}
 		//TODO: opts.scale
+
+        let mut events_kb = Rc::new(RefCell::new(Vec::new()));
+
+		{
+			let mut events_kb = events_kb.clone();
+			if let Some(ref keyboard) = dsp.keyboard{
+				keyboard.assign_mono(move |keyboard, event|{
+					(*events_kb.borrow_mut()).push(event);
+				});
+			}
+		}
+	
+		let mut events_pt = Rc::new(RefCell::new(Vec::new()));
+
+		{
+			let mut events_pt = events_pt.clone();
+
+			if let Some(ref pointer) = dsp.pointer{
+				pointer.assign_mono(move |pointer, event|{
+					(*events_pt.borrow_mut()).push(event);
+				});
+			}
+		}
 
 		Ok(Self{
 			display: dsp,
@@ -275,7 +299,8 @@ impl Window{
 			key_handler: KeyHandler::new(),
 			update_rate: UpdateRate::new(),
 			menu_counter: MenuHandle(0),
-			menus: Vec::new()
+			menus: Vec::new(),
+            events: (events_kb, events_pt)
 		})
 	}
 
@@ -368,38 +393,9 @@ impl Window{
 
     //WIP
     pub fn update(&mut self){
-		use std::cell::RefCell;
-		use std::rc::Rc;
-
-		let mut events_kb = Rc::new(RefCell::new(Vec::new()));
-
-		{
-			let mut events_kb = events_kb.clone();
-			if let Some(ref keyboard) = self.display.keyboard{
-				//Handle keyboard events
-				keyboard.assign_mono(move |keyboard, event|{
-					(*events_kb.borrow_mut()).push(event);
-				});
-			}
-		}
-	
-		let mut events_pt = Rc::new(RefCell::new(Vec::new()));
-
-		{
-			let mut events_pt = events_pt.clone();
-
-			if let Some(ref pointer) = self.display.pointer{
-				//Handle pointer events
-				pointer.assign_mono(move |pointer, event|{
-					(*events_pt.borrow_mut()).push(event);
-				});
-			}
-		}
+		self.display.event_queue.dispatch(|event, object|{}).map_err(|e| Error::WindowCreate(format!("Event dispatch failed: {:?}", e))).unwrap();
 		
-		
-		self.display.event_queue.sync_roundtrip(|event, object|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e))).unwrap();
-	
-		for event in events_kb.borrow().iter(){
+        for event in self.events.0.borrow().iter(){
 			use wayland_client::protocol::wl_keyboard::Event;
 			match event{
 				Event::Enter{serial, surface, keys} => {
@@ -418,7 +414,7 @@ impl Window{
 			}
 		}
 
-		for event in events_pt.borrow().iter(){
+		for event in self.events.1.borrow().iter(){
 			use wayland_client::protocol::wl_pointer::Event;
 			match event{
 				Event::Enter{serial, surface, surface_x, surface_y} => {
