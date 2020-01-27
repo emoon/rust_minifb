@@ -475,7 +475,6 @@ impl Window{
 
     //WIP
     pub fn update_with_buffer_stride(&mut self, buffer: &[u32], buf_width: usize, buf_height: usize, buf_stride: usize) -> Result<()>{
-        //TODO: stride
 		if buffer.len() < buf_width*buf_height{
 			return Err(Error::UpdateFailed("Buffer size lower than given sizes".to_owned()));
 		}
@@ -491,7 +490,10 @@ impl Window{
 			self.display.fd.flush();
 		}
 
-		self.update();
+        self.display.surface.attach(Some(&self.display.buf), 0, 0);
+        self.display.surface.commit();
+
+        self.update();
 
 		Ok(())
     }
