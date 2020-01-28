@@ -5,17 +5,13 @@ use crate::rate::UpdateRate;
 use crate::key_handler::KeyHandler;
 use crate::mouse_handler;
 
-use wayland_client::protocol::{wl_display::WlDisplay, wl_compositor::WlCompositor, wl_shm::{WlShm, Format}, wl_shm_pool::WlShmPool, wl_buffer::WlBuffer, wl_surface::WlSurface, wl_seat::WlSeat, wl_keyboard::WlKeyboard, wl_pointer::WlPointer, wl_output::WlOutput};
+use wayland_client::protocol::{wl_display::WlDisplay, wl_compositor::WlCompositor, wl_shm::{WlShm, Format}, wl_shm_pool::WlShmPool, wl_buffer::WlBuffer, wl_surface::WlSurface, wl_seat::WlSeat, wl_keyboard::WlKeyboard, wl_pointer::WlPointer};
 use wayland_client::{EventQueue, GlobalManager};
 use wayland_client::{Main, Attached};
 use wayland_protocols::xdg_shell::client::{xdg_wm_base::XdgWmBase, xdg_surface::XdgSurface, xdg_toplevel::XdgToplevel};
-
 use byteorder::{WriteBytesExt, NativeEndian};
-
 use std::io::Write;
 use std::ffi::c_void;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 
 pub struct DisplayInfo{
@@ -33,8 +29,8 @@ pub struct DisplayInfo{
 	fd: std::fs::File,
 	seat: Main<WlSeat>,
 	pointer: Option<Main<WlPointer>>,
-	keyboard: Option<Main<WlKeyboard>>,
-    globals: GlobalManager
+	keyboard: Option<Main<WlKeyboard>>
+
 }
 
 impl DisplayInfo{
@@ -52,6 +48,8 @@ impl DisplayInfo{
 		//wait the wayland server to process all events
 		event_q.sync_roundtrip(|_, _|{ unreachable!() }).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
+
+		let list = global_man.list();
 		//retrieve some types from globals
 		let comp = global_man.instantiate_exact::<WlCompositor>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the compositor: {:?}", e)))?;
 		let shm = global_man.instantiate_exact::<WlShm>(1).map_err(|e| Error::WindowCreate(format!("Failed creating the shared memory: {:?}", e)))?;
@@ -124,7 +122,6 @@ impl DisplayInfo{
 			seat,
 			keyboard,
 			pointer,
-            globals: global_man
 		})
 	}
 
@@ -186,31 +183,25 @@ impl DisplayInfo{
 		self.toplevel.set_max_size(size.0, size.1);
 		self.toplevel.set_min_size(size.0, size.1);
 	}
+	//resizes when buffer is bigger or less
+	fn update_framebuffer(&mut self, buffer: &[u32], size: (i32, i32), alpha: bool){
+		use std::io::{Seek, SeekFrom};
 
-    fn set_scale(&self, scale: i32){
-        self.surface.set_buffer_scale(scale);
-        self.surface.commit();
-    }
+		self.fd.seek(SeekFrom::Start(0)).unwrap();
 
-    fn get_display_size(&self) -> Rc<RefCell<(i32, i32)>>{
-		let output = self.globals.instantiate_exact::<WlOutput>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the XdgWmBase: {:?}", e))).unwrap();
-
-        let mut size = Rc::new(RefCell::new((0, 0)));
-
-        {
-            let mut size = size.clone();
-            output.assign_mono(move |output, event|{
-                use wayland_client::protocol::wl_output::Event;
-
-                if let Event::Mode{width, height, ..} = event{
-                    (*size.borrow_mut()).0 = width;
-                    (*size.borrow_mut()).1 = height;
-                }
-            });
-        }
-
-        size
-    }
+		if alpha{
+			for i in 0..(size.0*size.1) as usize{
+				self.fd.write_u32::<NativeEndian>(buffer[i]).unwrap();
+			}
+		}
+		else{
+			for i in 0..(size.0*size.1) as usize{
+				let color = 0xFFFFFFFF & buffer[i];
+				self.fd.write_u32::<NativeEndian>(color).unwrap();
+			}
+		}
+		self.fd.flush().unwrap();
+	}
 }
 
 
@@ -237,17 +228,16 @@ pub struct Window{
 	key_handler: KeyHandler,
 	update_rate: UpdateRate,
 	menu_counter: MenuHandle,
-	menus: Vec<UnixMenu>,
-    events: (Rc<RefCell<Vec<wayland_client::protocol::wl_keyboard::Event>>>, Rc<RefCell<Vec<wayland_client::protocol::wl_pointer::Event>>>)
+	menus: Vec<UnixMenu>
 }
 
 
 impl Window{
 	pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Self>{
 		let dsp = DisplayInfo::new((width, height))?;
-        let scale;
+
 		if opts.borderless{
-            //TODO
+			//TODO	
 		}
 		if opts.title{
 			dsp.set_title(name);
@@ -255,53 +245,7 @@ impl Window{
 		if !opts.resize{
 			dsp.set_no_resize((width as i32, height as i32));	
 		}
-        match opts.scale{
-            Scale::FitScreen => {
-               //TODO
-               scale=1;
-            }
-            Scale::X1 => {
-                scale = 1;
-            }
-            Scale::X2 => {
-                scale = 2;
-            }
-            Scale::X4 => {
-                scale = 4;
-            }
-            Scale::X8 => {
-                scale = 8;
-            }
-            Scale::X16 => {
-                scale = 16;
-            }
-            Scale::X32 => {
-                scale = 32;
-            }
-        }
-
-        let mut events_kb = Rc::new(RefCell::new(Vec::new()));
-
-		{
-			let mut events_kb = events_kb.clone();
-			if let Some(ref keyboard) = dsp.keyboard{
-				keyboard.assign_mono(move |keyboard, event|{
-					(*events_kb.borrow_mut()).push(event);
-				});
-			}
-		}
-	
-		let mut events_pt = Rc::new(RefCell::new(Vec::new()));
-
-		{
-			let mut events_pt = events_pt.clone();
-
-			if let Some(ref pointer) = dsp.pointer{
-				pointer.assign_mono(move |pointer, event|{
-					(*events_pt.borrow_mut()).push(event);
-				});
-			}
-		}
+		//TODO: opts.scale
 
 		Ok(Self{
 			display: dsp,
@@ -310,7 +254,7 @@ impl Window{
 			height: height as i32,
 	
 			//TODO
-			scale,
+			scale: 0,
 			bg_color: 0,
 			scale_mode: opts.scale_mode,
 
@@ -327,8 +271,7 @@ impl Window{
 			key_handler: KeyHandler::new(),
 			update_rate: UpdateRate::new(),
 			menu_counter: MenuHandle(0),
-			menus: Vec::new(),
-            events: (events_kb, events_pt)
+			menus: Vec::new()
 		})
 	}
 
@@ -421,9 +364,38 @@ impl Window{
 
     //WIP
     pub fn update(&mut self){
-		self.display.event_queue.dispatch(|event, object|{}).map_err(|e| Error::WindowCreate(format!("Event dispatch failed: {:?}", e))).unwrap();
+		use std::cell::RefCell;
+		use std::rc::Rc;
+
+		let mut events_kb = Rc::new(RefCell::new(Vec::new()));
+
+		{
+			let mut events_kb = events_kb.clone();
+			if let Some(ref keyboard) = self.display.keyboard{
+				//Handle keyboard events
+				keyboard.assign_mono(move |keyboard, event|{
+					(*events_kb.borrow_mut()).push(event);
+				});
+			}
+		}
+	
+		let mut events_pt = Rc::new(RefCell::new(Vec::new()));
+
+		{
+			let mut events_pt = events_pt.clone();
+
+			if let Some(ref pointer) = self.display.pointer{
+				//Handle pointer events
+				pointer.assign_mono(move |pointer, event|{
+					(*events_pt.borrow_mut()).push(event);
+				});
+			}
+		}
 		
-        for event in self.events.0.borrow().iter(){
+		
+		self.display.event_queue.sync_roundtrip(|event, object|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e))).unwrap();
+	
+		for event in events_kb.borrow().iter(){
 			use wayland_client::protocol::wl_keyboard::Event;
 			match event{
 				Event::Enter{serial, surface, keys} => {
@@ -442,7 +414,7 @@ impl Window{
 			}
 		}
 
-		for event in self.events.1.borrow().iter(){
+		for event in events_pt.borrow().iter(){
 			use wayland_client::protocol::wl_pointer::Event;
 			match event{
 				Event::Enter{serial, surface, surface_x, surface_y} => {
@@ -476,29 +448,15 @@ impl Window{
 				_ => {}
 			}
 		}
-    }
+	}
 
     //WIP
     pub fn update_with_buffer_stride(&mut self, buffer: &[u32], buf_width: usize, buf_height: usize, buf_stride: usize) -> Result<()>{
-		if buffer.len() < buf_width*buf_height{
-			return Err(Error::UpdateFailed("Buffer size lower than given sizes".to_owned()));
-		}
-		else{
-			use std::io::{Seek, SeekFrom};
+		crate::buffer_helper::check_buffer_size(buf_width, buf_height, buf_width, buffer)?;
 
-			self.display.fd.seek(SeekFrom::Start(0));
+		self.display.update_framebuffer(buffer, (buf_width as i32, buf_height as i32), false);
 
-			for i in 0..(buf_width*buf_height){
-				let color = 0xFFFFFFFF & buffer[i];
-				self.display.fd.write_u32::<NativeEndian>(color);
-			}
-			self.display.fd.flush();
-		}
-
-        self.display.surface.attach(Some(&self.display.buf), 0, 0);
-        self.display.surface.commit();
-
-        self.update();
+		self.update();
 
 		Ok(())
     }
