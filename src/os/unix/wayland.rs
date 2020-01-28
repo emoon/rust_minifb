@@ -187,6 +187,7 @@ impl DisplayInfo{
 	fn update_framebuffer(&mut self, buffer: &[u32], size: (i32, i32), alpha: bool){
 		use std::io::{Seek, SeekFrom};
 
+		let cnt = self.fd.seek(SeekFrom::End(0)).unwrap() as usize;
 		self.fd.seek(SeekFrom::Start(0)).unwrap();
 
 		if alpha{
@@ -201,6 +202,15 @@ impl DisplayInfo{
 			}
 		}
 		self.fd.flush().unwrap();
+		self.fd.set_len((size.0 * size.1 * 4) as u64).unwrap();
+
+		if cnt != buffer.len(){
+			self.shm_pool.resize(size.0 * size.1 * 4);
+			std::mem::replace(&mut self.buf, self.shm_pool.create_buffer(0, size.0, size.1, size.0, Format::Argb8888));
+		}
+
+		self.surface.attach(Some(&self.buf), 0, 0);
+		self.surface.commit();
 	}
 }
 
