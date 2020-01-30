@@ -200,7 +200,7 @@ impl DisplayInfo{
 		}
 		else{
 			for i in 0..(size.0*size.1) as usize{
-				let color = 0xFFFFFFFF & buffer[i];
+				let color = 0xFF000000 | buffer[i];
 				self.fd.write_u32::<NativeEndian>(color).unwrap();
 			}
 		}
