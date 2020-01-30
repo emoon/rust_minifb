@@ -482,6 +482,9 @@ impl Window{
 				_ => {}
 			}
 		}
+
+		(*self.events.0.borrow_mut()).clear();
+		(*self.events.1.borrow_mut()).clear();
 	}
 
     //WIP
