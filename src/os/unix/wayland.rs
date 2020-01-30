@@ -487,7 +487,6 @@ impl Window{
 		(*self.events.1.borrow_mut()).clear();
 	}
 
-    //WIP
     pub fn update_with_buffer_stride(&mut self, buffer: &[u32], buf_width: usize, buf_height: usize, buf_stride: usize) -> Result<()>{
 		crate::buffer_helper::check_buffer_size(buf_width, buf_height, buf_width, buffer)?;
 
