@@ -5,7 +5,7 @@ use crate::rate::UpdateRate;
 use crate::key_handler::KeyHandler;
 use crate::mouse_handler;
 
-use wayland_client::protocol::{wl_display::WlDisplay, wl_compositor::WlCompositor, wl_shm::{WlShm, Format}, wl_shm_pool::WlShmPool, wl_buffer::WlBuffer, wl_surface::WlSurface, wl_seat::WlSeat, wl_keyboard::WlKeyboard, wl_pointer::WlPointer};
+use wayland_client::protocol::{wl_display::WlDisplay, wl_compositor::WlCompositor, wl_shm::{WlShm, Format}, wl_shm_pool::WlShmPool, wl_buffer::WlBuffer, wl_surface::WlSurface, wl_seat::WlSeat, wl_keyboard::WlKeyboard, wl_pointer::WlPointer, wl_touch::WlTouch};
 use wayland_client::{EventQueue, GlobalManager};
 use wayland_client::{Main, Attached};
 use wayland_protocols::xdg_shell::client::{xdg_wm_base::XdgWmBase, xdg_surface::XdgSurface, xdg_toplevel::XdgToplevel};
@@ -30,9 +30,7 @@ pub struct DisplayInfo{
 	buf: Main<WlBuffer>,
 	event_queue: EventQueue,
 	fd: std::fs::File,
-	seat: Main<WlSeat>,
-	pointer: Main<WlPointer>,
-	keyboard: Main<WlKeyboard>
+	seat: Main<WlSeat>
 }
 
 impl DisplayInfo{
@@ -122,9 +120,7 @@ impl DisplayInfo{
 			buf: buffer,
 			event_queue: event_q,
 			fd: tmp_f,
-			seat,
-			keyboard,
-			pointer,
+			seat
 		})
 	}
 
@@ -169,6 +165,10 @@ impl DisplayInfo{
 
 		self.surface.attach(Some(&self.buf), 0, 0);
 		self.surface.commit();
+	}
+
+	fn get_input_devs(&self) -> (Main<WlKeyboard>, Main<WlPointer>, Main<WlTouch>){
+		(self.seat.get_keyboard(), self.seat.get_pointer(), self.seat.get_touch())
 	}
 
 	//Keyboard, Pointer, Touch
@@ -234,6 +234,7 @@ pub struct Window{
 	update_rate: UpdateRate,
 	menu_counter: MenuHandle,
 	menus: Vec<UnixMenu>,
+	input_devs: (Main<WlKeyboard>, Main<WlPointer>),
 	events: (Rc<RefCell<Vec<wayland_client::protocol::wl_keyboard::Event>>>, Rc<RefCell<Vec<wayland_client::protocol::wl_pointer::Event>>>)
 }
 
@@ -277,12 +278,14 @@ impl Window{
 			}
 		}
 
+		let (keyboard, pointer, _touch) = dsp.get_input_devs();
+
 		//TODO: check at runtime if new keyboard/pointer connected
         let mut events_kb = Rc::new(RefCell::new(Vec::new()));
 
 		{
 			let mut events_kb = events_kb.clone();
-			dsp.keyboard.assign_mono(move |keyboard, event|{
+			keyboard.assign_mono(move |keyboard, event|{
 				(*events_kb.borrow_mut()).push(event);
 			});
 		}
@@ -292,7 +295,7 @@ impl Window{
 		{
 			let mut events_pt = events_pt.clone();
 
-			dsp.pointer.assign_mono(move |pointer, event|{
+			pointer.assign_mono(move |pointer, event|{
 				(*events_pt.borrow_mut()).push(event);
 			});
 		}
@@ -322,6 +325,7 @@ impl Window{
 			update_rate: UpdateRate::new(),
 			menu_counter: MenuHandle(0),
 			menus: Vec::new(),
+			input_devs: (keyboard, pointer),
 			events: (events_kb, events_pt)
 		})
 	}
