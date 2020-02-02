@@ -31,9 +31,8 @@ pub struct DisplayInfo{
 	event_queue: EventQueue,
 	fd: std::fs::File,
 	seat: Main<WlSeat>,
-	pointer: Option<Main<WlPointer>>,
-	keyboard: Option<Main<WlKeyboard>>
-
+	pointer: Main<WlPointer>,
+	keyboard: Main<WlKeyboard>
 }
 
 impl DisplayInfo{
@@ -107,7 +106,8 @@ impl DisplayInfo{
 		
 		let seat = global_man.instantiate_exact::<WlSeat>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the WlSeat: {:?}", e)))?;	
 
-		let (keyboard, pointer) = Self::get_input_devs(&seat, &mut event_q)?;
+		let keyboard = seat.get_keyboard();
+		let pointer = seat.get_pointer();
 
 		Ok(Self{
 			display,
@@ -128,52 +128,6 @@ impl DisplayInfo{
 		})
 	}
 
-	fn get_input_devs(seat: &Main<WlSeat>, event_queue: &mut EventQueue) -> Result<(Option<Main<WlKeyboard>>, Option<Main<WlPointer>>)>{
-		use std::sync::atomic::{AtomicBool, Ordering};
-		use std::sync::Arc;
-		
-		let keyboard_fl = Arc::new(AtomicBool::new(false));
-		let pointer_fl = Arc::new(AtomicBool::new(false));
-
-		{
-			let keyboard_fl = keyboard_fl.clone();
-			let pointer_fl = pointer_fl.clone();
-		
-			//check pointer and mouse capability
-			seat.assign_mono(move |seat, event|{
-				use wayland_client::protocol::wl_seat::{Event, Capability};
-
-				if let Event::Capabilities{capabilities} = event{
-					if !pointer_fl.load(Ordering::SeqCst) && capabilities.contains(Capability::Pointer){
-						pointer_fl.store(true, Ordering::SeqCst);
-					}
-					if !keyboard_fl.load(Ordering::SeqCst) && capabilities.contains(Capability::Keyboard){
-						keyboard_fl.store(true, Ordering::SeqCst);
-					}
-				}
-			});
-		}
-
-		event_queue.sync_roundtrip(|_, _|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
-
-		//retrieve keyboard and pointer
-		let keyboard = if keyboard_fl.load(Ordering::SeqCst){
-			Some(seat.get_keyboard())
-		}
-		else{
-			None
-		};
-
-		let pointer = if pointer_fl.load(Ordering::SeqCst){
-			Some(seat.get_pointer())
-		}
-		else{
-			None
-		};
-
-		Ok((keyboard, pointer))
-	}
-
 	fn set_geometry(&self, pos: (i32, i32), size: (i32, i32)){
 		self.xdg_surface.set_window_geometry(pos.0, pos.1, size.0, size.1);
 	}
@@ -186,6 +140,7 @@ impl DisplayInfo{
 		self.toplevel.set_max_size(size.0, size.1);
 		self.toplevel.set_min_size(size.0, size.1);
 	}
+
 	//resizes when buffer is bigger or less
 	fn update_framebuffer(&mut self, buffer: &[u32], size: (i32, i32), alpha: bool){
 		use std::io::{Seek, SeekFrom};
@@ -214,6 +169,43 @@ impl DisplayInfo{
 
 		self.surface.attach(Some(&self.buf), 0, 0);
 		self.surface.commit();
+	}
+
+	//Keyboard, Pointer, Touch
+	fn check_capabilities(seat: &Main<WlSeat>, event_queue: &mut EventQueue) -> (bool, bool, bool){
+		use std::sync::atomic::{AtomicBool, Ordering};
+		use std::sync::Arc;
+		
+		let keyboard_fl = Arc::new(AtomicBool::new(false));
+		let pointer_fl = Arc::new(AtomicBool::new(false));
+		let touch_fl = Arc::new(AtomicBool::new(false));
+
+		{
+			let keyboard_fl = keyboard_fl.clone();
+			let pointer_fl = pointer_fl.clone();
+			let touch_fl = touch_fl.clone();
+		
+			//check pointer and mouse capability
+			seat.assign_mono(move |seat, event|{
+				use wayland_client::protocol::wl_seat::{Event, Capability};
+
+				if let Event::Capabilities{capabilities} = event{
+					if !pointer_fl.load(Ordering::SeqCst) && capabilities.contains(Capability::Pointer){
+						pointer_fl.store(true, Ordering::SeqCst);
+					}
+					if !keyboard_fl.load(Ordering::SeqCst) && capabilities.contains(Capability::Keyboard){
+						keyboard_fl.store(true, Ordering::SeqCst);
+					}
+					if !touch_fl.load(Ordering::SeqCst) && capabilities.contains(Capability::Touch){
+						touch_fl.store(true, Ordering::SeqCst);
+					}
+				}
+			});
+		}
+
+		event_queue.sync_roundtrip(|_, _|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e))).unwrap();
+		
+		(keyboard_fl.load(Ordering::SeqCst), pointer_fl.load(Ordering::SeqCst), touch_fl.load(Ordering::SeqCst))
 	}
 }
 
@@ -290,11 +282,9 @@ impl Window{
 
 		{
 			let mut events_kb = events_kb.clone();
-			if let Some(ref keyboard) = dsp.keyboard{
-				keyboard.assign_mono(move |keyboard, event|{
-					(*events_kb.borrow_mut()).push(event);
-				});
-			}
+			dsp.keyboard.assign_mono(move |keyboard, event|{
+				(*events_kb.borrow_mut()).push(event);
+			});
 		}
 
 		let mut events_pt = Rc::new(RefCell::new(Vec::new()));
@@ -302,11 +292,9 @@ impl Window{
 		{
 			let mut events_pt = events_pt.clone();
 
-			if let Some(ref pointer) = dsp.pointer{
-				pointer.assign_mono(move |pointer, event|{
-					(*events_pt.borrow_mut()).push(event);
-				});
-			}
+			dsp.pointer.assign_mono(move |pointer, event|{
+				(*events_pt.borrow_mut()).push(event);
+			});
 		}
 
 		Ok(Self{
@@ -367,17 +355,11 @@ impl Window{
 	}
 
 	pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)>{
-		match self.display.pointer{
-			Some(_) => mouse_handler::get_pos(mode, self.mouse_x, self.mouse_y, self.scale as f32, self.width as f32, self.height as f32),
-			None => None,
-		}
+		mouse_handler::get_pos(mode, self.mouse_x, self.mouse_y, self.scale as f32, self.width as f32, self.height as f32)
 	}
 
 	pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)>{
-		match self.display.pointer{
-			Some(_) => mouse_handler::get_pos(mode, self.mouse_x, self.mouse_y, 1.0, self.width as f32, self.height as f32),
-			None => None,
-		}
+		mouse_handler::get_pos(mode, self.mouse_x, self.mouse_y, 1.0, self.width as f32, self.height as f32)
 	}
 
 	pub fn get_scroll_wheel(&self) -> Option<(f32, f32)>{
