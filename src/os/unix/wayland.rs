@@ -138,6 +138,7 @@ impl DisplayInfo{
 	}
 
 	//resizes when buffer is bigger or less
+	//TODO: Surface sometimes goes invisible?/closes? when resizing
 	fn update_framebuffer(&mut self, buffer: &[u32], size: (i32, i32), alpha: bool){
 		use std::io::{Seek, SeekFrom};
 
@@ -279,20 +280,19 @@ impl Window{
 
 		let (keyboard, pointer, _touch) = dsp.get_input_devs();
 
-		//TODO: check at runtime if new keyboard/pointer connected
-        let mut events_kb = Rc::new(RefCell::new(Vec::new()));
+        let events_kb = Rc::new(RefCell::new(Vec::new()));
 
 		{
-			let mut events_kb = events_kb.clone();
+			let events_kb = events_kb.clone();
 			keyboard.assign_mono(move |keyboard, event|{
 				(*events_kb.borrow_mut()).push(event);
 			});
 		}
 
-		let mut events_pt = Rc::new(RefCell::new(Vec::new()));
+		let events_pt = Rc::new(RefCell::new(Vec::new()));
 
 		{
-			let mut events_pt = events_pt.clone();
+			let events_pt = events_pt.clone();
 
 			pointer.assign_mono(move |pointer, event|{
 				(*events_pt.borrow_mut()).push(event);
