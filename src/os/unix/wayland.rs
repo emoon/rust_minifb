@@ -145,21 +145,20 @@ impl DisplayInfo{
 		self.fd.seek(SeekFrom::Start(0)).unwrap();
 
 		if alpha{
-			for i in 0..(size.0*size.1) as usize{
-				self.fd.write_u32::<NativeEndian>(buffer[i]).unwrap();
-			}
+			let slice = unsafe{std::slice::from_raw_parts(buffer[..].as_ptr() as *const u8, buffer.len() * std::mem::size_of::<u32>())};
+			self.fd.write_all(&slice[..]).unwrap();
 		}
 		else{
-			for i in 0..(size.0*size.1) as usize{
-				let color = 0xFF000000 | buffer[i];
-				self.fd.write_u32::<NativeEndian>(color).unwrap();
-			}
+			let buf: Vec<u32> = buffer.iter().map(|e| e | 0xFF000000).collect();
+
+			let slice = unsafe{std::slice::from_raw_parts(buf[..].as_ptr() as *const u8, buf.len() * std::mem::size_of::<u32>())};
+			self.fd.write_all(&slice[..]).unwrap();
 		}
 		self.fd.flush().unwrap();
-		self.fd.set_len((size.0 * size.1 * 4) as u64).unwrap();
+		self.fd.set_len((size.0 * size.1 * std::mem::size_of::<u32>() as i32) as u64).unwrap();
 
 		if cnt != buffer.len(){
-			self.shm_pool.resize(size.0 * size.1 * 4);
+			self.shm_pool.resize(size.0 * size.1 * std::mem::size_of::<u32>() as i32);
 			std::mem::replace(&mut self.buf, self.shm_pool.create_buffer(0, size.0, size.1, size.0, Format::Argb8888));
 		}
 
