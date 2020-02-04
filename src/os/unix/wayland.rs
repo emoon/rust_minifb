@@ -9,7 +9,6 @@ use wayland_client::protocol::{wl_display::WlDisplay, wl_compositor::WlComposito
 use wayland_client::{EventQueue, GlobalManager};
 use wayland_client::{Main, Attached};
 use wayland_protocols::xdg_shell::client::{xdg_wm_base::XdgWmBase, xdg_surface::XdgSurface, xdg_toplevel::XdgToplevel};
-use byteorder::{WriteBytesExt, NativeEndian};
 use std::io::Write;
 use std::ffi::c_void;
 
@@ -58,10 +57,10 @@ impl DisplayInfo{
 		let mut tmp_f = tempfile::tempfile().map_err(|e| Error::WindowCreate(format!("Failed creating the temporary file: {:?}", e)))?;
 
 		//Add a black canvas into the framebuffer
-		for i in 0..(size.0 * size.1){
-			let _ = tmp_f.write_u32::<NativeEndian>(0xFF000000);
-		}
-		let _ = tmp_f.flush();
+		let mut frame: Vec<u32> = vec![0xFF000000; size.0*size.1];
+		let slice = unsafe{std::slice::from_raw_parts(frame[..].as_ptr() as *const u8, frame.len() * std::mem::size_of::<u32>())};
+		tmp_f.write_all(&slice[..]).unwrap();
+		tmp_f.flush().unwrap();
 
 		//create a shared memory
 		let shm_pool = shm.create_pool(tmp_f.as_raw_fd(), size.0 as i32*size.1 as i32*4);
