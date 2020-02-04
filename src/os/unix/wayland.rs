@@ -413,8 +413,35 @@ impl Window{
 
     //WIP
     pub fn update(&mut self){
+		let configure = Rc::new(RefCell::new(None));
+		let close = Rc::new(RefCell::new(false));
+
+		{
+			let configure = configure.clone();
+			let close = close.clone();
+
+			self.display.toplevel.assign_mono(move |xdg_toplevel, event|{
+				use wayland_protocols::xdg_shell::client::xdg_toplevel::Event;
+
+				if let Event::Configure{width, height, states} = event{
+					*configure.borrow_mut() = Some((width, height));
+				}
+				else if let Event::Close = event{
+					*close.borrow_mut() = true;
+				}
+			});
+		}
+
 		self.display.event_queue.dispatch(|event, object|{}).map_err(|e| Error::WindowCreate(format!("Event dispatch failed: {:?}", e))).unwrap();
 		
+		if let Some(resize) = *configure.borrow(){
+			self.width = resize.0;
+			self.height = resize.1;
+		}
+		if *close.borrow(){
+			self.should_close=true;
+		}
+
 		for event in self.events.0.borrow().iter(){
 			use wayland_client::protocol::wl_keyboard::Event;
 			match event{
