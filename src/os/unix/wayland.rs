@@ -25,8 +25,8 @@ pub struct DisplayInfo{
 	xdg_surface: Main<XdgSurface>,
 	toplevel: Main<XdgToplevel>,
 	shm: Main<WlShm>,
-	shm_pool: Main<WlShmPool>,
-	buf: Main<WlBuffer>,
+	shm_pool: (Main<WlShmPool>, i32),
+	buf: Vec<(Main<WlBuffer>, Rc<RefCell<bool>>)>,
 	event_queue: EventQueue,
 	fd: std::fs::File,
 	seat: Main<WlSeat>
@@ -65,7 +65,19 @@ impl DisplayInfo{
 		//create a shared memory
 		let shm_pool = shm.create_pool(tmp_f.as_raw_fd(), size.0 as i32*size.1 as i32*4);
 		let buffer = shm_pool.create_buffer(0, size.0 as i32, size.1 as i32, size.0 as i32*4, Format::Argb8888);
+		let buf_not_needed = Rc::new(RefCell::new(false));
+
+		{
+			let buf_not_needed = buf_not_needed.clone();
 		
+			buffer.assign_mono(move |buf, event|{
+				use wayland_client::protocol::wl_buffer::Event;
+
+				if let Event::Release = event{
+					*buf_not_needed.borrow_mut() = true;
+				}
+			});
+		}
 		let xdg_wm_base = global_man.instantiate_exact::<XdgWmBase>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the XdgWmBase: {:?}", e)))?;
 		
 		//Ping Pong
@@ -106,6 +118,16 @@ impl DisplayInfo{
 		let keyboard = seat.get_keyboard();
 		let pointer = seat.get_pointer();
 
+		//Removed the surface commit because of redrawing issue
+		xdg_surface.assign_mono(move |xdg_surface, event|{
+			use wayland_protocols::xdg_shell::client::xdg_surface::Event;
+
+			if let Event::Configure{serial} = event{
+				xdg_surface.ack_configure(serial);
+			}
+		});
+
+
 		Ok(Self{
 			display,
 			wl_display,
@@ -114,9 +136,9 @@ impl DisplayInfo{
 			surface,
 			xdg_surface,
 			toplevel: _xdg_toplevel,
-			shm_pool,
+			shm_pool: (shm_pool, (size.0 * size.1 * 4) as i32),
 			shm,
-			buf: buffer,
+			buf: {let mut v = Vec::new(); v.push((buffer, buf_not_needed)); v},
 			event_queue: event_q,
 			fd: tmp_f,
 			seat
@@ -137,7 +159,6 @@ impl DisplayInfo{
 	}
 
 	//resizes when buffer is bigger or less
-	//TODO: Surface sometimes goes invisible?/closes? when resizing
 	fn update_framebuffer(&mut self, buffer: &[u32], size: (i32, i32), alpha: bool){
 		use std::io::{Seek, SeekFrom};
 
@@ -158,11 +179,41 @@ impl DisplayInfo{
 		self.fd.set_len((size.0 * size.1 * std::mem::size_of::<u32>() as i32) as u64).unwrap();
 
 		if cnt != buffer.len(){
-			self.shm_pool.resize(size.0 * size.1 * std::mem::size_of::<u32>() as i32);
-			std::mem::replace(&mut self.buf, self.shm_pool.create_buffer(0, size.0, size.1, size.0, Format::Argb8888));
+			//Shm Pool is not allowed to be resized
+			if (buffer.len() * std::mem::size_of::<u32>()) as i32 > self.shm_pool.1{
+				self.shm_pool.0.resize(size.0 * size.1 * std::mem::size_of::<u32>() as i32);
+				self.shm_pool.1 = (buffer.len() * std::mem::size_of::<u32>()) as i32;
+			}
+
+			//create new buffer and add it to the vec
+			let buf = self.shm_pool.0.create_buffer(0, size.0, size.1, size.0*4, Format::Argb8888);
+			let buf_not_needed = Rc::new(RefCell::new(false));
+			{
+				let buf_not_needed = buf_not_needed.clone();
+
+				buf.assign_mono(move |buf, event|{
+					use wayland_client::protocol::wl_buffer::Event;
+
+					if let Event::Release = event{
+						*buf_not_needed.borrow_mut() = true;
+					}
+				});
+			}
+
+			//remove the buffers which are allowed to be removed
+			self.buf.retain(|(wlbuf, not_req)|{
+				if *not_req.borrow(){
+					wlbuf.destroy();
+					false
+				}
+				else{
+					true
+				}
+			});
+			self.buf.push((buf, buf_not_needed));
 		}
 
-		self.surface.attach(Some(&self.buf), 0, 0);
+		self.surface.attach(Some(&self.buf[self.buf.len()-1].0), 0, 0);
 		self.surface.commit();
 	}
 
