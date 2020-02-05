@@ -25,7 +25,9 @@ pub struct DisplayInfo{
 	xdg_surface: Main<XdgSurface>,
 	toplevel: Main<XdgToplevel>,
 	shm: Main<WlShm>,
+	//Current max ShmPool size
 	shm_pool: (Main<WlShmPool>, i32),
+	//Hold the state of each WlBuffer if allowed to be destroyed
 	buf: Vec<(Main<WlBuffer>, Rc<RefCell<bool>>)>,
 	event_queue: EventQueue,
 	fd: std::fs::File,
@@ -63,8 +65,8 @@ impl DisplayInfo{
 		tmp_f.flush().unwrap();
 
 		//create a shared memory
-		let shm_pool = shm.create_pool(tmp_f.as_raw_fd(), size.0 as i32*size.1 as i32*4);
-		let buffer = shm_pool.create_buffer(0, size.0 as i32, size.1 as i32, size.0 as i32*4, Format::Argb8888);
+		let shm_pool = shm.create_pool(tmp_f.as_raw_fd(), size.0 as i32*size.1 as i32*std::mem::size_of::<u32>() as i32);
+		let buffer = shm_pool.create_buffer(0, size.0 as i32, size.1 as i32, size.0 as i32*std::mem::size_of::<u32>() as i32, Format::Argb8888);
 		let buf_not_needed = Rc::new(RefCell::new(false));
 
 		{
@@ -136,7 +138,7 @@ impl DisplayInfo{
 			surface,
 			xdg_surface,
 			toplevel: _xdg_toplevel,
-			shm_pool: (shm_pool, (size.0 * size.1 * 4) as i32),
+			shm_pool: (shm_pool, (size.0 * size.1 * std::mem::size_of::<u32>()) as i32),
 			shm,
 			buf: {let mut v = Vec::new(); v.push((buffer, buf_not_needed)); v},
 			event_queue: event_q,
@@ -186,7 +188,7 @@ impl DisplayInfo{
 			}
 
 			//create new buffer and add it to the vec
-			let buf = self.shm_pool.0.create_buffer(0, size.0, size.1, size.0*4, Format::Argb8888);
+			let buf = self.shm_pool.0.create_buffer(0, size.0, size.1, size.0*std::mem::size_of::<u32>() as i32, Format::Argb8888);
 			let buf_not_needed = Rc::new(RefCell::new(false));
 			{
 				let buf_not_needed = buf_not_needed.clone();
