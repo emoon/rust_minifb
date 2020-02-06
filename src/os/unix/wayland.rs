@@ -33,10 +33,11 @@ pub struct DisplayInfo{
 	fd: std::fs::File,
 	seat: Main<WlSeat>,
 	fb_size: (i32, i32),
+	format: Format
 }
 
 impl DisplayInfo{
-	pub fn new(size: (i32, i32)) -> Result<Self>{
+	pub fn new(size: (i32, i32), alpha: bool) -> Result<Self>{
 		use std::os::unix::io::AsRawFd;
 		
 		//Get the wayland display
@@ -65,9 +66,17 @@ impl DisplayInfo{
 		tmp_f.write_all(&slice[..]).unwrap();
 		tmp_f.flush().unwrap();
 
+		//specify format
+		let format = if alpha{
+			Format::Argb8888
+		}
+		else{
+			Format::Xrgb8888
+		};
+
 		//create a shared memory
 		let shm_pool = shm.create_pool(tmp_f.as_raw_fd(), size.0*size.1*std::mem::size_of::<u32>() as i32);
-		let buffer = shm_pool.create_buffer(0, size.0 as i32, size.1, size.0*std::mem::size_of::<u32>() as i32, Format::Argb8888);
+		let buffer = shm_pool.create_buffer(0, size.0 as i32, size.1, size.0*std::mem::size_of::<u32>() as i32, format);
 		let buf_not_needed = Rc::new(RefCell::new(false));
 
 		{
@@ -146,6 +155,7 @@ impl DisplayInfo{
 			fd: tmp_f,
 			seat,
 			fb_size: (size.0, size.1),
+			format
 		})
 	}
 
@@ -163,22 +173,15 @@ impl DisplayInfo{
 	}
 
 	//resizes when buffer is bigger or less
-	fn update_framebuffer(&mut self, buffer: &[u32], size: (i32, i32), alpha: bool){
+	fn update_framebuffer(&mut self, buffer: &[u32], size: (i32, i32)){
 		use std::io::{Seek, SeekFrom};
 
 		let cnt = (self.fb_size.0 * self.fb_size.1 * std::mem::size_of::<u32>() as i32) as usize;
 		self.fb_size = size;
 
-		if alpha{
-			let slice = unsafe{std::slice::from_raw_parts(buffer[..].as_ptr() as *const u8, buffer.len() * std::mem::size_of::<u32>())};
-			self.fd.write_all(&slice[..]).unwrap();
-		}
-		else{
-			let buf: Vec<u32> = buffer.iter().map(|e| e | 0xFF000000).collect();
-
-			let slice = unsafe{std::slice::from_raw_parts(buf[..].as_ptr() as *const u8, buf.len() * std::mem::size_of::<u32>())};
-			self.fd.write_all(&slice[..]).unwrap();
-		}
+		self.fd.seek(SeekFrom::Start(0)).unwrap();
+		let slice = unsafe{std::slice::from_raw_parts(buffer[..].as_ptr() as *const u8, buffer.len() * std::mem::size_of::<u32>())};
+		self.fd.write_all(&slice[..]).unwrap();
 		self.fd.flush().unwrap();
 		self.fd.set_len((size.0 * size.1 * std::mem::size_of::<u32>() as i32) as u64).unwrap();
 
@@ -190,7 +193,7 @@ impl DisplayInfo{
 			}
 
 			//create new buffer and add it to the vec
-			let buf = self.shm_pool.0.create_buffer(0, size.0, size.1, size.0*std::mem::size_of::<u32>() as i32, Format::Argb8888);
+			let buf = self.shm_pool.0.create_buffer(0, size.0, size.1, size.0*std::mem::size_of::<u32>() as i32, self.format);
 			let buf_not_needed = Rc::new(RefCell::new(false));
 			{
 				let buf_not_needed = buf_not_needed.clone();
@@ -295,7 +298,7 @@ pub struct Window{
 
 impl Window{
 	pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Self>{
-		let dsp = DisplayInfo::new((width as i32, height as i32))?;
+		let dsp = DisplayInfo::new((width as i32, height as i32), false)?;
 		let scale;
 		if opts.borderless{
 			//TODO	
@@ -556,7 +559,7 @@ impl Window{
     pub fn update_with_buffer_stride(&mut self, buffer: &[u32], buf_width: usize, buf_height: usize, buf_stride: usize) -> Result<()>{
 		crate::buffer_helper::check_buffer_size(buf_width, buf_height, buf_width, buffer)?;
 
-		self.display.update_framebuffer(buffer, (buf_width as i32, buf_height as i32), false);
+		self.display.update_framebuffer(buffer, (buf_width as i32, buf_height as i32));
 
 		self.update();
 
