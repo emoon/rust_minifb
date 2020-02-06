@@ -76,20 +76,9 @@ impl DisplayInfo{
 
 		//create a shared memory
 		let shm_pool = shm.create_pool(tmp_f.as_raw_fd(), size.0*size.1*std::mem::size_of::<u32>() as i32);
-		let buffer = shm_pool.create_buffer(0, size.0 as i32, size.1, size.0*std::mem::size_of::<u32>() as i32, format);
-		let buf_not_needed = Rc::new(RefCell::new(false));
-
-		{
-			let buf_not_needed = buf_not_needed.clone();
 		
-			buffer.assign_mono(move |buf, event|{
-				use wayland_client::protocol::wl_buffer::Event;
+		let (buffer, buf_not_needed) = Self::create_shm_buffer(&shm_pool, size, format);
 
-				if let Event::Release = event{
-					*buf_not_needed.borrow_mut() = true;
-				}
-			});
-		}
 		let xdg_wm_base = global_man.instantiate_exact::<XdgWmBase>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the XdgWmBase: {:?}", e)))?;
 		
 		//Ping Pong
@@ -178,6 +167,24 @@ impl DisplayInfo{
 		self.toplevel.set_min_size(size.0, size.1);
 	}
 
+	fn create_shm_buffer(shm_pool: &Main<WlShmPool>, size: (i32, i32), format: Format) -> (Main<WlBuffer>, Rc<RefCell<bool>>){
+		let buf = shm_pool.create_buffer(0, size.0, size.1, size.0*std::mem::size_of::<u32>() as i32, format);
+		let buf_not_needed = Rc::new(RefCell::new(false));
+		{
+			let buf_not_needed = buf_not_needed.clone();
+
+			buf.assign_mono(move |buf, event|{
+				use wayland_client::protocol::wl_buffer::Event;
+
+				if let Event::Release = event{
+					*buf_not_needed.borrow_mut() = true;
+				}
+			});
+		}
+
+		(buf, buf_not_needed)
+	}
+
 	//resizes when buffer is bigger or less
 	fn update_framebuffer(&mut self, buffer: &[u32], size: (i32, i32)){
 		use std::io::{Seek, SeekFrom};
@@ -200,19 +207,7 @@ impl DisplayInfo{
 			}
 
 			//create new buffer and add it to the vec
-			let buf = self.shm_pool.0.create_buffer(0, size.0, size.1, size.0*std::mem::size_of::<u32>() as i32, self.format);
-			let buf_not_needed = Rc::new(RefCell::new(false));
-			{
-				let buf_not_needed = buf_not_needed.clone();
-
-				buf.assign_mono(move |buf, event|{
-					use wayland_client::protocol::wl_buffer::Event;
-
-					if let Event::Release = event{
-						*buf_not_needed.borrow_mut() = true;
-					}
-				});
-			}
+			let (buf, buf_not_needed) = Self::create_shm_buffer(&self.shm_pool.0, size, self.format);
 
 			//remove the buffers which are allowed to be removed
 			self.buf.retain(|(wlbuf, not_req)|{
