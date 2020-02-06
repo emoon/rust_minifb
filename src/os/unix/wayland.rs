@@ -293,7 +293,8 @@ pub struct Window{
 	menu_counter: MenuHandle,
 	menus: Vec<UnixMenu>,
 	input_devs: (Main<WlKeyboard>, Main<WlPointer>),
-	events: (Rc<RefCell<Vec<wayland_client::protocol::wl_keyboard::Event>>>, Rc<RefCell<Vec<wayland_client::protocol::wl_pointer::Event>>>)
+	events: (Rc<RefCell<Vec<wayland_client::protocol::wl_keyboard::Event>>>, Rc<RefCell<Vec<wayland_client::protocol::wl_pointer::Event>>>),
+	resizable: bool
 }
 
 
@@ -383,7 +384,8 @@ impl Window{
 			menu_counter: MenuHandle(0),
 			menus: Vec::new(),
 			input_devs: (keyboard, pointer),
-			events: (events_kb, events_pt)
+			events: (events_kb, events_pt),
+			resizable: opts.resize
 		})
 	}
 
@@ -492,8 +494,10 @@ impl Window{
 		self.display.event_queue.dispatch(|event, object|{}).map_err(|e| Error::WindowCreate(format!("Event dispatch failed: {:?}", e))).unwrap();
 		
 		if let Some(resize) = *configure.borrow(){
-			self.width = resize.0;
-			self.height = resize.1;
+			if self.resizable{
+				self.width = resize.0;
+				self.height = resize.1;
+			}
 		}
 		if *close.borrow(){
 			self.should_close=true;
