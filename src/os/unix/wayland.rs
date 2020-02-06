@@ -31,7 +31,8 @@ pub struct DisplayInfo{
 	buf: Vec<(Main<WlBuffer>, Rc<RefCell<bool>>)>,
 	event_queue: EventQueue,
 	fd: std::fs::File,
-	seat: Main<WlSeat>
+	seat: Main<WlSeat>,
+	fb_size: (i32, i32),
 }
 
 impl DisplayInfo{
@@ -143,7 +144,8 @@ impl DisplayInfo{
 			buf: {let mut v = Vec::new(); v.push((buffer, buf_not_needed)); v},
 			event_queue: event_q,
 			fd: tmp_f,
-			seat
+			seat,
+			fb_size: (size.0, size.1),
 		})
 	}
 
@@ -164,8 +166,8 @@ impl DisplayInfo{
 	fn update_framebuffer(&mut self, buffer: &[u32], size: (i32, i32), alpha: bool){
 		use std::io::{Seek, SeekFrom};
 
-		let cnt = self.fd.seek(SeekFrom::End(0)).unwrap() as usize;
-		self.fd.seek(SeekFrom::Start(0)).unwrap();
+		let cnt = (self.fb_size.0 * self.fb_size.1 * std::mem::size_of::<u32>() as i32) as usize;
+		self.fb_size = size;
 
 		if alpha{
 			let slice = unsafe{std::slice::from_raw_parts(buffer[..].as_ptr() as *const u8, buffer.len() * std::mem::size_of::<u32>())};
