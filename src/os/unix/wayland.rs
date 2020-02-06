@@ -32,11 +32,16 @@ pub struct DisplayInfo{
 	event_queue: EventQueue,
 	fd: std::fs::File,
 	seat: Main<WlSeat>,
+	//size of the framebuffer
 	fb_size: (i32, i32),
+	//Wayland buffer pixel format
 	format: Format
 }
 
 impl DisplayInfo{
+	//size: size of the surface to be created
+	//alpha: whether the alpha channel shall be rendered
+	//decoration: whether server-side window decoration shall be created
 	pub fn new(size: (i32, i32), alpha: bool, decoration: bool) -> Result<Self>{
 		use std::os::unix::io::AsRawFd;
 		
@@ -201,9 +206,10 @@ impl DisplayInfo{
 			//change file length
 			self.fd.set_len((size.0 * size.1 * std::mem::size_of::<u32>() as i32) as u64).unwrap();
 			//Shm Pool is not allowed to be resized
-			if (buffer.len() * std::mem::size_of::<u32>()) as i32 > self.shm_pool.1{
+			let new_pool_size = (buffer.len() * std::mem::size_of::<u32>()) as i32;
+			if new_pool_size > self.shm_pool.1{
 				self.shm_pool.0.resize(size.0 * size.1 * std::mem::size_of::<u32>() as i32);
-				self.shm_pool.1 = (buffer.len() * std::mem::size_of::<u32>()) as i32;
+				self.shm_pool.1 = new_pool_size;
 			}
 
 			//create new buffer and add it to the vec
@@ -285,6 +291,7 @@ pub struct Window{
 	scroll_x: f32,
 	scroll_y: f32,
 	buttons: [u8; 3],
+	//TODO: crate: wayland_cursor
 	prev_cursor: CursorStyle,
 
 	should_close: bool,
