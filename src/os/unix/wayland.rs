@@ -35,7 +35,7 @@ pub struct DisplayInfo{
 }
 
 impl DisplayInfo{
-	pub fn new(size: (usize, usize)) -> Result<Self>{
+	pub fn new(size: (i32, i32)) -> Result<Self>{
 		use std::os::unix::io::AsRawFd;
 		
 		//Get the wayland display
@@ -59,14 +59,14 @@ impl DisplayInfo{
 		let mut tmp_f = tempfile::tempfile().map_err(|e| Error::WindowCreate(format!("Failed creating the temporary file: {:?}", e)))?;
 
 		//Add a black canvas into the framebuffer
-		let mut frame: Vec<u32> = vec![0xFF000000; size.0*size.1];
+		let mut frame: Vec<u32> = vec![0xFF000000; (size.0*size.1) as usize];
 		let slice = unsafe{std::slice::from_raw_parts(frame[..].as_ptr() as *const u8, frame.len() * std::mem::size_of::<u32>())};
 		tmp_f.write_all(&slice[..]).unwrap();
 		tmp_f.flush().unwrap();
 
 		//create a shared memory
-		let shm_pool = shm.create_pool(tmp_f.as_raw_fd(), size.0 as i32*size.1 as i32*std::mem::size_of::<u32>() as i32);
-		let buffer = shm_pool.create_buffer(0, size.0 as i32, size.1 as i32, size.0 as i32*std::mem::size_of::<u32>() as i32, Format::Argb8888);
+		let shm_pool = shm.create_pool(tmp_f.as_raw_fd(), size.0*size.1*std::mem::size_of::<u32>() as i32);
+		let buffer = shm_pool.create_buffer(0, size.0 as i32, size.1, size.0*std::mem::size_of::<u32>() as i32, Format::Argb8888);
 		let buf_not_needed = Rc::new(RefCell::new(false));
 
 		{
@@ -138,7 +138,7 @@ impl DisplayInfo{
 			surface,
 			xdg_surface,
 			toplevel: _xdg_toplevel,
-			shm_pool: (shm_pool, (size.0 * size.1 * std::mem::size_of::<u32>()) as i32),
+			shm_pool: (shm_pool, size.0 * size.1 * std::mem::size_of::<u32>() as i32),
 			shm,
 			buf: {let mut v = Vec::new(); v.push((buffer, buf_not_needed)); v},
 			event_queue: event_q,
@@ -293,7 +293,7 @@ pub struct Window{
 
 impl Window{
 	pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Self>{
-		let dsp = DisplayInfo::new((width, height))?;
+		let dsp = DisplayInfo::new((width as i32, height as i32))?;
 		let scale;
 		if opts.borderless{
 			//TODO	
