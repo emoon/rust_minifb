@@ -37,7 +37,7 @@ pub struct DisplayInfo{
 }
 
 impl DisplayInfo{
-	pub fn new(size: (i32, i32), alpha: bool) -> Result<Self>{
+	pub fn new(size: (i32, i32), alpha: bool, decoration: bool) -> Result<Self>{
 		use std::os::unix::io::AsRawFd;
 		
 		//Get the wayland display
@@ -113,7 +113,15 @@ impl DisplayInfo{
 			}
 		});
 		//Assigns the toplevel role and commit
-		let _xdg_toplevel = xdg_surface.get_toplevel();
+		let xdg_toplevel = xdg_surface.get_toplevel();
+		if decoration{
+			use wayland_protocols::unstable::xdg_decoration::v1::client::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1;
+
+			if let Ok(deco_man) = global_man.instantiate_exact::<ZxdgDecorationManagerV1>(1).map_err(|e| Error::WindowCreate(format!("Failed creating server-side surface decoration: {:?}", e))).map_err(|e| println!("{:?}", e)){
+				deco_man.get_toplevel_decoration(&xdg_toplevel);
+				deco_man.destroy();
+			}
+		}
 		surface.commit();
 
 		event_q.sync_roundtrip(|_, _|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
@@ -145,7 +153,7 @@ impl DisplayInfo{
 			base: xdg_wm_base,
 			surface,
 			xdg_surface,
-			toplevel: _xdg_toplevel,
+			toplevel: xdg_toplevel,
 			shm_pool: (shm_pool, size.0 * size.1 * std::mem::size_of::<u32>() as i32),
 			shm,
 			buf: {let mut v = Vec::new(); v.push((buffer, buf_not_needed)); v},
@@ -299,11 +307,8 @@ pub struct Window{
 
 impl Window{
 	pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Self>{
-		let dsp = DisplayInfo::new((width as i32, height as i32), false)?;
+		let dsp = DisplayInfo::new((width as i32, height as i32), false, !opts.borderless)?;
 		let scale;
-		if opts.borderless{
-			//TODO	
-		}
 		if opts.title{
 			dsp.set_title(name);
 		}
