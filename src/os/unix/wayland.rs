@@ -114,18 +114,15 @@ impl DisplayInfo{
 		});
 		//Assigns the toplevel role and commit
 		let _xdg_toplevel = xdg_surface.get_toplevel();
-		surface.damage_buffer(0, 0, size.0, size.1);
 		surface.commit();
 
 		event_q.sync_roundtrip(|_, _|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
 		//give the surface the buffer and commit
 		surface.attach(Some(&buffer), 0, 0);
+		surface.damage_buffer(0, 0, size.0, size.1);
 		surface.commit();
 
-		event_q.sync_roundtrip(|_, _|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
-
-		
 		let seat = global_man.instantiate_exact::<WlSeat>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the WlSeat: {:?}", e)))?;	
 
 		let keyboard = seat.get_keyboard();
