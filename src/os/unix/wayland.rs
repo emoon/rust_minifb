@@ -114,6 +114,7 @@ impl DisplayInfo{
 		});
 		//Assigns the toplevel role and commit
 		let _xdg_toplevel = xdg_surface.get_toplevel();
+		surface.damage_buffer(0, 0, size.0, size.1);
 		surface.commit();
 
 		event_q.sync_roundtrip(|_, _|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
@@ -222,6 +223,7 @@ impl DisplayInfo{
 		}
 
 		self.surface.attach(Some(&self.buf[self.buf.len()-1].0), 0, 0);
+		self.surface.damage_buffer(0, 0, size.0, size.1);
 		self.surface.commit();
 	}
 
