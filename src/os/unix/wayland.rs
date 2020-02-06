@@ -183,9 +183,10 @@ impl DisplayInfo{
 		let slice = unsafe{std::slice::from_raw_parts(buffer[..].as_ptr() as *const u8, buffer.len() * std::mem::size_of::<u32>())};
 		self.fd.write_all(&slice[..]).unwrap();
 		self.fd.flush().unwrap();
-		self.fd.set_len((size.0 * size.1 * std::mem::size_of::<u32>() as i32) as u64).unwrap();
 
 		if cnt != buffer.len() * std::mem::size_of::<u32>(){
+			//change file length
+			self.fd.set_len((size.0 * size.1 * std::mem::size_of::<u32>() as i32) as u64).unwrap();
 			//Shm Pool is not allowed to be resized
 			if (buffer.len() * std::mem::size_of::<u32>()) as i32 > self.shm_pool.1{
 				self.shm_pool.0.resize(size.0 * size.1 * std::mem::size_of::<u32>() as i32);
