@@ -17,14 +17,14 @@ use std::cell::RefCell;
 
 
 pub struct DisplayInfo{
-	display: wayland_client::Display,
+	_display: wayland_client::Display,
 	wl_display: Attached<WlDisplay>,
-	comp: Main<WlCompositor>,
-	base: Main<XdgWmBase>,
+	_comp: Main<WlCompositor>,
+	_base: Main<XdgWmBase>,
 	surface: Main<WlSurface>,
 	xdg_surface: Main<XdgSurface>,
 	toplevel: Main<XdgToplevel>,
-	shm: Main<WlShm>,
+	_shm: Main<WlShm>,
 	//Current max ShmPool size
 	shm_pool: (Main<WlShmPool>, i32),
 	//Hold the state of each WlBuffer if allowed to be destroyed
@@ -127,9 +127,6 @@ impl DisplayInfo{
 
 		let seat = global_man.instantiate_exact::<WlSeat>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the WlSeat: {:?}", e)))?;	
 
-		let keyboard = seat.get_keyboard();
-		let pointer = seat.get_pointer();
-
 		//Removed the surface commit because of redrawing issue
 		xdg_surface.assign_mono(move |xdg_surface, event|{
 			use wayland_protocols::xdg_shell::client::xdg_surface::Event;
@@ -141,15 +138,15 @@ impl DisplayInfo{
 
 
 		Ok(Self{
-			display,
+			_display: display,
 			wl_display,
-			comp,
-			base: xdg_wm_base,
+			_comp: comp,
+			_base: xdg_wm_base,
 			surface,
 			xdg_surface,
 			toplevel: xdg_toplevel,
 			shm_pool: (shm_pool, size.0 * size.1 * std::mem::size_of::<u32>() as i32),
-			shm,
+			_shm: shm,
 			buf: {let mut v = Vec::new(); v.push((buffer, buf_not_needed)); v},
 			event_queue: event_q,
 			fd: tmp_f,
@@ -178,7 +175,7 @@ impl DisplayInfo{
 		{
 			let buf_not_needed = buf_not_needed.clone();
 
-			buf.assign_mono(move |buf, event|{
+			buf.assign_mono(move |_, event|{
 				use wayland_client::protocol::wl_buffer::Event;
 
 				if let Event::Release = event{
@@ -249,7 +246,7 @@ impl DisplayInfo{
 			let touch_fl = touch_fl.clone();
 		
 			//check pointer and mouse capability
-			seat.assign_mono(move |seat, event|{
+			seat.assign_mono(move |_, event|{
 				use wayland_client::protocol::wl_seat::{Event, Capability};
 
 				if let Event::Capabilities{capabilities} = event{
@@ -348,7 +345,7 @@ impl Window{
 
 		{
 			let events_kb = events_kb.clone();
-			keyboard.assign_mono(move |keyboard, event|{
+			keyboard.assign_mono(move |_, event|{
 				(*events_kb.borrow_mut()).push(event);
 			});
 		}
@@ -358,7 +355,7 @@ impl Window{
 		{
 			let events_pt = events_pt.clone();
 
-			pointer.assign_mono(move |pointer, event|{
+			pointer.assign_mono(move |_, event|{
 				(*events_pt.borrow_mut()).push(event);
 			});
 		}
@@ -484,7 +481,7 @@ impl Window{
 			let configure = configure.clone();
 			let close = close.clone();
 
-			self.display.toplevel.assign_mono(move |xdg_toplevel, event|{
+			self.display.toplevel.assign_mono(move |_, event|{
 				use wayland_protocols::xdg_shell::client::xdg_toplevel::Event;
 
 				if let Event::Configure{width, height, states} = event{
