@@ -14,6 +14,7 @@ use std::ffi::c_void;
 
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::sync::mpsc;
 
 
 pub struct DisplayInfo{
@@ -272,48 +273,41 @@ impl DisplayInfo{
 }
 
 struct WaylandInput{
-	events: (Rc<RefCell<Vec<wayland_client::protocol::wl_keyboard::Event>>>, Rc<RefCell<Vec<wayland_client::protocol::wl_pointer::Event>>>),
+	kb_events: mpsc::Receiver<wayland_client::protocol::wl_keyboard::Event>,
+	pt_events: mpsc::Receiver<wayland_client::protocol::wl_pointer::Event>,
 	input_devs: (Main<WlKeyboard>, Main<WlPointer>)
 }
-
-use std::vec::Drain;
 
 impl WaylandInput{
 
 	pub fn new(display: &DisplayInfo) -> Self{
 		let (keyboard, pointer, _touch) = display.get_input_devs();
 
-        let events_kb = Rc::new(RefCell::new(Vec::new()));
+		let (kb_sender, kb_receiver) = mpsc::sync_channel(1024);
 
-		{
-			let events_kb = events_kb.clone();
-			keyboard.assign_mono(move |_, event|{
-				(*events_kb.borrow_mut()).push(event);
-			});
-		}
+		keyboard.assign_mono(move |_, event|{
+			kb_sender.send(event).unwrap();
+		});
 
-		let events_pt = Rc::new(RefCell::new(Vec::new()));
+		let (pt_sender, pt_receiver) = mpsc::sync_channel(1024);
 
-		{
-			let events_pt = events_pt.clone();
-
-			pointer.assign_mono(move |_, event|{
-				(*events_pt.borrow_mut()).push(event);
-			});
-		}
+		pointer.assign_mono(move |_, event|{
+			pt_sender.send(event).unwrap();
+		});
 
 		Self{
-			events: (events_kb, events_pt),
+			kb_events: kb_receiver,
+			pt_events: pt_receiver,
 			input_devs: (keyboard, pointer)
 		}
 	}
 
-	pub fn get_keyboard_events(&self) -> Rc<RefCell<Vec<wayland_client::protocol::wl_keyboard::Event>>>{
-		self.events.0.clone()
+	pub fn iter_keyboard_events(&self) -> std::sync::mpsc::TryIter<wayland_client::protocol::wl_keyboard::Event>{
+		self.kb_events.try_iter()
 	}
 
-	pub fn get_pointer_events(&self) -> Rc<RefCell<Vec<wayland_client::protocol::wl_pointer::Event>>>{
-		self.events.1.clone()
+	pub fn iter_pointer_events(&self) -> std::sync::mpsc::TryIter<wayland_client::protocol::wl_pointer::Event>{
+		self.pt_events.try_iter()
 	}
 }
 
@@ -529,10 +523,8 @@ impl Window{
 		if *close.borrow(){
 			self.should_close=true;
 		}
-		let _kb_events = self.input.get_keyboard_events();
-		let kb_events = &mut *_kb_events.borrow_mut();
 
-		for event in kb_events.drain(0..){
+		for event in self.input.iter_keyboard_events(){
 			use wayland_client::protocol::wl_keyboard::Event;
 			match event{
 				Event::Enter{serial, surface, keys} => {
@@ -551,10 +543,7 @@ impl Window{
 			}
 		}
 
-		let _pt_events = self.input.get_pointer_events();
-		let pt_events = &mut *_pt_events.borrow_mut();
-
-		for event in pt_events.drain(0..){
+		for event in self.input.iter_pointer_events(){
 			use wayland_client::protocol::wl_pointer::Event;
 			match event{
 				Event::Enter{serial, surface, surface_x, surface_y} => {
