@@ -271,6 +271,52 @@ impl DisplayInfo{
 	}
 }
 
+struct WaylandInput{
+	events: (Rc<RefCell<Vec<wayland_client::protocol::wl_keyboard::Event>>>, Rc<RefCell<Vec<wayland_client::protocol::wl_pointer::Event>>>),
+	input_devs: (Main<WlKeyboard>, Main<WlPointer>)
+}
+
+use std::vec::Drain;
+
+impl WaylandInput{
+
+	pub fn new(display: &DisplayInfo) -> Self{
+		let (keyboard, pointer, _touch) = display.get_input_devs();
+
+        let events_kb = Rc::new(RefCell::new(Vec::new()));
+
+		{
+			let events_kb = events_kb.clone();
+			keyboard.assign_mono(move |_, event|{
+				(*events_kb.borrow_mut()).push(event);
+			});
+		}
+
+		let events_pt = Rc::new(RefCell::new(Vec::new()));
+
+		{
+			let events_pt = events_pt.clone();
+
+			pointer.assign_mono(move |_, event|{
+				(*events_pt.borrow_mut()).push(event);
+			});
+		}
+
+		Self{
+			events: (events_kb, events_pt),
+			input_devs: (keyboard, pointer)
+		}
+	}
+
+	pub fn get_keyboard_events(&self) -> Rc<RefCell<Vec<wayland_client::protocol::wl_keyboard::Event>>>{
+		self.events.0.clone()
+	}
+
+	pub fn get_pointer_events(&self) -> Rc<RefCell<Vec<wayland_client::protocol::wl_pointer::Event>>>{
+		self.events.1.clone()
+	}
+}
+
 
 pub struct Window{
 	display: DisplayInfo,
@@ -297,8 +343,7 @@ pub struct Window{
 	update_rate: UpdateRate,
 	menu_counter: MenuHandle,
 	menus: Vec<UnixMenu>,
-	input_devs: (Main<WlKeyboard>, Main<WlPointer>),
-	events: (Rc<RefCell<Vec<wayland_client::protocol::wl_keyboard::Event>>>, Rc<RefCell<Vec<wayland_client::protocol::wl_pointer::Event>>>),
+	input: WaylandInput,
 	resizable: bool
 }
 
@@ -339,26 +384,7 @@ impl Window{
 			}
 		}
 
-		let (keyboard, pointer, _touch) = dsp.get_input_devs();
-
-        let events_kb = Rc::new(RefCell::new(Vec::new()));
-
-		{
-			let events_kb = events_kb.clone();
-			keyboard.assign_mono(move |_, event|{
-				(*events_kb.borrow_mut()).push(event);
-			});
-		}
-
-		let events_pt = Rc::new(RefCell::new(Vec::new()));
-
-		{
-			let events_pt = events_pt.clone();
-
-			pointer.assign_mono(move |_, event|{
-				(*events_pt.borrow_mut()).push(event);
-			});
-		}
+		let input = WaylandInput::new(&dsp);
 
 		Ok(Self{
 			display: dsp,
@@ -385,8 +411,7 @@ impl Window{
 			update_rate: UpdateRate::new(),
 			menu_counter: MenuHandle(0),
 			menus: Vec::new(),
-			input_devs: (keyboard, pointer),
-			events: (events_kb, events_pt),
+			input,
 			resizable: opts.resize
 		})
 	}
@@ -504,8 +529,10 @@ impl Window{
 		if *close.borrow(){
 			self.should_close=true;
 		}
+		let _kb_events = self.input.get_keyboard_events();
+		let kb_events = &mut *_kb_events.borrow_mut();
 
-		for event in self.events.0.borrow().iter(){
+		for event in kb_events.drain(0..){
 			use wayland_client::protocol::wl_keyboard::Event;
 			match event{
 				Event::Enter{serial, surface, keys} => {
@@ -524,12 +551,15 @@ impl Window{
 			}
 		}
 
-		for event in self.events.1.borrow().iter(){
+		let _pt_events = self.input.get_pointer_events();
+		let pt_events = &mut *_pt_events.borrow_mut();
+
+		for event in pt_events.drain(0..){
 			use wayland_client::protocol::wl_pointer::Event;
 			match event{
 				Event::Enter{serial, surface, surface_x, surface_y} => {
-					self.mouse_x = *surface_x as f32;
-					self.mouse_y = *surface_y as f32;
+					self.mouse_x = surface_x as f32;
+					self.mouse_y =surface_y as f32;
 				},
 				Event::Leave{serial, surface} => {
 					
@@ -558,9 +588,6 @@ impl Window{
 				_ => {}
 			}
 		}
-
-		(*self.events.0.borrow_mut()).clear();
-		(*self.events.1.borrow_mut()).clear();
 	}
 
     pub fn update_with_buffer_stride(&mut self, buffer: &[u32], buf_width: usize, buf_height: usize, buf_stride: usize) -> Result<()>{
