@@ -239,12 +239,9 @@ impl DisplayInfo{
 
 	//Keyboard, Pointer, Touch
 	fn check_capabilities(seat: &Main<WlSeat>, event_queue: &mut EventQueue) -> (bool, bool, bool){
-		use std::sync::atomic::{AtomicBool, Ordering};
-		use std::sync::Arc;
-		
-		let keyboard_fl = Arc::new(AtomicBool::new(false));
-		let pointer_fl = Arc::new(AtomicBool::new(false));
-		let touch_fl = Arc::new(AtomicBool::new(false));
+		let keyboard_fl = Rc::new(RefCell::new(false));
+		let pointer_fl = Rc::new(RefCell::new(false));
+		let touch_fl = Rc::new(RefCell::new(false));
 
 		{
 			let keyboard_fl = keyboard_fl.clone();
@@ -256,14 +253,14 @@ impl DisplayInfo{
 				use wayland_client::protocol::wl_seat::{Event, Capability};
 
 				if let Event::Capabilities{capabilities} = event{
-					if !pointer_fl.load(Ordering::SeqCst) && capabilities.contains(Capability::Pointer){
-						pointer_fl.store(true, Ordering::SeqCst);
+					if !*pointer_fl.borrow() && capabilities.contains(Capability::Pointer){
+						*pointer_fl.borrow_mut() = true;
 					}
-					if !keyboard_fl.load(Ordering::SeqCst) && capabilities.contains(Capability::Keyboard){
-						keyboard_fl.store(true, Ordering::SeqCst);
+					if !*keyboard_fl.borrow() && capabilities.contains(Capability::Keyboard){
+						*keyboard_fl.borrow_mut() = true;
 					}
-					if !touch_fl.load(Ordering::SeqCst) && capabilities.contains(Capability::Touch){
-						touch_fl.store(true, Ordering::SeqCst);
+					if !*touch_fl.borrow() && capabilities.contains(Capability::Touch){
+						*touch_fl.borrow_mut() = true;
 					}
 				}
 			});
@@ -271,7 +268,9 @@ impl DisplayInfo{
 
 		event_queue.sync_roundtrip(|_, _|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e))).unwrap();
 		
-		(keyboard_fl.load(Ordering::SeqCst), pointer_fl.load(Ordering::SeqCst), touch_fl.load(Ordering::SeqCst))
+		let ret = (*keyboard_fl.borrow(), *pointer_fl.borrow(), *touch_fl.borrow());
+
+		ret
 	}
 }
 
