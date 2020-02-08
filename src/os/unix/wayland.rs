@@ -566,7 +566,7 @@ impl Window{
 					self.mouse_x = surface_x as f32;
 					self.mouse_y =surface_y as f32;
 					self.input.get_pointer().set_cursor(serial, Some(&self.display.cursor_surface), 0, 0);
-					self.display.update_cursor("arrow");
+					self.display.update_cursor(Self::decode_cursor(self.prev_cursor));
 				},
 				Event::Leave{serial, surface} => {
 					
@@ -597,20 +597,23 @@ impl Window{
 		}
 	}
 
+	fn decode_cursor(cursor: CursorStyle) -> &'static str{
+		match cursor{
+			CursorStyle::Arrow => "arrow",
+			CursorStyle::Ibeam => "xterm",
+			CursorStyle::Crosshair => "crosshair",
+			CursorStyle::ClosedHand => "hand2",
+			CursorStyle::OpenHand => "hand2",
+			CursorStyle::ResizeLeftRight => "sb_h_double_arrow",
+			CursorStyle::ResizeUpDown => "sb_v_double_arrow",
+			CursorStyle::ResizeAll => "diamond_cross",
+		}
+	}
+
 	pub fn set_cursor_style(&mut self, cursor: CursorStyle){
 		if self.prev_cursor != cursor{
 
-			match cursor{
-				CursorStyle::Arrow => self.display.update_cursor("arrow"),
-				CursorStyle::ClosedHand => self.display.update_cursor("xterm"),
-				CursorStyle::Crosshair => self.display.update_cursor("crosshair"),
-				CursorStyle::Ibeam => self.display.update_cursor("hand2"),
-				CursorStyle::OpenHand => self.display.update_cursor("hand2"),
-				CursorStyle::ResizeAll => self.display.update_cursor("sb_h_double_arrow"),
-				CursorStyle::ResizeLeftRight => self.display.update_cursor("sb_v_double_arrow"),
-				CursorStyle::ResizeUpDown => self.display.update_cursor("diamond_cross"),
-			}
-
+			self.display.update_cursor(Self::decode_cursor(cursor));
 			self.prev_cursor = cursor;
 		}
 	}
