@@ -568,6 +568,9 @@ impl Window{
 			}
 		}
 
+		self.scroll_x = 0.;
+		self.scroll_y = 0.;
+
 		for event in self.input.iter_pointer_events(){
 			use wayland_client::protocol::wl_pointer::Event;
 
