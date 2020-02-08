@@ -471,7 +471,7 @@ impl Window{
 	}
 
 	pub fn get_scroll_wheel(&self) -> Option<(f32, f32)>{
-		if self.scroll_x.abs() > 0.0 || self.scroll_y > 0.0{
+		if self.scroll_x.abs() > 0.0 || self.scroll_y.abs() > 0.0{
 			Some((self.scroll_x, self.scroll_y))
 		}
 		else{
