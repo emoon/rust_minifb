@@ -51,13 +51,13 @@ impl DisplayInfo{
 		//Get the wayland display
 		let display = wayland_client::Display::connect_to_env().map_err(|e| Error::WindowCreate(format!("Failed connecting to the Wayland Display: {:?}", e)))?;
 		let mut event_q = display.create_event_queue();
-		let tkn = event_q.get_token();
+		let tkn = event_q.token();
 		//Access internal WlDisplay with a token
 		let wl_display = (*display).clone().attach(tkn);
 		let global_man = GlobalManager::new(&wl_display);
 
 		//wait the wayland server to process all events
-		event_q.sync_roundtrip(|_, _|{ unreachable!() }).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
+		event_q.sync_roundtrip(&mut (), |_, _, _|{ unreachable!() }).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
 		//retrieve some types from globals
 		let comp = global_man.instantiate_exact::<WlCompositor>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the compositor: {:?}", e)))?;
@@ -88,7 +88,7 @@ impl DisplayInfo{
 		let xdg_wm_base = global_man.instantiate_exact::<XdgWmBase>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the XdgWmBase: {:?}", e)))?;
 		
 		//Ping Pong
-		xdg_wm_base.assign_mono(|xdg_wm_base, event|{
+		xdg_wm_base.quick_assign(|xdg_wm_base, event, _|{
 			use wayland_protocols::xdg_shell::client::xdg_wm_base::Event;
 
 			if let Event::Ping{serial} = event{
@@ -99,7 +99,7 @@ impl DisplayInfo{
 		let xdg_surface = xdg_wm_base.get_xdg_surface(&surface);
 		let _surface = surface.clone();
 		//Ping Pong
-		xdg_surface.assign_mono(move |xdg_surface, event|{
+		xdg_surface.quick_assign(move |xdg_surface, event, _|{
 			use wayland_protocols::xdg_shell::client::xdg_surface::Event;
 
 			if let Event::Configure{serial} = event{
@@ -119,7 +119,7 @@ impl DisplayInfo{
 		}
 		surface.commit();
 
-		event_q.sync_roundtrip(|_, _|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
+		event_q.sync_roundtrip(&mut (), |_, _, _|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
 		//give the surface the buffer and commit
 		surface.attach(Some(&buffer), 0, 0);
@@ -130,7 +130,7 @@ impl DisplayInfo{
 		let seat = global_man.instantiate_exact::<WlSeat>(5).map_err(|e| Error::WindowCreate(format!("Failed retrieving the WlSeat: {:?}", e)))?;	
 
 		//Removed the surface commit because of redrawing issue
-		xdg_surface.assign_mono(move |xdg_surface, event|{
+		xdg_surface.quick_assign(move |xdg_surface, event, _|{
 			use wayland_protocols::xdg_shell::client::xdg_surface::Event;
 
 			if let Event::Configure{serial} = event{
@@ -181,7 +181,7 @@ impl DisplayInfo{
 		{
 			let buf_not_needed = buf_not_needed.clone();
 
-			buf.assign_mono(move |_, event|{
+			buf.quick_assign(move |_, event, _|{
 				use wayland_client::protocol::wl_buffer::Event;
 
 				if let Event::Release = event{
@@ -261,7 +261,7 @@ impl DisplayInfo{
 			let touch_fl = touch_fl.clone();
 		
 			//check pointer and mouse capability
-			seat.assign_mono(move |_, event|{
+			seat.quick_assign(move |_, event, _|{
 				use wayland_client::protocol::wl_seat::{Event, Capability};
 
 				if let Event::Capabilities{capabilities} = event{
@@ -278,7 +278,7 @@ impl DisplayInfo{
 			});
 		}
 
-		event_queue.sync_roundtrip(|_, _|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e))).unwrap();
+		event_queue.sync_roundtrip(&mut (), |_, _, _|{}).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e))).unwrap();
 		
 		let ret = (*keyboard_fl.borrow(), *pointer_fl.borrow(), *touch_fl.borrow());
 
@@ -299,13 +299,13 @@ impl WaylandInput{
 
 		let (kb_sender, kb_receiver) = mpsc::sync_channel(1024);
 
-		keyboard.assign_mono(move |_, event|{
+		keyboard.quick_assign(move |_, event, _|{
 			kb_sender.send(event).unwrap();
 		});
 
 		let (pt_sender, pt_receiver) = mpsc::sync_channel(1024);
 
-		pointer.assign_mono(move |_, event|{
+		pointer.quick_assign(move |_, event, _|{
 			pt_sender.send(event).unwrap();
 		});
 
@@ -525,7 +525,7 @@ impl Window{
 			let configure = configure.clone();
 			let close = close.clone();
 
-			self.display.toplevel.assign_mono(move |_, event|{
+			self.display.toplevel.quick_assign(move |_, event, _|{
 				use wayland_protocols::xdg_shell::client::xdg_toplevel::Event;
 
 				if let Event::Configure{width, height, states} = event{
@@ -537,7 +537,7 @@ impl Window{
 			});
 		}
 
-		self.display.event_queue.dispatch(|event, object|{}).map_err(|e| Error::WindowCreate(format!("Event dispatch failed: {:?}", e))).unwrap();
+		self.display.event_queue.dispatch(&mut (), |_, _, _|{}).map_err(|e| Error::WindowCreate(format!("Event dispatch failed: {:?}", e))).unwrap();
 		
 		if let Some(resize) = *configure.borrow(){
 			if self.resizable{
