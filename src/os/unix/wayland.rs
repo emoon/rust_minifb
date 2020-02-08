@@ -458,6 +458,14 @@ impl Window{
 		mouse_handler::get_pos(mode, self.mouse_x, self.mouse_y, self.scale as f32, self.width as f32, self.height as f32)
 	}
 
+	pub fn get_mouse_down(&self, button: MouseButton) -> bool{
+		match button{
+			MouseButton::Left => self.buttons[0] > 0,
+			MouseButton::Right => self.buttons[1] > 0,
+			MouseButton::Middle => self.buttons[2] > 0
+		}
+	}
+
 	pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)>{
 		mouse_handler::get_pos(mode, self.mouse_x, self.mouse_y, 1.0, self.width as f32, self.height as f32)
 	}
@@ -564,18 +572,36 @@ impl Window{
 			match event{
 				Event::Enter{serial, surface, surface_x, surface_y} => {
 					self.mouse_x = surface_x as f32;
-					self.mouse_y =surface_y as f32;
+					self.mouse_y = surface_y as f32;
 					self.input.get_pointer().set_cursor(serial, Some(&self.display.cursor_surface), 0, 0);
 					self.display.update_cursor(Self::decode_cursor(self.prev_cursor));
 				},
 				Event::Leave{serial, surface} => {
+					//TODO
 					
 				},
 				Event::Motion{time, surface_x, surface_y} => {
-	
+					self.mouse_x = surface_x as f32;
+					self.mouse_y = surface_y as f32;
 				},
 				Event::Button{serial, time, button, state} => {
-	
+					use wayland_client::protocol::wl_pointer::ButtonState;
+
+					let st = match state{
+						ButtonState::Pressed => 1,
+						ButtonState::Released => 0,
+						_ => unimplemented!(),
+					};
+
+					match button{
+						//Left
+						272 => self.buttons[0] = st,
+						//Right
+						273 => self.buttons[1] = st,
+						//Middle
+						274 => self.buttons[2] = st,
+						_ => {}
+					}
 				},
 				Event::Axis{time, axis, value} => {
 	

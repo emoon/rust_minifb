@@ -113,7 +113,7 @@ impl Window {
     pub fn get_mouse_down(&self, button: MouseButton) -> bool {
         match *self {
             Window::X11(ref w) => w.get_mouse_down(button),
-            Window::Wayland(ref _w) => unimplemented!(),
+            Window::Wayland(ref w) => w.get_mouse_down(button),
         }
     }
 
