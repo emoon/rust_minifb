@@ -126,7 +126,8 @@ impl DisplayInfo{
 		surface.damage_buffer(0, 0, size.0, size.1);
 		surface.commit();
 
-		let seat = global_man.instantiate_exact::<WlSeat>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the WlSeat: {:?}", e)))?;	
+		//requires version 5 for the scroll events
+		let seat = global_man.instantiate_exact::<WlSeat>(5).map_err(|e| Error::WindowCreate(format!("Failed retrieving the WlSeat: {:?}", e)))?;	
 
 		//Removed the surface commit because of redrawing issue
 		xdg_surface.assign_mono(move |xdg_surface, event|{
@@ -569,6 +570,7 @@ impl Window{
 
 		for event in self.input.iter_pointer_events(){
 			use wayland_client::protocol::wl_pointer::Event;
+
 			match event{
 				Event::Enter{serial, surface, surface_x, surface_y} => {
 					self.mouse_x = surface_x as f32;
@@ -604,6 +606,13 @@ impl Window{
 					}
 				},
 				Event::Axis{time, axis, value} => {
+					use wayland_client::protocol::wl_pointer::Axis;
+
+					match axis{
+						Axis::VerticalScroll => self.scroll_y = value as f32,
+						Axis::HorizontalScroll => self.scroll_x = value as f32,
+						_ => {}
+					}
 	
 				},
 				Event::Frame{} => {
@@ -613,6 +622,13 @@ impl Window{
 	
 				},
 				Event::AxisStop{time, axis} => {
+					use wayland_client::protocol::wl_pointer::Axis;
+
+					match axis{
+						Axis::VerticalScroll => self.scroll_y = 0.,
+						Axis::HorizontalScroll => self.scroll_x = 0.,
+						_ => {}
+					}
 	
 				},
 				Event::AxisDiscrete{axis, discrete} => {
