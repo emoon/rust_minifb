@@ -127,7 +127,7 @@ impl Window {
     pub fn set_cursor_style(&mut self, cursor: CursorStyle) {
         match *self {
             Window::X11(ref mut w) => w.set_cursor_style(cursor),
-            Window::Wayland(ref mut _w) => unimplemented!(),
+            Window::Wayland(ref mut w) => w.set_cursor_style(cursor),
         }
     }
 

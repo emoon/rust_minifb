@@ -36,7 +36,9 @@ pub struct DisplayInfo{
 	//size of the framebuffer
 	fb_size: (i32, i32),
 	//Wayland buffer pixel format
-	format: Format
+	format: Format,
+	cursor: wayland_cursor::CursorTheme,
+	cursor_surface: Main<WlSurface>
 }
 
 impl DisplayInfo{
@@ -57,8 +59,6 @@ impl DisplayInfo{
 		//wait the wayland server to process all events
 		event_q.sync_roundtrip(|_, _|{ unreachable!() }).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
-
-		let list = global_man.list();
 		//retrieve some types from globals
 		let comp = global_man.instantiate_exact::<WlCompositor>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the compositor: {:?}", e)))?;
 		let shm = global_man.instantiate_exact::<WlShm>(1).map_err(|e| Error::WindowCreate(format!("Failed creating the shared memory: {:?}", e)))?;
@@ -137,6 +137,8 @@ impl DisplayInfo{
 			}
 		});
 
+		let cursor = wayland_cursor::load_theme(None, 16, &shm);
+		let cursor_surface = comp.create_surface();
 
 		Ok(Self{
 			_display: display,
@@ -153,7 +155,9 @@ impl DisplayInfo{
 			fd: tmp_f,
 			seat,
 			fb_size: (size.0, size.1),
-			format
+			format,
+			cursor,
+			cursor_surface
 		})
 	}
 
@@ -186,6 +190,15 @@ impl DisplayInfo{
 		}
 
 		(buf, buf_not_needed)
+	}
+
+	//Sets a specific cursor style
+	fn update_cursor(&mut self, cursor: &str){
+		let csr = self.cursor.get_cursor(cursor).unwrap();
+		let img = csr.frame_buffer(0).unwrap();
+		self.cursor_surface.attach(Some(&*img), 0, 0);
+		self.cursor_surface.damage(0, 0, 16, 16);
+		self.cursor_surface.commit();
 	}
 
 	//resizes when buffer is bigger or less
@@ -302,6 +315,10 @@ impl WaylandInput{
 		}
 	}
 
+	pub fn get_pointer(&self) -> &Main<WlPointer>{
+		&self.input_devs.1
+	}
+
 	pub fn iter_keyboard_events(&self) -> std::sync::mpsc::TryIter<wayland_client::protocol::wl_keyboard::Event>{
 		self.kb_events.try_iter()
 	}
@@ -327,7 +344,6 @@ pub struct Window{
 	scroll_x: f32,
 	scroll_y: f32,
 	buttons: [u8; 3],
-	//TODO: crate: wayland_cursor
 	prev_cursor: CursorStyle,
 
 	should_close: bool,
@@ -549,6 +565,8 @@ impl Window{
 				Event::Enter{serial, surface, surface_x, surface_y} => {
 					self.mouse_x = surface_x as f32;
 					self.mouse_y =surface_y as f32;
+					self.input.get_pointer().set_cursor(serial, Some(&self.display.cursor_surface), 0, 0);
+					self.display.update_cursor("arrow");
 				},
 				Event::Leave{serial, surface} => {
 					
@@ -576,6 +594,24 @@ impl Window{
 				},
 				_ => {}
 			}
+		}
+	}
+
+	pub fn set_cursor_style(&mut self, cursor: CursorStyle){
+		if self.prev_cursor != cursor{
+
+			match cursor{
+				CursorStyle::Arrow => self.display.update_cursor("arrow"),
+				CursorStyle::ClosedHand => self.display.update_cursor("xterm"),
+				CursorStyle::Crosshair => self.display.update_cursor("crosshair"),
+				CursorStyle::Ibeam => self.display.update_cursor("hand2"),
+				CursorStyle::OpenHand => self.display.update_cursor("hand2"),
+				CursorStyle::ResizeAll => self.display.update_cursor("sb_h_double_arrow"),
+				CursorStyle::ResizeLeftRight => self.display.update_cursor("sb_v_double_arrow"),
+				CursorStyle::ResizeUpDown => self.display.update_cursor("diamond_cross"),
+			}
+
+			self.prev_cursor = cursor;
 		}
 	}
 
