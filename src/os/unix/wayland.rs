@@ -15,6 +15,7 @@ use std::ffi::c_void;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::sync::mpsc;
+use std::os::unix::io::RawFd;
 
 
 pub struct DisplayInfo{
@@ -351,6 +352,8 @@ pub struct Window{
 	active: bool,
 
 	key_handler: KeyHandler,
+	//option because MaybeUninit's get_ref() is nightly-only
+	keymap: Option<xkb::keymap::Keymap>,
 	update_rate: UpdateRate,
 	menu_counter: MenuHandle,
 	menus: Vec<UnixMenu>,
@@ -419,6 +422,7 @@ impl Window{
 			active: false,
 
 			key_handler: KeyHandler::new(),
+			keymap: None,
 			update_rate: UpdateRate::new(),
 			menu_counter: MenuHandle(0),
 			menus: Vec::new(),
@@ -552,6 +556,9 @@ impl Window{
 		for event in self.input.iter_keyboard_events(){
 			use wayland_client::protocol::wl_keyboard::Event;
 			match event{
+				Event::Keymap{format, fd, size} => {
+					self.keymap = Some(Self::handle_keymap(format, fd, size));
+				}
 				Event::Enter{serial, surface, keys} => {
 						
 				},
@@ -640,6 +647,27 @@ impl Window{
 				_ => {}
 			}
 		}
+	fn handle_keymap(keymap: wayland_client::protocol::wl_keyboard::KeymapFormat, fd: RawFd, len: u32)-> xkb::keymap::Keymap{
+		use std::os::unix::io::FromRawFd;
+		use std::io::Read;
+
+		match keymap{
+			XkbV1 => {
+				use xkb::keymap::Keymap;
+
+				unsafe{
+					let mut file = std::fs::File::from_raw_fd(fd);
+					let mut v = Vec::with_capacity(len as usize);
+					v.set_len(len as usize);
+					file.read_exact(&mut v).unwrap();
+					let slice = std::slice::from_raw_parts_mut(v.as_mut_ptr() as *mut c_void, len as usize);
+					let kb_map = Keymap::from_ptr(slice as *mut _ as *mut c_void);
+					kb_map
+				}
+			},
+			_ => unimplemented!()
+		}
+	}
 	}
 
 	fn decode_cursor(cursor: CursorStyle) -> &'static str{
