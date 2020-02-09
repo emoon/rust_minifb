@@ -61,7 +61,7 @@ impl DisplayInfo{
 		event_q.sync_roundtrip(&mut (), |_, _, _|{ unreachable!() }).map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
 		//retrieve some types from globals
-		let comp = global_man.instantiate_exact::<WlCompositor>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the compositor: {:?}", e)))?;
+		let comp = global_man.instantiate_exact::<WlCompositor>(4).map_err(|e| Error::WindowCreate(format!("Failed retrieving the compositor: {:?}", e)))?;
 		let shm = global_man.instantiate_exact::<WlShm>(1).map_err(|e| Error::WindowCreate(format!("Failed creating the shared memory: {:?}", e)))?;
 		let surface = comp.create_surface();
 		//temporary file used as framebuffer
@@ -124,6 +124,7 @@ impl DisplayInfo{
 
 		//give the surface the buffer and commit
 		surface.attach(Some(&buffer), 0, 0);
+		surface.damage_buffer(0, 0, size.0, size.1);
 		surface.commit();
 
 		//requires version 5 for the scroll events
@@ -241,6 +242,7 @@ impl DisplayInfo{
 		}
 
 		self.surface.attach(Some(&self.buf[self.buf.len()-1].0), 0, 0);
+		self.surface.damage_buffer(0, 0, size.0, size.1);
 		self.surface.commit();
 	}
 
