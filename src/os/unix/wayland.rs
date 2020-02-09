@@ -645,6 +645,8 @@ impl Window{
 				_ => {}
 			}
 		}
+	}
+
 	fn handle_keymap(keymap: wayland_client::protocol::wl_keyboard::KeymapFormat, fd: RawFd, len: u32)-> xkb::keymap::Keymap{
 		use std::os::unix::io::FromRawFd;
 		use std::io::Read;
@@ -665,7 +667,6 @@ impl Window{
 			},
 			_ => unimplemented!()
 		}
-	}
 	}
 
 	fn decode_cursor(cursor: CursorStyle) -> &'static str{
