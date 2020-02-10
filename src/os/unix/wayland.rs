@@ -199,7 +199,7 @@ impl DisplayInfo{
 		let csr = self.cursor.get_cursor(cursor).unwrap();
 		let img = csr.frame_buffer(0).unwrap();
 		self.cursor_surface.attach(Some(&*img), 0, 0);
-		self.cursor_surface.damage(0, 0, 16, 16);
+		self.cursor_surface.damage(0, 0, 32, 32);
 		self.cursor_surface.commit();
 	}
 
