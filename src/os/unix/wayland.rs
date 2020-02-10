@@ -18,6 +18,55 @@ use std::sync::mpsc;
 use std::os::unix::io::RawFd;
 
 
+// We have these in C so we can always have optimize on (-O3) so they
+// run fast in debug build as well. These functions should be seen as
+// "system" functions that just doesn't exist in X11
+extern "C" {
+    fn Image_upper_left(
+        target: *mut u32,
+        source: *const u32,
+        source_w: u32,
+        source_h: u32,
+        source_stride: u32,
+        dest_width: u32,
+        dest_height: u32,
+        bg_color: u32,
+    );
+
+    fn Image_center(
+        target: *mut u32,
+        source: *const u32,
+        source_w: u32,
+        source_h: u32,
+        source_stride: u32,
+        dest_width: u32,
+        dest_height: u32,
+        bg_color: u32,
+    );
+
+    fn Image_resize_linear_aspect_fill_c(
+        target: *mut u32,
+        source: *const u32,
+        source_w: u32,
+        source_h: u32,
+        source_stride: u32,
+        dest_width: u32,
+        dest_height: u32,
+        bg_color: u32,
+    );
+
+    fn Image_resize_linear_c(
+        target: *mut u32,
+        source: *const u32,
+        source_w: u32,
+        source_h: u32,
+        source_stride: u32,
+        dest_width: u32,
+        dest_height: u32,
+    );
+}
+
+
 pub struct DisplayInfo{
 	_display: wayland_client::Display,
 	wl_display: Attached<WlDisplay>,
@@ -358,22 +407,19 @@ pub struct Window{
 	menu_counter: MenuHandle,
 	menus: Vec<UnixMenu>,
 	input: WaylandInput,
-	resizable: bool
+	resizable: bool,
+	//temporary buffer
+	buffer: Vec<u32>
 }
 
 
 impl Window{
 	pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Self>{
-		let dsp = DisplayInfo::new((width as i32, height as i32), false, !opts.borderless)?;
 		let scale;
-		if opts.title{
-			dsp.set_title(name);
-		}
-		if !opts.resize{
-			dsp.set_no_resize((width as i32, height as i32));	
-		}
 		//TODO: opts.scale
-        match opts.scale{
+        //TODO: handle scale
+		//wayland_protocols: wp_viewport
+		match opts.scale{
             Scale::FitScreen => {
                //TODO
                scale=1;
@@ -398,13 +444,21 @@ impl Window{
 			}
 		}
 
+		let dsp = DisplayInfo::new((width as i32 * scale, height as i32 * scale), false, !opts.borderless)?;
+		if opts.title{
+			dsp.set_title(name);
+		}
+		if !opts.resize{
+			dsp.set_no_resize((width as i32 * scale, height as i32 * scale));
+		}
+
 		let input = WaylandInput::new(&dsp);
 
 		Ok(Self{
 			display: dsp,
 
-			width: width as i32,
-			height: height as i32,
+			width: width as i32 * scale,
+			height: height as i32 * scale,
 	
 			//TODO
 			scale,
@@ -427,7 +481,8 @@ impl Window{
 			menu_counter: MenuHandle(0),
 			menus: Vec::new(),
 			input,
-			resizable: opts.resize
+			resizable: opts.resize,
+			buffer: Vec::with_capacity(width * height * scale as usize * scale as usize)
 		})
 	}
 
@@ -695,12 +750,71 @@ impl Window{
     pub fn update_with_buffer_stride(&mut self, buffer: &[u32], buf_width: usize, buf_height: usize, buf_stride: usize) -> Result<()>{
 		crate::buffer_helper::check_buffer_size(buf_width, buf_height, buf_width, buffer)?;
 
-		self.display.update_framebuffer(buffer, (buf_width as i32, buf_height as i32));
+		unsafe{ self.scale_buffer(buffer, buf_width, buf_height, buf_stride) };
+
+		self.display.update_framebuffer(&self.buffer[..], (self.width as i32, self.height as i32));
 
 		self.update();
 
 		Ok(())
     }
+
+	unsafe fn scale_buffer(&mut self, buffer: &[u32], buf_width: usize, buf_height: usize, buf_stride: usize){
+		self.buffer.resize((self.width * self.height) as usize, 0);
+
+		match self.scale_mode{
+            ScaleMode::Stretch => {
+                Image_resize_linear_c(
+                    self.buffer.as_mut_ptr(),
+                    buffer.as_ptr(),
+                    buf_width as u32,
+                    buf_height as u32,
+                    buf_stride as u32,
+                    self.width as u32,
+                    self.height as u32,
+                );
+            }
+
+            ScaleMode::AspectRatioStretch => {
+                Image_resize_linear_aspect_fill_c(
+                    self.buffer.as_mut_ptr(),
+                    buffer.as_ptr(),
+                    buf_width as u32,
+                    buf_height as u32,
+                    buf_stride as u32,
+                    self.width as u32,
+                    self.height as u32,
+                    self.bg_color,
+                );
+            }
+
+            ScaleMode::Center => {
+                Image_center(
+                    self.buffer.as_mut_ptr(),
+                    buffer.as_ptr(),
+                    buf_width as u32,
+                    buf_height as u32,
+                    buf_stride as u32,
+                    self.width as u32,
+                    self.height as u32,
+                    self.bg_color,
+                );
+            }
+
+            ScaleMode::UpperLeft => {
+                Image_upper_left(
+                    self.buffer.as_mut_ptr(),
+                    buffer.as_ptr(),
+                    buf_width as u32,
+                    buf_height as u32,
+                    buf_stride as u32,
+                    self.width as u32,
+                    self.height as u32,
+                    self.bg_color,
+                );
+            }
+        }
+	}
 }
 
 
