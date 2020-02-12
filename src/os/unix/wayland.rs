@@ -416,9 +416,6 @@ pub struct Window{
 impl Window{
 	pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Self>{
 		let scale;
-		//TODO: opts.scale
-        //TODO: handle scale
-		//wayland_protocols: wp_viewport
 		match opts.scale{
             Scale::FitScreen => {
                //TODO
@@ -460,7 +457,6 @@ impl Window{
 			width: width as i32 * scale,
 			height: height as i32 * scale,
 	
-			//TODO
 			scale,
 			bg_color: 0,
 			scale_mode: opts.scale_mode,
