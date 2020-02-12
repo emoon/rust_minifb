@@ -87,6 +87,7 @@ pub struct DisplayInfo{
 	fb_size: (i32, i32),
 	//Wayland buffer pixel format
 	format: Format,
+	xdg_config: Rc<RefCell<Option<u32>>>,
 	cursor: wayland_cursor::CursorTheme,
 	cursor_surface: Main<WlSurface>
 }
@@ -179,14 +180,18 @@ impl DisplayInfo{
 		//requires version 5 for the scroll events
 		let seat = global_man.instantiate_exact::<WlSeat>(5).map_err(|e| Error::WindowCreate(format!("Failed retrieving the WlSeat: {:?}", e)))?;	
 
-		//Removed the surface commit because of redrawing issue
-		xdg_surface.quick_assign(move |xdg_surface, event, _|{
-			use wayland_protocols::xdg_shell::client::xdg_surface::Event;
+		let xdg_config = Rc::new(RefCell::new(None));
+		{
+			let xdg_config = xdg_config.clone();
+			xdg_surface.quick_assign(move |xdg_surface, event, _|{
+				use wayland_protocols::xdg_shell::client::xdg_surface::Event;
 
-			if let Event::Configure{serial} = event{
-				xdg_surface.ack_configure(serial);
-			}
-		});
+				//Acknowledge only the last configure
+				if let Event::Configure{serial} = event{
+					*xdg_config.borrow_mut() = Some(serial);
+				}
+			});
+		}
 
 		let cursor = wayland_cursor::load_theme(None, 16, &shm);
 		let cursor_surface = comp.create_surface();
@@ -207,6 +212,7 @@ impl DisplayInfo{
 			seat,
 			fb_size: (size.0, size.1),
 			format,
+			xdg_config,
 			cursor,
 			cursor_surface
 		})
@@ -293,6 +299,11 @@ impl DisplayInfo{
 		self.surface.attach(Some(&self.buf[self.buf.len()-1].0), 0, 0);
 		self.surface.damage_buffer(0, 0, size.0, size.1);
 		self.surface.commit();
+
+		//Acknowledge the last configure event
+		if let Some(serial) = (*self.xdg_config.borrow_mut()).take(){
+			self.xdg_surface.ack_configure(serial);
+		}
 	}
 
 	fn get_input_devs(&self) -> (Main<WlKeyboard>, Main<WlPointer>, Main<WlTouch>){
