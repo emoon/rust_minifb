@@ -420,7 +420,9 @@ pub struct Window{
 	input: WaylandInput,
 	resizable: bool,
 	//temporary buffer
-	buffer: Vec<u32>
+	buffer: Vec<u32>,
+	//configure, close
+	toplevel_info: (Rc<RefCell<Option<(i32, i32)>>>, Rc<RefCell<bool>>)
 }
 
 
@@ -462,6 +464,26 @@ impl Window{
 
 		let input = WaylandInput::new(&dsp);
 
+		//TODO: maybe outsource
+		let configure = Rc::new(RefCell::new(None));
+		let close = Rc::new(RefCell::new(false));
+
+		{
+			let configure = configure.clone();
+			let close = close.clone();
+
+			dsp.toplevel.quick_assign(move |_, event, _|{
+				use wayland_protocols::xdg_shell::client::xdg_toplevel::Event;
+
+				if let Event::Configure{width, height, states} = event{
+					*configure.borrow_mut() = Some((width, height));
+				}
+				else if let Event::Close = event{
+					*close.borrow_mut() = true;
+				}
+			});
+		}
+
 		Ok(Self{
 			display: dsp,
 
@@ -489,7 +511,8 @@ impl Window{
 			menus: Vec::new(),
 			input,
 			resizable: opts.resize,
-			buffer: Vec::with_capacity(width * height * scale as usize * scale as usize)
+			buffer: Vec::with_capacity(width * height * scale as usize * scale as usize),
+			toplevel_info: (configure, close)
 		})
 	}
 
@@ -584,34 +607,16 @@ impl Window{
 
     //WIP
     pub fn update(&mut self){
-		let configure = Rc::new(RefCell::new(None));
-		let close = Rc::new(RefCell::new(false));
-
-		{
-			let configure = configure.clone();
-			let close = close.clone();
-
-			self.display.toplevel.quick_assign(move |_, event, _|{
-				use wayland_protocols::xdg_shell::client::xdg_toplevel::Event;
-
-				if let Event::Configure{width, height, states} = event{
-					*configure.borrow_mut() = Some((width, height));
-				}
-				else if let Event::Close = event{
-					*close.borrow_mut() = true;
-				}
-			});
-		}
 
 		self.display.event_queue.dispatch(&mut (), |_, _, _|{}).map_err(|e| Error::WindowCreate(format!("Event dispatch failed: {:?}", e))).unwrap();
 		
-		if let Some(resize) = *configure.borrow(){
+		if let Some(resize) = (*self.toplevel_info.0.borrow_mut()).take(){
 			if self.resizable{
 				self.width = resize.0;
 				self.height = resize.1;
 			}
 		}
-		if *close.borrow(){
+		if *self.toplevel_info.1.borrow(){
 			self.should_close=true;
 		}
 
