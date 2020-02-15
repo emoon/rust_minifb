@@ -258,6 +258,19 @@ impl DisplayInfo{
 		self.cursor_surface.commit();
 	}
 
+	//remove the buffers which are allowed to be removed
+	fn filter_buffers(&mut self){
+		self.buf.retain(|(wlbuf, not_req)|{
+			if *not_req.borrow(){
+				wlbuf.destroy();
+				false
+			}
+			else{
+				true
+			}
+		});
+	}
+
 	//resizes when buffer is bigger or less
 	fn update_framebuffer(&mut self, buffer: &[u32], size: (i32, i32)){
 		use std::io::{Seek, SeekFrom};
@@ -283,16 +296,7 @@ impl DisplayInfo{
 			//create new buffer and add it to the vec
 			let (buf, buf_not_needed) = Self::create_shm_buffer(&self.shm_pool.0, size, self.format);
 
-			//remove the buffers which are allowed to be removed
-			self.buf.retain(|(wlbuf, not_req)|{
-				if *not_req.borrow(){
-					wlbuf.destroy();
-					false
-				}
-				else{
-					true
-				}
-			});
+			self.filter_buffers();
 			self.buf.push((buf, buf_not_needed));
 		}
 
