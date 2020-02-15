@@ -284,13 +284,12 @@ impl DisplayInfo{
 		self.fd.flush().unwrap();
 
 		if cnt != buffer.len() * std::mem::size_of::<u32>(){
-			//change file length
-			self.fd.set_len((size.0 * size.1 * std::mem::size_of::<u32>() as i32) as u64).unwrap();
-			//Shm Pool is not allowed to be resized
+			//Shm Pool is not allowed to be truncated
 			let new_pool_size = (buffer.len() * std::mem::size_of::<u32>()) as i32;
 			if new_pool_size > self.shm_pool.1{
 				self.shm_pool.0.resize(size.0 * size.1 * std::mem::size_of::<u32>() as i32);
 				self.shm_pool.1 = new_pool_size;
+
 			}
 
 			//create new buffer and add it to the vec
