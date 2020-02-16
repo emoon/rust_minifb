@@ -68,7 +68,6 @@ extern "C" {
 
 
 pub struct DisplayInfo{
-	_display: wayland_client::Display,
 	wl_display: Attached<WlDisplay>,
 	_comp: Main<WlCompositor>,
 	_base: Main<XdgWmBase>,
@@ -89,7 +88,8 @@ pub struct DisplayInfo{
 	format: Format,
 	xdg_config: Rc<RefCell<Option<u32>>>,
 	cursor: wayland_cursor::CursorTheme,
-	cursor_surface: Main<WlSurface>
+	cursor_surface: Main<WlSurface>,
+	_display: wayland_client::Display
 }
 
 impl DisplayInfo{
