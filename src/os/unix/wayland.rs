@@ -174,7 +174,7 @@ impl DisplayInfo{
 
 		//give the surface the buffer and commit
 		surface.attach(Some(&buffer), 0, 0);
-		surface.damage_buffer(0, 0, size.0, size.1);
+		surface.damage(0, 0, i32::max_value(), i32::max_value());
 		surface.commit();
 
 		//requires version 5 for the scroll events
@@ -300,7 +300,7 @@ impl DisplayInfo{
 		}
 
 		self.surface.attach(Some(&self.buf[self.buf.len()-1].0), 0, 0);
-		self.surface.damage_buffer(0, 0, size.0, size.1);
+		self.surface.damage(0, 0, i32::max_value(), i32::max_value());
 		self.surface.commit();
 
 		//Acknowledge the last configure event
