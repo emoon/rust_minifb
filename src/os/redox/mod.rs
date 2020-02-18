@@ -1,20 +1,20 @@
 #![cfg(target_os = "redox")]
 
 extern crate orbclient;
-use os::redox::orbclient::Renderer;
+use orbclient::Renderer;
 // extern crate raw_window_handle;
 
-use buffer_helper;
-use error::Error;
-use key_handler::KeyHandler;
-use rate::UpdateRate;
-use mouse_handler;
-use InputCallback;
-use Result;
-use {CursorStyle, MouseButton, MouseMode};
-use {Key, KeyRepeat};
-use {MenuHandle, MenuItem, MenuItemHandle, UnixMenu, UnixMenuItem};
-use {Scale, WindowOptions};
+use crate::buffer_helper;
+use crate::error::Error;
+use crate::key_handler::KeyHandler;
+use crate::rate::UpdateRate;
+use crate::mouse_handler;
+use crate::InputCallback;
+use crate::Result;
+use crate::{CursorStyle, MouseButton, MouseMode};
+use crate::{Key, KeyRepeat};
+use crate::{MenuHandle, MenuItem, MenuItemHandle, UnixMenu, UnixMenuItem};
+use crate::{Scale, WindowOptions};
 
 use std::cmp;
 use std::os::raw;
