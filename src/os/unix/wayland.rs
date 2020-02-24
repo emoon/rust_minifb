@@ -117,7 +117,6 @@ impl BufferPool{
 		let size_bytes = size.0 * size.1 * std::mem::size_of::<u32>() as i32;
 		//If possible take an older shm_pool and create a new buffer onto it
 		if let Some(idx) = pos{
-			println!("{}", idx);
 			//shm_pool not allowed to be truncated
 			if size_bytes > self.v[idx].pool.1{
 				self.v[idx].pool.0.resize(size_bytes);
@@ -126,7 +125,6 @@ impl BufferPool{
 
 			//Different buffer size
 			if self.v[idx].fb_size != size{
-				println!("different size {:?}", size);
 				let new_buffer = Self::create_shm_buffer(&self.v[idx].pool.0, size, self.format);
 				let old_buffer = std::mem::replace(&mut self.v[idx].buffer, new_buffer);
 				old_buffer.0.destroy();
