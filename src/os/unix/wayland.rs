@@ -66,6 +66,92 @@ extern "C" {
     );
 }
 
+pub struct SingleBuffer{
+	fd: std::fs::File,
+	//Shm pool and size
+	pool: (Main<WlShmPool>, i32),
+	//buffer and state
+	buffer: (Main<WlBuffer>, Rc<RefCell<bool>>),
+	fb_size: (i32, i32)
+}
+
+pub struct BufferPool{
+	v: Vec<SingleBuffer>,
+	shm: Main<WlShm>,
+	format: Format
+}
+
+impl BufferPool{
+	fn new(shm: Main<WlShm>, format: Format) -> Self{
+		Self{
+			v: Vec::new(),
+			shm,
+			format
+		}
+	}
+
+	fn create_shm_buffer(shm_pool: &Main<WlShmPool>, size: (i32, i32), format: Format) -> (Main<WlBuffer>, Rc<RefCell<bool>>){
+		let buf = shm_pool.create_buffer(0, size.0, size.1, size.0*std::mem::size_of::<u32>() as i32, format);
+		let buf_not_needed = Rc::new(RefCell::new(false));
+		{
+			let buf_not_needed = buf_not_needed.clone();
+
+			buf.quick_assign(move |_, event, _|{
+				use wayland_client::protocol::wl_buffer::Event;
+
+				if let Event::Release = event{
+					*buf_not_needed.borrow_mut() = true;
+				}
+			});
+		}
+
+		(buf, buf_not_needed)
+	}
+
+	fn get_buffer(&mut self, size: (i32, i32)) -> (std::fs::File, &Main<WlBuffer>){
+		use std::os::unix::io::AsRawFd;
+
+		let pos = self.v.iter().rposition(|e|{
+			*e.buffer.1.borrow()
+		});
+		let size_bytes = size.0 * size.1 * std::mem::size_of::<u32>() as i32;
+		//If possible take an older shm_pool and create a new buffer onto it
+		if let Some(idx) = pos{
+			println!("{}", idx);
+			//shm_pool not allowed to be truncated
+			if size_bytes > self.v[idx].pool.1{
+				self.v[idx].pool.0.resize(size_bytes);
+				self.v[idx].pool.1 = size_bytes;
+			}
+
+			//Different buffer size
+			if self.v[idx].fb_size != size{
+				println!("different size {:?}", size);
+				let new_buffer = Self::create_shm_buffer(&self.v[idx].pool.0, size, self.format);
+				let old_buffer = std::mem::replace(&mut self.v[idx].buffer, new_buffer);
+				old_buffer.0.destroy();
+				self.v[idx].fb_size = size;
+			}
+
+			(self.v[idx].fd.try_clone().unwrap(), &self.v[idx].buffer.0)
+		}
+		else{
+			let file = tempfile::tempfile().unwrap();
+			let shm_pool = self.shm.create_pool(file.as_raw_fd(), size.0*size.1*std::mem::size_of::<u32>() as i32);
+			let buffer = Self::create_shm_buffer(&shm_pool, size, self.format);
+
+			self.v.push(
+				SingleBuffer{
+					fd: file,
+					pool: (shm_pool, size_bytes),
+					buffer,
+					fb_size: size
+				}
+			);
+			(self.v[self.v.len()-1].fd.try_clone().unwrap(), &self.v[self.v.len()-1].buffer.0)
+		}
+	}
+}
 
 pub struct DisplayInfo{
 	wl_display: Attached<WlDisplay>,
@@ -75,12 +161,7 @@ pub struct DisplayInfo{
 	xdg_surface: Main<XdgSurface>,
 	toplevel: Main<XdgToplevel>,
 	_shm: Main<WlShm>,
-	//Current max ShmPool size
-	shm_pool: (Main<WlShmPool>, i32),
-	//Hold the state of each WlBuffer if allowed to be destroyed
-	buf: Vec<(Main<WlBuffer>, Rc<RefCell<bool>>)>,
 	event_queue: EventQueue,
-	fd: std::fs::File,
 	seat: Main<WlSeat>,
 	//size of the framebuffer
 	fb_size: (i32, i32),
@@ -89,7 +170,8 @@ pub struct DisplayInfo{
 	xdg_config: Rc<RefCell<Option<u32>>>,
 	cursor: wayland_cursor::CursorTheme,
 	cursor_surface: Main<WlSurface>,
-	_display: wayland_client::Display
+	_display: wayland_client::Display,
+	buf_pool: BufferPool
 }
 
 impl DisplayInfo{
@@ -114,14 +196,6 @@ impl DisplayInfo{
 		let comp = global_man.instantiate_exact::<WlCompositor>(4).map_err(|e| Error::WindowCreate(format!("Failed retrieving the compositor: {:?}", e)))?;
 		let shm = global_man.instantiate_exact::<WlShm>(1).map_err(|e| Error::WindowCreate(format!("Failed creating the shared memory: {:?}", e)))?;
 		let surface = comp.create_surface();
-		//temporary file used as framebuffer
-		let mut tmp_f = tempfile::tempfile().map_err(|e| Error::WindowCreate(format!("Failed creating the temporary file: {:?}", e)))?;
-
-		//Add a black canvas into the framebuffer
-		let mut frame: Vec<u32> = vec![0xFF000000; (size.0*size.1) as usize];
-		let slice = unsafe{std::slice::from_raw_parts(frame[..].as_ptr() as *const u8, frame.len() * std::mem::size_of::<u32>())};
-		tmp_f.write_all(&slice[..]).unwrap();
-		tmp_f.flush().unwrap();
 
 		//specify format
 		let format = if alpha{
@@ -131,10 +205,15 @@ impl DisplayInfo{
 			Format::Xrgb8888
 		};
 
-		//create a shared memory
-		let shm_pool = shm.create_pool(tmp_f.as_raw_fd(), size.0*size.1*std::mem::size_of::<u32>() as i32);
-		
-		let (buffer, buf_not_needed) = Self::create_shm_buffer(&shm_pool, size, format);
+		//Retrive file to write to
+		let mut buf_pool = BufferPool::new(shm.clone(), format);
+		let (mut tmp_f, buffer) = buf_pool.get_buffer(size);
+
+		//Add a black canvas into the framebuffer
+		let mut frame: Vec<u32> = vec![0xFF000000; (size.0*size.1) as usize];
+		let slice = unsafe{std::slice::from_raw_parts(frame[..].as_ptr() as *const u8, frame.len() * std::mem::size_of::<u32>())};
+		tmp_f.write_all(&slice[..]).unwrap();
+		tmp_f.flush().unwrap();
 
 		let xdg_wm_base = global_man.instantiate_exact::<XdgWmBase>(1).map_err(|e| Error::WindowCreate(format!("Failed retrieving the XdgWmBase: {:?}", e)))?;
 		
@@ -204,17 +283,15 @@ impl DisplayInfo{
 			surface,
 			xdg_surface,
 			toplevel: xdg_toplevel,
-			shm_pool: (shm_pool, size.0 * size.1 * std::mem::size_of::<u32>() as i32),
 			_shm: shm,
-			buf: {let mut v = Vec::new(); v.push((buffer, buf_not_needed)); v},
 			event_queue: event_q,
-			fd: tmp_f,
 			seat,
 			fb_size: (size.0, size.1),
 			format,
 			xdg_config,
 			cursor,
-			cursor_surface
+			cursor_surface,
+			buf_pool
 		})
 	}
 
@@ -231,24 +308,6 @@ impl DisplayInfo{
 		self.toplevel.set_min_size(size.0, size.1);
 	}
 
-	fn create_shm_buffer(shm_pool: &Main<WlShmPool>, size: (i32, i32), format: Format) -> (Main<WlBuffer>, Rc<RefCell<bool>>){
-		let buf = shm_pool.create_buffer(0, size.0, size.1, size.0*std::mem::size_of::<u32>() as i32, format);
-		let buf_not_needed = Rc::new(RefCell::new(false));
-		{
-			let buf_not_needed = buf_not_needed.clone();
-
-			buf.quick_assign(move |_, event, _|{
-				use wayland_client::protocol::wl_buffer::Event;
-
-				if let Event::Release = event{
-					*buf_not_needed.borrow_mut() = true;
-				}
-			});
-		}
-
-		(buf, buf_not_needed)
-	}
-
 	//Sets a specific cursor style
 	fn update_cursor(&mut self, cursor: &str){
 		let csr = self.cursor.get_cursor(cursor).unwrap();
@@ -258,48 +317,18 @@ impl DisplayInfo{
 		self.cursor_surface.commit();
 	}
 
-	//remove the buffers which are allowed to be removed
-	fn filter_buffers(&mut self){
-		self.buf.retain(|(wlbuf, not_req)|{
-			if *not_req.borrow(){
-				wlbuf.destroy();
-				false
-			}
-			else{
-				true
-			}
-		});
-	}
-
 	//resizes when buffer is bigger or less
 	fn update_framebuffer(&mut self, buffer: &[u32], size: (i32, i32)){
 		use std::io::{Seek, SeekFrom};
 
-		let cnt = (self.fb_size.0 * self.fb_size.1 * std::mem::size_of::<u32>() as i32) as usize;
-		self.fb_size = size;
+		let (mut fd, buf) = self.buf_pool.get_buffer(size);
 
-		self.fd.seek(SeekFrom::Start(0)).unwrap();
+		fd.seek(SeekFrom::Start(0)).unwrap();
 		let slice = unsafe{std::slice::from_raw_parts(buffer[..].as_ptr() as *const u8, buffer.len() * std::mem::size_of::<u32>())};
-		self.fd.write_all(&slice[..]).unwrap();
-		self.fd.flush().unwrap();
+		fd.write_all(&slice[..]).unwrap();
+		fd.flush().unwrap();
 
-		if cnt != buffer.len() * std::mem::size_of::<u32>(){
-			//Shm Pool is not allowed to be truncated
-			let new_pool_size = (buffer.len() * std::mem::size_of::<u32>()) as i32;
-			if new_pool_size > self.shm_pool.1{
-				self.shm_pool.0.resize(size.0 * size.1 * std::mem::size_of::<u32>() as i32);
-				self.shm_pool.1 = new_pool_size;
-
-			}
-
-			//create new buffer and add it to the vec
-			let (buf, buf_not_needed) = Self::create_shm_buffer(&self.shm_pool.0, size, self.format);
-
-			self.filter_buffers();
-			self.buf.push((buf, buf_not_needed));
-		}
-
-		self.surface.attach(Some(&self.buf[self.buf.len()-1].0), 0, 0);
+		self.surface.attach(Some(buf), 0, 0);
 		self.surface.damage(0, 0, i32::max_value(), i32::max_value());
 		self.surface.commit();
 
@@ -614,7 +643,8 @@ impl Window{
 		self.display.event_queue.dispatch(&mut (), |_, _, _|{}).map_err(|e| Error::WindowCreate(format!("Event dispatch failed: {:?}", e))).unwrap();
 		
 		if let Some(resize) = (*self.toplevel_info.0.borrow_mut()).take(){
-			if self.resizable{
+			//Dont try to resize to 0x0
+			if self.resizable && resize != (0, 0){
 				self.width = resize.0;
 				self.height = resize.1;
 			}
