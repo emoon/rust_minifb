@@ -326,14 +326,14 @@ impl DisplayInfo{
 		fd.write_all(&slice[..]).unwrap();
 		fd.flush().unwrap();
 
-		self.surface.attach(Some(buf), 0, 0);
-		self.surface.damage(0, 0, i32::max_value(), i32::max_value());
-		self.surface.commit();
-
 		//Acknowledge the last configure event
 		if let Some(serial) = (*self.xdg_config.borrow_mut()).take(){
 			self.xdg_surface.ack_configure(serial);
 		}
+
+		self.surface.attach(Some(buf), 0, 0);
+		self.surface.damage(0, 0, i32::max_value(), i32::max_value());
+		self.surface.commit();
 	}
 
 	fn get_input_devs(&self) -> (Main<WlKeyboard>, Main<WlPointer>, Main<WlTouch>){
