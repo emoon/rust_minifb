@@ -637,7 +637,6 @@ impl Window{
 
     //WIP
     pub fn update(&mut self){
-
 		self.display.event_queue.dispatch(&mut (), |_, _, _|{}).map_err(|e| Error::WindowCreate(format!("Event dispatch failed: {:?}", e))).unwrap();
 		
 		if let Some(resize) = (*self.toplevel_info.0.borrow_mut()).take(){
@@ -658,10 +657,10 @@ impl Window{
 					self.keymap = Some(Self::handle_keymap(format, fd, size));
 				}
 				Event::Enter{serial, surface, keys} => {
-						
+					self.active = true;
 				},
 				Event::Leave{serial, surface} => {
-						
+					self.active = false;
 				},
 				Event::Key{serial, time, key, state} => {
 						
