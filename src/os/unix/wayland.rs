@@ -420,6 +420,12 @@ impl WaylandInput{
 	}
 }
 
+struct Modifiers{
+	mods_depressed: u32,
+	mods_latched: u32,
+	mods_locked: u32,
+	group: u32
+}
 
 pub struct Window{
 	display: DisplayInfo,
@@ -444,6 +450,7 @@ pub struct Window{
 	key_handler: KeyHandler,
 	//option because MaybeUninit's get_ref() is nightly-only
 	keymap: Option<xkb::keymap::Keymap>,
+	mods: Option<Modifiers>,
 	update_rate: UpdateRate,
 	menu_counter: MenuHandle,
 	menus: Vec<UnixMenu>,
@@ -536,6 +543,7 @@ impl Window{
 
 			key_handler: KeyHandler::new(),
 			keymap: None,
+			mods: None,
 			update_rate: UpdateRate::new(),
 			menu_counter: MenuHandle(0),
 			menus: Vec::new(),
@@ -666,6 +674,7 @@ impl Window{
 						
 				},
 				Event::Modifiers{serial, mods_depressed, mods_latched, mods_locked, group} => {
+					self.mods = Some(Modifiers{ mods_depressed, mods_latched, mods_locked, group });
 	
 				},
 				_ => {}
