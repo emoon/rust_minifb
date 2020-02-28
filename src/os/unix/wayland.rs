@@ -193,6 +193,9 @@ impl DisplayInfo{
 		//retrieve some types from globals
 		let comp = global_man.instantiate_exact::<WlCompositor>(4).map_err(|e| Error::WindowCreate(format!("Failed retrieving the compositor: {:?}", e)))?;
 		let shm = global_man.instantiate_exact::<WlShm>(1).map_err(|e| Error::WindowCreate(format!("Failed creating the shared memory: {:?}", e)))?;
+		//requires version 5 for the scroll events
+		let seat = global_man.instantiate_exact::<WlSeat>(5).map_err(|e| Error::WindowCreate(format!("Failed retrieving the WlSeat: {:?}", e)))?;	
+
 		let surface = comp.create_surface();
 
 		//specify format
@@ -253,9 +256,6 @@ impl DisplayInfo{
 		surface.attach(Some(&buffer), 0, 0);
 		surface.damage(0, 0, i32::max_value(), i32::max_value());
 		surface.commit();
-
-		//requires version 5 for the scroll events
-		let seat = global_man.instantiate_exact::<WlSeat>(5).map_err(|e| Error::WindowCreate(format!("Failed retrieving the WlSeat: {:?}", e)))?;	
 
 		let xdg_config = Rc::new(RefCell::new(None));
 		{
