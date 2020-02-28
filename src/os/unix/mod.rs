@@ -8,8 +8,8 @@
 // turn off a gazillion warnings about X keysym names
 #![allow(non_upper_case_globals)]
 
-mod wayland;
 mod key_mapping;
+mod wayland;
 mod x11;
 
 use crate::Result;
@@ -28,15 +28,15 @@ pub enum Window {
 impl Window {
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
         //Try to create Wayland display first
-		let wl_window = wayland::Window::new(name, width, height, opts);
-		match wl_window{
-			Ok(w) => Ok(Window::Wayland(w)),
-			Err(e) => {
-				//Create X11 Window when Wayland fails
-        		let window = Window::X11(x11::Window::new(name, width, height, opts)?);
-				Ok(window)
-			}
-		}
+        let wl_window = wayland::Window::new(name, width, height, opts);
+        match wl_window {
+            Ok(w) => Ok(Window::Wayland(w)),
+            Err(e) => {
+                //Create X11 Window when Wayland fails
+                let window = Window::X11(x11::Window::new(name, width, height, opts)?);
+                Ok(window)
+            }
+        }
     }
 
     pub fn set_title(&mut self, title: &str) {
@@ -57,7 +57,9 @@ impl Window {
             Window::X11(ref mut w) => {
                 w.update_with_buffer_stride(buffer, buf_width, buf_height, buf_stride)
             }
-            Window::Wayland(ref mut w) => w.update_with_buffer_stride(buffer, buf_width, buf_height, buf_stride),
+            Window::Wayland(ref mut w) => {
+                w.update_with_buffer_stride(buffer, buf_width, buf_height, buf_stride)
+            }
         }
     }
 
