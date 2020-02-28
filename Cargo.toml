@@ -45,6 +45,7 @@ wayland-client = "0.25"
 wayland-protocols = { version = "0.25", features = ["client", "unstable_protocols"] }
 wayland-cursor = "0.25"
 xkb = "0.2.1"
+xkbcommon-sys = "0.7"
 tempfile = "3.1.0"
 
 [target.x86_64-unknown-linux-gnu.dependencies]
@@ -53,6 +54,7 @@ wayland-client = "0.25"
 wayland-protocols = { version = "0.25", features = ["client", "unstable_protocols"] }
 wayland-cursor = "0.25"
 xkb = "0.2.1"
+xkbcommon-sys = "0.7"
 tempfile = "3.1.0"
 
 [target.arm-unknown-linux-gnueabihf.dependencies]
@@ -61,6 +63,7 @@ wayland-client = "0.25"
 wayland-protocols = { version = "0.25", features = ["client", "unstable_protocols"] }
 wayland-cursor = "0.25"
 xkb = "0.2.1"
+xkbcommon-sys = "0.7"
 tempfile = "3.1.0"
 
 [target.armv7-unknown-linux-gnueabihf.dependencies]
@@ -69,6 +72,7 @@ wayland-client = "0.25"
 wayland-protocols = { version = "0.25", features = ["client", "unstable_protocols"] }
 wayland-cursor = "0.25"
 xkb = "0.2.1"
+xkbcommon-sys = "0.7"
 tempfile = "3.1.0"
 
 [target.aarch64-unknown-linux-gnu.dependencies]
@@ -77,6 +81,7 @@ wayland-client = "0.25"
 wayland-protocols = { version = "0.25", features = ["client", "unstable_protocols"] }
 wayland-cursor = "0.25"
 xkb = "0.2.1"
+xkbcommon-sys = "0.7"
 tempfile = "3.1.0"
 
 [target.x86_64-unknown-dragonfly.dependencies]
@@ -85,6 +90,7 @@ wayland-client = "0.25"
 wayland-protocols = { version = "0.25", features = ["client", "unstable_protocols"] }
 wayland-cursor = "0.25"
 xkb = "0.2.1"
+xkbcommon-sys = "0.7"
 tempfile = "3.1.0"
 
 [target.x86_64-unknown-freebsd.dependencies]
@@ -93,6 +99,7 @@ wayland-client = "0.25"
 wayland-protocols = { version = "0.25", features = ["client", "unstable_protocols"] }
 wayland-cursor = "0.25"
 xkb = "0.2.1"
+xkbcommon-sys = "0.7"
 tempfile = "3.1.0"
 
 [target.x86_64-unknown-redox.dependencies]

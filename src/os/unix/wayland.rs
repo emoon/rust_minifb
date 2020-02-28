@@ -764,16 +764,22 @@ impl Window{
 				use xkb::keymap::Keymap;
 
 				unsafe{
+					//read in fd content into vec
 					let mut file = std::fs::File::from_raw_fd(fd);
 					let mut v = Vec::with_capacity(len as usize);
 					v.set_len(len as usize);
 					file.read_exact(&mut v).unwrap();
-					let slice = std::slice::from_raw_parts_mut(v.as_mut_ptr() as *mut c_void, len as usize);
-					let kb_map = Keymap::from_ptr(slice as *mut _ as *mut c_void);
+					let slice = std::slice::from_raw_parts_mut(v.as_mut_ptr() as *mut std::os::raw::c_char, len as usize);
+
+					let ctx = xkbcommon_sys::xkb_context_new(0);
+					//create keymap from string
+					let kb_map_ptr = xkbcommon_sys::xkb_keymap_new_from_string(ctx, slice.as_ptr(), xkbcommon_sys::xkb_keymap_format::XKB_KEYMAP_FORMAT_TEXT_v1, xkbcommon_sys::XKB_COMPOSE_COMPILE_NO_FLAGS);
+					//wrap keymap
+					let kb_map = Keymap::from_ptr(kb_map_ptr as *mut _ as *mut c_void);
 					kb_map
 				}
 			},
-			_ => unimplemented!()
+			_ => unimplemented!("Only XKB keymaps supported")
 		}
 	}
 
