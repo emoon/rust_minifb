@@ -755,6 +755,21 @@ impl Window{
 		}
 	}
 
+	fn convert_key_info(keymap: &xkb::keymap::Keymap, key: u32, state: wayland_client::protocol::wl_keyboard::KeyState, mods: &Modifiers) -> Option<(u32, bool)>{
+		use wayland_client::protocol::wl_keyboard::KeyState;
+
+		let is_down = state==KeyState::Pressed;
+
+		let state = keymap.state();
+		let key_xkb = state.key(key);
+
+		if let Some(keysym) = key_xkb.sym(){
+			//TODO
+		}
+
+		None
+	}
+
 	fn handle_keymap(keymap: wayland_client::protocol::wl_keyboard::KeymapFormat, fd: RawFd, len: u32)-> xkb::keymap::Keymap{
 		use std::os::unix::io::FromRawFd;
 		use std::io::Read;
