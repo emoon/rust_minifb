@@ -671,7 +671,11 @@ impl Window{
 					self.active = false;
 				},
 				Event::Key{serial, time, key, state} => {
-						
+					if let Some(ref keymap) = self.keymap{
+						if let Some(ref mods) = self.mods{
+							let key = Self::convert_key_info(keymap, key, state, mods);
+						}
+					}
 				},
 				Event::Modifiers{serial, mods_depressed, mods_latched, mods_locked, group} => {
 					self.mods = Some(Modifiers{ mods_depressed, mods_latched, mods_locked, group });
