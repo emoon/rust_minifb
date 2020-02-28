@@ -709,11 +709,7 @@ impl Window{
 				Event::Button{serial, time, button, state} => {
 					use wayland_client::protocol::wl_pointer::ButtonState;
 
-					let st = match state{
-						ButtonState::Pressed => 1,
-						ButtonState::Released => 0,
-						_ => unimplemented!(),
-					};
+					let st = (state == ButtonState::Pressed) as u8;
 
 					match button{
 						//Left
