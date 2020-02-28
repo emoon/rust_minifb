@@ -658,6 +658,8 @@ impl Window{
 			self.should_close=true;
 		}
 
+		const KEY_XKB_OFFSET: u32 = 8;
+
 		for event in self.input.iter_keyboard_events(){
 			use wayland_client::protocol::wl_keyboard::Event;
 			match event{
@@ -673,7 +675,7 @@ impl Window{
 				Event::Key{serial, time, key, state} => {
 					if let Some(ref keymap) = self.keymap{
 						if let Some(ref mods) = self.mods{
-							let key = Self::convert_key_info(keymap, key, state, mods);
+							Self::handle_key(keymap, key+KEY_XKB_OFFSET, state, mods, &mut self.key_handler);
 						}
 					}
 				},
@@ -755,7 +757,7 @@ impl Window{
 		}
 	}
 
-	fn convert_key_info(keymap: &xkb::keymap::Keymap, key: u32, state: wayland_client::protocol::wl_keyboard::KeyState, mods: &Modifiers) -> Option<(u32, bool)>{
+	fn handle_key(keymap: &xkb::keymap::Keymap, key: u32, state: wayland_client::protocol::wl_keyboard::KeyState, mods: &Modifiers, key_handler: &mut KeyHandler){
 		use wayland_client::protocol::wl_keyboard::KeyState;
 
 		let is_down = state==KeyState::Pressed;
@@ -764,10 +766,124 @@ impl Window{
 		let key_xkb = state.key(key);
 
 		if let Some(keysym) = key_xkb.sym(){
-			//TODO
-		}
+			use xkb::key;
+        	let key_u = match keysym{
+        	    key::_0 => Key::Key0,
+        	    key::_1 => Key::Key1,
+        	    key::_2 => Key::Key2,
+        	    key::_3 => Key::Key3,
+        	    key::_4 => Key::Key4,
+        	    key::_5 => Key::Key5,
+        	    key::_6 => Key::Key6,
+        	    key::_7 => Key::Key7,
+        	    key::_8 => Key::Key8,
+        	    key::_9 => Key::Key9,
+			
+        	    key::a => Key::A,
+        	    key::b => Key::B,
+        	    key::c => Key::C,
+        	    key::d => Key::D,
+        	    key::e => Key::E,
+        	    key::f => Key::F,
+        	    key::g => Key::G,
+        	    key::h => Key::H,
+        	    key::i => Key::I,
+        	    key::j => Key::J,
+        	    key::k => Key::K,
+        	    key::l => Key::L,
+       	    	key::m => Key::M,
+            	key::n => Key::N,
+            	key::o => Key::O,
+            	key::p => Key::P,
+            	key::q => Key::Q,
+            	key::r => Key::R,
+            	key::s => Key::S,
+           		key::t => Key::T,
+            	key::u => Key::U,
+            	key::v => Key::V,
+            	key::w => Key::W,
+            	key::x => Key::X,
+            	key::y => Key::Y,
+            	key::z => Key::Z,
+			
+            	key::apostrophe => Key::Apostrophe,
+            	key::grave => Key::Backquote,
+            	key::backslash => Key::Backslash,
+            	key::comma => Key::Comma,
+            	key::equal => Key::Equal,
+            	key::bracketleft => Key::LeftBracket,
+            	key::minus => Key::Minus,
+            	key::period => Key::Period,
+            	key::braceright => Key::RightBracket,
+            	key::semicolon => Key::Semicolon,
+            	key::slash => Key::Slash,
+            	key::space => Key::Space,
 
-		None
+            	key::F1 => Key::F1,
+            	key::F2 => Key::F2,
+            	key::F3 => Key::F3,
+            	key::F4 => Key::F4,
+            	key::F5 => Key::F5,
+            	key::F6 => Key::F6,
+            	key::F7 => Key::F7,
+            	key::F8 => Key::F8,
+            	key::F9 => Key::F9,
+            	key::F10 => Key::F10,
+            	key::F11 => Key::F11,
+            	key::F12 => Key::F12,
+			
+            	key::Down => Key::Down,
+            	key::Left => Key::Left,
+            	key::Right => Key::Right,
+            	key::Up => Key::Up,
+            	key::Escape => Key::Escape,
+            	key::BackSpace => Key::Backspace,
+            	key::Delete => Key::Delete,
+            	key::End => Key::End,
+            	key::Return => Key::Enter,
+            	key::Home => Key::Home,
+            	key::Insert => Key::Insert,
+            	key::Menu => Key::Menu,
+            	key::Page_Down => Key::PageDown,
+            	key::Page_Up => Key::PageUp,
+            	key::Pause => Key::Pause,
+            	key::Tab => Key::Tab,
+            	key::Num_Lock => Key::NumLock,
+            	key::Caps_Lock => Key::CapsLock,
+            	key::Scroll_Lock => Key::ScrollLock,
+            	key::Shift_L => Key::LeftShift,
+            	key::Shift_R => Key::RightShift,
+            	key::Alt_L => Key::LeftAlt,
+            	key::Alt_R => Key::RightAlt,
+            	key::Control_L => Key::LeftCtrl,
+            	key::Control_R => Key::RightCtrl,
+            	key::Super_L => Key::LeftSuper,
+            	key::Super_R => Key::RightSuper,
+			
+            	key::KP_0 => Key::NumPad0,
+            	key::KP_1 => Key::NumPad1,
+            	key::KP_2 => Key::NumPad2,
+            	key::KP_3 => Key::NumPad3,
+            	key::KP_4 => Key::NumPad4,
+            	key::KP_5 => Key::NumPad5,
+            	key::KP_6 => Key::NumPad6,
+           		key::KP_7 => Key::NumPad7,
+            	key::KP_8 => Key::NumPad8,
+            	key::KP_9 => Key::NumPad9,
+            	key::KP_Decimal => Key::NumPadDot,
+            	key::KP_Divide => Key::NumPadSlash,
+            	key::KP_Multiply => Key::NumPadAsterisk,
+            	key::KP_Subtract => Key::NumPadMinus,
+            	key::KP_Add => Key::NumPadPlus,
+            	key::KP_Enter => Key::NumPadEnter,
+			
+            	_ => {
+             	   // ignore other keys
+                	return;
+            	}
+        	};
+			key_handler.set_key_state(key_u, is_down);
+		}
 	}
 
 	fn handle_keymap(keymap: wayland_client::protocol::wl_keyboard::KeymapFormat, fd: RawFd, len: u32)-> xkb::keymap::Keymap{
