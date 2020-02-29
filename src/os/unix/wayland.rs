@@ -892,6 +892,8 @@ impl Window {
                 _ => {}
             }
         }
+
+		self.key_handler.update();
     }
 
     fn handle_key(
