@@ -1028,6 +1028,17 @@ impl Window {
                 }
             };
             key_handler.set_key_state(key_i, is_down);
+
+			//Update
+			let mut update = state.update();
+			let keycode = xkb::Keycode::from(key);
+			if is_down{
+				update.key(keycode, xkb::key::Direction::Down);
+			}
+			else{
+				update.key(keycode, xkb::key::Direction::Up);
+			}
+		}
     }
 
     fn handle_keymap(
