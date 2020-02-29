@@ -907,12 +907,12 @@ impl Window {
 
         let is_down = state == KeyState::Pressed;
 
-        let state = keymap.state();
+        let mut state = keymap.state();
         let key_xkb = state.key(key);
 
         if let Some(keysym) = key_xkb.sym() {
             use xkb::key;
-            let key_u = match keysym {
+            let key_i = match keysym {
                 key::_0 => Key::Key0,
                 key::_1 => Key::Key1,
                 key::_2 => Key::Key2,
@@ -1027,8 +1027,7 @@ impl Window {
                     return;
                 }
             };
-            key_handler.set_key_state(key_u, is_down);
-        }
+            key_handler.set_key_state(key_i, is_down);
     }
 
     fn handle_keymap(
