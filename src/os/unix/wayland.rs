@@ -724,6 +724,10 @@ impl Window {
         self.key_handler.set_key_repeat_delay(delay);
     }
 
+	pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>){
+		self.key_handler.set_input_callback(callback);
+	}
+
     pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
         self.key_handler.is_key_pressed(key, repeat)
     }

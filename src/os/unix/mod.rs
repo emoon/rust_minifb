@@ -199,7 +199,7 @@ impl Window {
     pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>) {
         match *self {
             Window::X11(ref mut w) => w.set_input_callback(callback),
-            Window::Wayland(ref mut _w) => unimplemented!(),
+            Window::Wayland(ref mut w) => w.set_input_callback(callback),
         }
     }
 
