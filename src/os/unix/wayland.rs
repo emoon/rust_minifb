@@ -201,7 +201,7 @@ impl DisplayInfo {
     //size: size of the surface to be created
     //alpha: whether the alpha channel shall be rendered
     //decoration: whether server-side window decoration shall be created
-    pub fn new(size: (i32, i32), alpha: bool, decoration: bool) -> Result<Self> {
+    fn new(size: (i32, i32), alpha: bool, decoration: bool) -> Result<(Self, WaylandInput)> {
         use std::os::unix::io::AsRawFd;
 
         //Get the wayland display
@@ -219,6 +219,14 @@ impl DisplayInfo {
             .sync_roundtrip(&mut (), |_, _, _| unreachable!())
             .map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
+        //requires version 5 for the scroll events
+        let seat = global_man
+            .instantiate_exact::<WlSeat>(5)
+            .map_err(|e| Error::WindowCreate(format!("Failed retrieving the WlSeat: {:?}", e)))?;
+
+		//create the input devices already at this point
+		let input = WaylandInput::new(&seat);
+
         //retrieve some types from globals
         let comp = global_man
             .instantiate_exact::<WlCompositor>(4)
@@ -228,10 +236,6 @@ impl DisplayInfo {
         let shm = global_man.instantiate_exact::<WlShm>(1).map_err(|e| {
             Error::WindowCreate(format!("Failed creating the shared memory: {:?}", e))
         })?;
-        //requires version 5 for the scroll events
-        let seat = global_man
-            .instantiate_exact::<WlSeat>(5)
-            .map_err(|e| Error::WindowCreate(format!("Failed retrieving the WlSeat: {:?}", e)))?;
 
         let surface = comp.create_surface();
 
@@ -328,7 +332,7 @@ impl DisplayInfo {
         let cursor = wayland_cursor::load_theme(None, 16, &shm);
         let cursor_surface = comp.create_surface();
 
-        Ok(Self {
+        Ok((Self {
             _display: display,
             wl_display,
             _comp: comp,
@@ -345,7 +349,7 @@ impl DisplayInfo {
             cursor,
             cursor_surface,
             buf_pool,
-        })
+        }, input))
     }
 
     fn set_geometry(&self, pos: (i32, i32), size: (i32, i32)) {
@@ -458,7 +462,7 @@ struct WaylandInput {
 
 impl WaylandInput {
     fn new(seat: &Main<WlSeat>) -> Self {
-        let (keyboard, pointer, _touch) = display.get_input_devs();
+        let (keyboard, pointer, _touch) = (seat.get_keyboard(), seat.get_pointer(), ());
 
         let (kb_sender, kb_receiver) = mpsc::sync_channel(1024);
 
@@ -566,7 +570,7 @@ impl Window {
             }
         }
 
-        let dsp = DisplayInfo::new(
+        let (dsp, input) = DisplayInfo::new(
             (width as i32 * scale, height as i32 * scale),
             false,
             !opts.borderless,
@@ -577,8 +581,6 @@ impl Window {
         if !opts.resize {
             dsp.set_no_resize((width as i32 * scale, height as i32 * scale));
         }
-
-        let input = WaylandInput::new(&dsp);
 
         //TODO: maybe outsource
         let configure = Rc::new(RefCell::new(None));
