@@ -80,7 +80,7 @@ extern "C" {
     );
 }
 
-pub struct SingleBuffer {
+struct SingleBuffer {
     fd: std::fs::File,
     //Shm pool and size
     pool: (Main<WlShmPool>, i32),
@@ -89,7 +89,7 @@ pub struct SingleBuffer {
     fb_size: (i32, i32),
 }
 
-pub struct BufferPool {
+struct BufferPool {
     v: Vec<SingleBuffer>,
     shm: Main<WlShm>,
     format: Format,
@@ -176,7 +176,7 @@ impl BufferPool {
     }
 }
 
-pub struct DisplayInfo {
+struct DisplayInfo {
     wl_display: Attached<WlDisplay>,
     _comp: Main<WlCompositor>,
     _base: Main<XdgWmBase>,
@@ -457,7 +457,7 @@ struct WaylandInput {
 }
 
 impl WaylandInput {
-    pub fn new(display: &DisplayInfo) -> Self {
+    fn new(seat: &Main<WlSeat>) -> Self {
         let (keyboard, pointer, _touch) = display.get_input_devs();
 
         let (kb_sender, kb_receiver) = mpsc::sync_channel(1024);
@@ -479,17 +479,17 @@ impl WaylandInput {
         }
     }
 
-    pub fn get_pointer(&self) -> &Main<WlPointer> {
+    fn get_pointer(&self) -> &Main<WlPointer> {
         &self.input_devs.1
     }
 
-    pub fn iter_keyboard_events(
+    fn iter_keyboard_events(
         &self,
     ) -> std::sync::mpsc::TryIter<wayland_client::protocol::wl_keyboard::Event> {
         self.kb_events.try_iter()
     }
 
-    pub fn iter_pointer_events(
+    fn iter_pointer_events(
         &self,
     ) -> std::sync::mpsc::TryIter<wayland_client::protocol::wl_pointer::Event> {
         self.pt_events.try_iter()
