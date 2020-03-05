@@ -18,8 +18,7 @@ use wayland_client::protocol::{
     wl_seat::WlSeat,
     wl_shm::{Format, WlShm},
     wl_shm_pool::WlShmPool,
-    wl_surface::WlSurface,
-    wl_touch::WlTouch,
+    wl_surface::WlSurface
 };
 use wayland_client::{Attached, Main};
 use wayland_client::{EventQueue, GlobalManager};
@@ -185,11 +184,7 @@ struct DisplayInfo {
     toplevel: Main<XdgToplevel>,
     _shm: Main<WlShm>,
     event_queue: EventQueue,
-    seat: Main<WlSeat>,
-    //size of the framebuffer
-    fb_size: (i32, i32),
-    //Wayland buffer pixel format
-    format: Format,
+    _seat: Main<WlSeat>,
     xdg_config: Rc<RefCell<Option<u32>>>,
     cursor: wayland_cursor::CursorTheme,
     cursor_surface: Main<WlSurface>,
@@ -202,8 +197,6 @@ impl DisplayInfo {
     //alpha: whether the alpha channel shall be rendered
     //decoration: whether server-side window decoration shall be created
     fn new(size: (i32, i32), alpha: bool, decoration: bool) -> Result<(Self, WaylandInput)> {
-        use std::os::unix::io::AsRawFd;
-
         //Get the wayland display
         let display = wayland_client::Display::connect_to_env().map_err(|e| {
             Error::WindowCreate(format!("Failed connecting to the Wayland Display: {:?}", e))
@@ -251,7 +244,7 @@ impl DisplayInfo {
         let (mut tmp_f, buffer) = buf_pool.get_buffer(size);
 
         //Add a black canvas into the framebuffer
-        let mut frame: Vec<u32> = vec![0xFF000000; (size.0 * size.1) as usize];
+        let frame: Vec<u32> = vec![0xFF000000; (size.0 * size.1) as usize];
         let slice = unsafe {
             std::slice::from_raw_parts(
                 frame[..].as_ptr() as *const u8,
@@ -319,7 +312,7 @@ impl DisplayInfo {
         let xdg_config = Rc::new(RefCell::new(None));
         {
             let xdg_config = xdg_config.clone();
-            xdg_surface.quick_assign(move |xdg_surface, event, _| {
+            xdg_surface.quick_assign(move |_xdg_surface, event, _| {
                 use wayland_protocols::xdg_shell::client::xdg_surface::Event;
 
                 //Acknowledge only the last configure
@@ -342,9 +335,7 @@ impl DisplayInfo {
             toplevel: xdg_toplevel,
             _shm: shm,
             event_queue: event_q,
-            seat,
-            fb_size: (size.0, size.1),
-            format,
+            _seat: seat,
             xdg_config,
             cursor,
             cursor_surface,
@@ -400,14 +391,6 @@ impl DisplayInfo {
         self.surface
             .damage(0, 0, i32::max_value(), i32::max_value());
         self.surface.commit();
-    }
-
-    fn get_input_devs(&self) -> (Main<WlKeyboard>, Main<WlPointer>, Main<WlTouch>) {
-        (
-            self.seat.get_keyboard(),
-            self.seat.get_pointer(),
-            self.seat.get_touch(),
-        )
     }
 
     //Keyboard, Pointer, Touch
