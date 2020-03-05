@@ -527,31 +527,30 @@ pub struct Window {
 
 impl Window {
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Self> {
-        let scale;
-        match opts.scale {
+        let scale: i32 = match opts.scale {
             Scale::FitScreen => {
-                //TODO
-                scale = 1;
-            }
+            	//STUB: currently not working in Wayland
+				1
+			}
             Scale::X1 => {
-                scale = 1;
+                1
             }
             Scale::X2 => {
-                scale = 2;
+                2
             }
             Scale::X4 => {
-                scale = 4;
-            }
+                4
+			}
             Scale::X8 => {
-                scale = 8;
+                8
             }
             Scale::X16 => {
-                scale = 16;
+                16
             }
             Scale::X32 => {
-                scale = 32;
+                32
             }
-        }
+        };
 
         let (dsp, input) = DisplayInfo::new(
             (width as i32 * scale, height as i32 * scale),
