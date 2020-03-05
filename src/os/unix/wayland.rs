@@ -797,7 +797,12 @@ impl Window {
                         mods_locked,
                         group,
                     });
-					//TODO: https://github.com/wayland-project/weston/blob/master/clients/window.c#L3236
+
+					if let Some(ref keymap) = self.keymap{
+						let mut state = keymap.state();
+						let mut update = state.update();
+						update.mask(mods_depressed, mods_latched, mods_locked, 0, 0, group);
+					}
                 }
                 _ => {}
             }
@@ -902,7 +907,8 @@ impl Window {
 
         if let Some(keysym) = key_xkb.sym() {
             use xkb::key;
-            let key_i = match keysym {
+
+			let key_i = match keysym {
                 key::_0 => Key::Key0,
                 key::_1 => Key::Key1,
                 key::_2 => Key::Key2,
@@ -1017,17 +1023,8 @@ impl Window {
                     return;
                 }
             };
-            key_handler.set_key_state(key_i, is_down);
 
-			//Update
-			let mut update = state.update();
-			let keycode = xkb::Keycode::from(key);
-			if is_down{
-				update.key(keycode, xkb::key::Direction::Down);
-			}
-			else{
-				update.key(keycode, xkb::key::Direction::Up);
-			}
+			key_handler.set_key_state(key_i, is_down);
 		}
     }
 
@@ -1179,3 +1176,4 @@ unsafe impl raw_window_handle::HasRawWindowHandle for Window {
         raw_window_handle::RawWindowHandle::Wayland(handle)
     }
 }
+
