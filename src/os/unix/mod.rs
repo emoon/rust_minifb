@@ -31,7 +31,7 @@ impl Window {
         let wl_window = wayland::Window::new(name, width, height, opts);
         match wl_window {
             Ok(w) => Ok(Window::Wayland(w)),
-            Err(e) => {
+            Err(_) => {
                 //Create X11 Window when Wayland fails
                 let window = Window::X11(x11::Window::new(name, width, height, opts)?);
                 Ok(window)
@@ -220,28 +220,28 @@ impl Window {
     pub fn add_menu(&mut self, menu: &Menu) -> MenuHandle {
         match *self {
             Window::X11(ref mut w) => w.add_menu(menu),
-            Window::Wayland(ref mut _w) => unimplemented!(),
+            Window::Wayland(ref mut w) => w.add_menu(menu),
         }
     }
 
     pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
         match *self {
             Window::X11(ref w) => w.get_unix_menus(),
-            Window::Wayland(ref _w) => unimplemented!(),
+            Window::Wayland(ref w) => w.get_unix_menus(),
         }
     }
 
     pub fn remove_menu(&mut self, handle: MenuHandle) {
         match *self {
             Window::X11(ref mut w) => w.remove_menu(handle),
-            Window::Wayland(ref mut _w) => unimplemented!(),
+            Window::Wayland(ref mut w) => w.remove_menu(handle),
         }
     }
 
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
         match *self {
             Window::X11(ref mut w) => w.is_menu_pressed(),
-            Window::Wayland(ref mut _w) => unimplemented!(),
+            Window::Wayland(ref mut w) => w.is_menu_pressed(),
         }
     }
 }

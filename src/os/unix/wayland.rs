@@ -728,7 +728,32 @@ impl Window {
         self.active
     }
 
-    //WIP
+    fn next_menu_handle(&mut self) -> MenuHandle {
+        let handle = self.menu_counter;
+        self.menu_counter.0 += 1;
+        handle
+    }
+
+    pub fn add_menu(&mut self, menu: &Menu) -> MenuHandle {
+        let handle = self.next_menu_handle();
+        let mut menu = menu.internal.clone();
+        menu.handle = handle;
+        self.menus.push(menu);
+        handle
+    }
+
+    pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
+        Some(&self.menus)
+    }
+
+    pub fn remove_menu(&mut self, handle: MenuHandle) {
+        self.menus.retain(|ref menu| menu.handle != handle);
+    }
+
+    pub fn is_menu_pressed(&mut self) -> Option<usize> {
+        None
+    }
+
     pub fn update(&mut self) {
         self.display
             .event_queue
