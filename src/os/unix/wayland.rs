@@ -561,7 +561,7 @@ impl Window {
                 if let Event::Configure {
                     width,
                     height,
-                    states,
+                    states: _,
                 } = event
                 {
                     *configure.borrow_mut() = Some((width, height));
@@ -763,18 +763,18 @@ impl Window {
                     self.keymap = Some(Self::handle_keymap(format, fd, size));
                 }
                 Event::Enter {
-                    serial,
-                    surface,
-                    keys,
+                    serial: _,
+                    surface: _,
+                    keys: _,
                 } => {
                     self.active = true;
                 }
-                Event::Leave { serial, surface } => {
+                Event::Leave { serial: _, surface: _ } => {
                     self.active = false;
                 }
                 Event::Key {
-                    serial,
-                    time,
+                    serial: _,
+                    time: _,
                     key,
                     state,
                 } => {
@@ -788,7 +788,7 @@ impl Window {
                     }
                 }
                 Event::Modifiers {
-                    serial,
+                    serial: _,
                     mods_depressed,
                     mods_latched,
                     mods_locked,
@@ -813,7 +813,7 @@ impl Window {
             match event {
                 Event::Enter {
                     serial,
-                    surface,
+                    surface: _,
                     surface_x,
                     surface_y,
                 } => {
@@ -828,11 +828,11 @@ impl Window {
                     self.display
                         .update_cursor(Self::decode_cursor(self.prev_cursor));
                 }
-                Event::Leave { serial, surface } => {
+                Event::Leave { serial: _, surface: _ } => {
                     //TODO
                 }
                 Event::Motion {
-                    time,
+                    time: _,
                     surface_x,
                     surface_y,
                 } => {
@@ -840,8 +840,8 @@ impl Window {
                     self.mouse_y = surface_y as f32;
                 }
                 Event::Button {
-                    serial,
-                    time,
+                    serial: _,
+                    time: _,
                     button,
                     state,
                 } => {
@@ -859,7 +859,7 @@ impl Window {
                         _ => {}
                     }
                 }
-                Event::Axis { time, axis, value } => {
+                Event::Axis { time: _, axis, value } => {
                     use wayland_client::protocol::wl_pointer::Axis;
 
                     match axis {
@@ -868,9 +868,9 @@ impl Window {
                         _ => {}
                     }
                 }
-                Event::Frame {} => {}
-                Event::AxisSource { axis_source } => {}
-                Event::AxisStop { time, axis } => {
+                //Event::Frame {} => {}
+                //Event::AxisSource { axis_source } => {}
+                Event::AxisStop { time: _, axis } => {
                     use wayland_client::protocol::wl_pointer::Axis;
 
                     match axis {
@@ -879,7 +879,7 @@ impl Window {
                         _ => {}
                     }
                 }
-                Event::AxisDiscrete { axis, discrete } => {}
+                //Event::AxisDiscrete { axis, discrete } => {}
                 _ => {}
             }
         }
@@ -1170,3 +1170,4 @@ unsafe impl raw_window_handle::HasRawWindowHandle for Window {
         raw_window_handle::RawWindowHandle::Wayland(handle)
     }
 }
+
