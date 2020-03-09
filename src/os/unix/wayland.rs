@@ -1,11 +1,12 @@
 use crate::key_handler::KeyHandler;
 use crate::mouse_handler;
 use crate::rate::UpdateRate;
-use crate::{CursorStyle, MenuHandle, MenuItem, MenuItemHandle, UnixMenu, UnixMenuItem};
-use crate::{Error, Result};
 use crate::{
-    InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions,
+    os::unix::x11::Menu, InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode,
+    WindowOptions,
 };
+use crate::{CursorStyle, MenuHandle, UnixMenu};
+use crate::{Error, Result};
 
 use std::ffi::c_void;
 use std::io::Write;
@@ -18,7 +19,7 @@ use wayland_client::protocol::{
     wl_seat::WlSeat,
     wl_shm::{Format, WlShm},
     wl_shm_pool::WlShmPool,
-    wl_surface::WlSurface
+    wl_surface::WlSurface,
 };
 use wayland_client::{Attached, Main};
 use wayland_client::{EventQueue, GlobalManager};
@@ -217,8 +218,8 @@ impl DisplayInfo {
             .instantiate_exact::<WlSeat>(5)
             .map_err(|e| Error::WindowCreate(format!("Failed retrieving the WlSeat: {:?}", e)))?;
 
-		//create the input devices already at this point
-		let input = WaylandInput::new(&seat);
+        //create the input devices already at this point
+        let input = WaylandInput::new(&seat);
 
         //retrieve some types from globals
         let comp = global_man
@@ -325,22 +326,25 @@ impl DisplayInfo {
         let cursor = wayland_cursor::load_theme(None, 16, &shm);
         let cursor_surface = comp.create_surface();
 
-        Ok((Self {
-            _display: display,
-            wl_display,
-            _comp: comp,
-            _base: xdg_wm_base,
-            surface,
-            xdg_surface,
-            toplevel: xdg_toplevel,
-            _shm: shm,
-            event_queue: event_q,
-            _seat: seat,
-            xdg_config,
-            cursor,
-            cursor_surface,
-            buf_pool,
-        }, input))
+        Ok((
+            Self {
+                _display: display,
+                wl_display,
+                _comp: comp,
+                _base: xdg_wm_base,
+                surface,
+                xdg_surface,
+                toplevel: xdg_toplevel,
+                _shm: shm,
+                event_queue: event_q,
+                _seat: seat,
+                xdg_config,
+                cursor,
+                cursor_surface,
+                buf_pool,
+            },
+            input,
+        ))
     }
 
     fn set_geometry(&self, pos: (i32, i32), size: (i32, i32)) {
@@ -483,13 +487,6 @@ impl WaylandInput {
     }
 }
 
-struct Modifiers {
-    mods_depressed: u32,
-    mods_latched: u32,
-    mods_locked: u32,
-    group: u32,
-}
-
 pub struct Window {
     display: DisplayInfo,
 
@@ -513,7 +510,6 @@ pub struct Window {
     key_handler: KeyHandler,
     //option because MaybeUninit's get_ref() is nightly-only
     keymap: Option<xkb::keymap::Keymap>,
-    mods: Option<Modifiers>,
     update_rate: UpdateRate,
     menu_counter: MenuHandle,
     menus: Vec<UnixMenu>,
@@ -528,28 +524,15 @@ pub struct Window {
 impl Window {
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Self> {
         let scale: i32 = match opts.scale {
-            Scale::FitScreen => {
-            	//STUB: currently not working in Wayland
-				1
-			}
-            Scale::X1 => {
-                1
-            }
-            Scale::X2 => {
-                2
-            }
-            Scale::X4 => {
-                4
-			}
-            Scale::X8 => {
-                8
-            }
-            Scale::X16 => {
-                16
-            }
-            Scale::X32 => {
-                32
-            }
+            //STUB: currently not working in Wayland
+            Scale::FitScreen => 1,
+
+            Scale::X1 => 1,
+            Scale::X2 => 2,
+            Scale::X4 => 4,
+            Scale::X8 => 8,
+            Scale::X16 => 16,
+            Scale::X32 => 32,
         };
 
         let (dsp, input) = DisplayInfo::new(
@@ -610,7 +593,6 @@ impl Window {
 
             key_handler: KeyHandler::new(),
             keymap: None,
-            mods: None,
             update_rate: UpdateRate::new(),
             menu_counter: MenuHandle(0),
             menus: Vec::new(),
@@ -708,9 +690,9 @@ impl Window {
         self.key_handler.set_key_repeat_delay(delay);
     }
 
-	pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>){
-		self.key_handler.set_input_callback(callback);
-	}
+    pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>) {
+        self.key_handler.set_input_callback(callback);
+    }
 
     pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
         self.key_handler.is_key_pressed(key, repeat)
@@ -797,15 +779,12 @@ impl Window {
                     state,
                 } => {
                     if let Some(ref keymap) = self.keymap {
-                        if let Some(ref mods) = self.mods {
-                            Self::handle_key(
-                                keymap,
-                                key + KEY_XKB_OFFSET,
-                                state,
-                                mods,
-                                &mut self.key_handler,
-                            );
-                        }
+                        Self::handle_key(
+                            keymap,
+                            key + KEY_XKB_OFFSET,
+                            state,
+                            &mut self.key_handler,
+                        );
                     }
                 }
                 Event::Modifiers {
@@ -815,18 +794,11 @@ impl Window {
                     mods_locked,
                     group,
                 } => {
-                    self.mods = Some(Modifiers {
-                        mods_depressed,
-                        mods_latched,
-                        mods_locked,
-                        group,
-                    });
-
-					if let Some(ref keymap) = self.keymap{
-						let mut state = keymap.state();
-						let mut update = state.update();
-						update.mask(mods_depressed, mods_latched, mods_locked, 0, 0, group);
-					}
+                    if let Some(ref keymap) = self.keymap {
+                        let mut state = keymap.state();
+                        let mut update = state.update();
+                        update.mask(mods_depressed, mods_latched, mods_locked, 0, 0, group);
+                    }
                 }
                 _ => {}
             }
@@ -912,27 +884,26 @@ impl Window {
             }
         }
 
-		self.key_handler.update();
+        self.key_handler.update();
     }
 
     fn handle_key(
         keymap: &xkb::keymap::Keymap,
         key: u32,
         state: wayland_client::protocol::wl_keyboard::KeyState,
-        mods: &Modifiers,
         key_handler: &mut KeyHandler,
     ) {
         use wayland_client::protocol::wl_keyboard::KeyState;
 
         let is_down = state == KeyState::Pressed;
 
-        let mut state = keymap.state();
+        let state = keymap.state();
         let key_xkb = state.key(key);
 
         if let Some(keysym) = key_xkb.sym() {
             use xkb::key;
 
-			let key_i = match keysym {
+            let key_i = match keysym {
                 key::_0 => Key::Key0,
                 key::_1 => Key::Key1,
                 key::_2 => Key::Key2,
@@ -1047,9 +1018,8 @@ impl Window {
                     return;
                 }
             };
-
-			key_handler.set_key_state(key_i, is_down);
-		}
+            key_handler.set_key_state(key_i, is_down);
+        }
     }
 
     fn handle_keymap(
@@ -1200,4 +1170,3 @@ unsafe impl raw_window_handle::HasRawWindowHandle for Window {
         raw_window_handle::RawWindowHandle::Wayland(handle)
     }
 }
-
