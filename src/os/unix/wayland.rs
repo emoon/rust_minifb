@@ -14,6 +14,7 @@ use wayland_client::protocol::{
     wl_buffer::WlBuffer,
     wl_compositor::WlCompositor,
     wl_display::WlDisplay,
+    wl_keyboard::KeymapFormat,
     wl_keyboard::WlKeyboard,
     wl_pointer::WlPointer,
     wl_seat::WlSeat,
@@ -398,7 +399,10 @@ impl DisplayInfo {
     }
 
     //Keyboard, Pointer, Touch
-    fn check_capabilities(seat: &Main<WlSeat>, event_queue: &mut EventQueue) -> (bool, bool, bool) {
+    fn _check_capabilities(
+        seat: &Main<WlSeat>,
+        event_queue: &mut EventQueue,
+    ) -> (bool, bool, bool) {
         let keyboard_fl = Rc::new(RefCell::new(false));
         let pointer_fl = Rc::new(RefCell::new(false));
         let touch_fl = Rc::new(RefCell::new(false));
@@ -769,7 +773,10 @@ impl Window {
                 } => {
                     self.active = true;
                 }
-                Event::Leave { serial: _, surface: _ } => {
+                Event::Leave {
+                    serial: _,
+                    surface: _,
+                } => {
                     self.active = false;
                 }
                 Event::Key {
@@ -828,7 +835,10 @@ impl Window {
                     self.display
                         .update_cursor(Self::decode_cursor(self.prev_cursor));
                 }
-                Event::Leave { serial: _, surface: _ } => {
+                Event::Leave {
+                    serial: _,
+                    surface: _,
+                } => {
                     //TODO
                 }
                 Event::Motion {
@@ -859,7 +869,11 @@ impl Window {
                         _ => {}
                     }
                 }
-                Event::Axis { time: _, axis, value } => {
+                Event::Axis {
+                    time: _,
+                    axis,
+                    value,
+                } => {
                     use wayland_client::protocol::wl_pointer::Axis;
 
                     match axis {
@@ -1022,16 +1036,12 @@ impl Window {
         }
     }
 
-    fn handle_keymap(
-        keymap: wayland_client::protocol::wl_keyboard::KeymapFormat,
-        fd: RawFd,
-        len: u32,
-    ) -> xkb::keymap::Keymap {
+    fn handle_keymap(keymap: KeymapFormat, fd: RawFd, len: u32) -> xkb::keymap::Keymap {
         use std::io::Read;
         use std::os::unix::io::FromRawFd;
 
         match keymap {
-            XkbV1 => {
+            KeymapFormat::XkbV1 => {
                 use xkb::keymap::Keymap;
 
                 unsafe {
@@ -1170,4 +1180,3 @@ unsafe impl raw_window_handle::HasRawWindowHandle for Window {
         raw_window_handle::RawWindowHandle::Wayland(handle)
     }
 }
-
