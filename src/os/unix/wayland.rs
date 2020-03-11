@@ -403,6 +403,33 @@ impl DisplayInfo {
         self.surface.commit();
     }
 
+    fn get_toplevel_info(&self) -> (Rc<RefCell<Option<(i32, i32)>>>, Rc<RefCell<bool>>) {
+        let configure = Rc::new(RefCell::new(None));
+        let close = Rc::new(RefCell::new(false));
+
+        {
+            let configure = configure.clone();
+            let close = close.clone();
+
+            self.toplevel.quick_assign(move |_, event, _| {
+                use wayland_protocols::xdg_shell::client::xdg_toplevel::Event;
+
+                if let Event::Configure {
+                    width,
+                    height,
+                    states: _,
+                } = event
+                {
+                    *configure.borrow_mut() = Some((width, height));
+                } else if let Event::Close = event {
+                    *close.borrow_mut() = true;
+                }
+            });
+        }
+
+        (configure, close)
+    }
+
     // Keyboard, Pointer, Touch
     fn _check_capabilities(
         seat: &Main<WlSeat>,
@@ -554,29 +581,7 @@ impl Window {
             dsp.set_no_resize((width as i32 * scale, height as i32 * scale));
         }
 
-        //TODO: maybe outsource
-        let configure = Rc::new(RefCell::new(None));
-        let close = Rc::new(RefCell::new(false));
-
-        {
-            let configure = configure.clone();
-            let close = close.clone();
-
-            dsp.toplevel.quick_assign(move |_, event, _| {
-                use wayland_protocols::xdg_shell::client::xdg_toplevel::Event;
-
-                if let Event::Configure {
-                    width,
-                    height,
-                    states: _,
-                } = event
-                {
-                    *configure.borrow_mut() = Some((width, height));
-                } else if let Event::Close = event {
-                    *close.borrow_mut() = true;
-                }
-            });
-        }
+        let (configure, close) = dsp.get_toplevel_info();
 
         Ok(Self {
             display: dsp,
