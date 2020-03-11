@@ -964,7 +964,7 @@ impl Window {
                 key::KP_Enter => Key::NumPadEnter,
 
                 _ => {
-                    // ignore other keys
+                    // Ignore other keys
                     return;
                 }
             };
@@ -995,7 +995,7 @@ impl Window {
                         xkbcommon_sys::xkb_keymap_format::XKB_KEYMAP_FORMAT_TEXT_v1,
                         0,
                     );
-                    //wrap keymap
+                    // Wrap keymap
                     Keymap::from_ptr(kb_map_ptr as *mut _ as *mut c_void)
                 }
             }
