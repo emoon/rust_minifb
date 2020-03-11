@@ -439,7 +439,7 @@ impl DisplayInfo {
 struct WaylandInput {
     kb_events: mpsc::Receiver<wl_keyboard::Event>,
     pt_events: mpsc::Receiver<wl_pointer::Event>,
-    keyboard: Main<WlKeyboard>,
+    _keyboard: Main<WlKeyboard>,
     pointer: Main<WlPointer>,
 }
 
@@ -462,7 +462,7 @@ impl WaylandInput {
         Self {
             kb_events: kb_receiver,
             pt_events: pt_receiver,
-            keyboard,
+            _keyboard: keyboard,
             pointer,
         }
     }
