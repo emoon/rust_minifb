@@ -515,7 +515,7 @@ pub struct Window {
 impl Window {
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Self> {
         let scale: i32 = match opts.scale {
-            // STUB: currently not working in Wayland
+            // Relies on the fact that this is done by the server
             Scale::FitScreen => 1,
 
             Scale::X1 => 1,
