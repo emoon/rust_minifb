@@ -38,6 +38,9 @@ const KEY_MOUSE_BTN1: u32 = 272;
 const KEY_MOUSE_BTN2: u32 = 273;
 const KEY_MOUSE_BTN3: u32 = 274;
 
+type ToplevelResolution = Rc<RefCell<Option<(i32, i32)>>>;
+type ToplevelClosed = Rc<RefCell<bool>>;
+
 // These functions are implemented in C in order to always have
 // optimizations on (`-O3`), allowing debug builds to run fast as well.
 extern "C" {
@@ -347,7 +350,7 @@ impl DisplayInfo {
                 xdg_surface,
                 toplevel: xdg_toplevel,
                 _shm: shm,
-                event_queue: event_queue,
+                event_queue,
                 _seat: seat,
                 xdg_config,
                 cursor,
@@ -408,7 +411,7 @@ impl DisplayInfo {
         self.surface.commit();
     }
 
-    fn get_toplevel_info(&self) -> (Rc<RefCell<Option<(i32, i32)>>>, Rc<RefCell<bool>>) {
+    fn get_toplevel_info(&self) -> (ToplevelResolution, ToplevelClosed) {
         let configure = Rc::new(RefCell::new(None));
         let close = Rc::new(RefCell::new(false));
 
@@ -419,12 +422,7 @@ impl DisplayInfo {
             self.toplevel.quick_assign(move |_, event, _| {
                 use wayland_protocols::xdg_shell::client::xdg_toplevel::Event;
 
-                if let Event::Configure {
-                    width,
-                    height,
-                    states: _,
-                } = event
-                {
+                if let Event::Configure { width, height, .. } = event {
                     *configure.borrow_mut() = Some((width, height));
                 } else if let Event::Close = event {
                     *close.borrow_mut() = true;
@@ -511,7 +509,7 @@ pub struct Window {
     // Temporary buffer
     buffer: Vec<u32>,
     // Configure, close
-    toplevel_info: (Rc<RefCell<Option<(i32, i32)>>>, Rc<RefCell<bool>>),
+    toplevel_info: (ToplevelResolution, ToplevelClosed),
 }
 
 impl Window {
@@ -731,25 +729,13 @@ impl Window {
                 Event::Keymap { format, fd, size } => {
                     self.keymap = Some(Self::handle_keymap(format, fd, size));
                 }
-                Event::Enter {
-                    serial: _,
-                    surface: _,
-                    keys: _,
-                } => {
+                Event::Enter { .. } => {
                     self.active = true;
                 }
-                Event::Leave {
-                    serial: _,
-                    surface: _,
-                } => {
+                Event::Leave { .. } => {
                     self.active = false;
                 }
-                Event::Key {
-                    serial: _,
-                    time: _,
-                    key,
-                    state,
-                } => {
+                Event::Key { key, state, .. } => {
                     if let Some(ref keymap) = self.keymap {
                         Self::handle_key(
                             keymap,
@@ -760,11 +746,11 @@ impl Window {
                     }
                 }
                 Event::Modifiers {
-                    serial: _,
                     mods_depressed,
                     mods_latched,
                     mods_locked,
                     group,
+                    ..
                 } => {
                     if let Some(ref keymap) = self.keymap {
                         let mut state = keymap.state();
@@ -785,9 +771,9 @@ impl Window {
             match event {
                 Event::Enter {
                     serial,
-                    surface: _,
                     surface_x,
                     surface_y,
+                    ..
                 } => {
                     self.mouse_x = surface_x as f32;
                     self.mouse_y = surface_y as f32;
@@ -800,26 +786,15 @@ impl Window {
                     self.display
                         .update_cursor(Self::decode_cursor(self.prev_cursor));
                 }
-                Event::Leave {
-                    serial: _,
-                    surface: _,
-                } => {
-                    //TODO
-                }
                 Event::Motion {
-                    time: _,
                     surface_x,
                     surface_y,
+                    ..
                 } => {
                     self.mouse_x = surface_x as f32;
                     self.mouse_y = surface_y as f32;
                 }
-                Event::Button {
-                    serial: _,
-                    time: _,
-                    button,
-                    state,
-                } => {
+                Event::Button { button, state, .. } => {
                     use wayland_client::protocol::wl_pointer::ButtonState;
 
                     let st = (state == ButtonState::Pressed) as u8;
@@ -834,11 +809,7 @@ impl Window {
                         _ => {}
                     }
                 }
-                Event::Axis {
-                    time: _,
-                    axis,
-                    value,
-                } => {
+                Event::Axis { axis, value, .. } => {
                     use wayland_client::protocol::wl_pointer::Axis;
 
                     match axis {
@@ -849,7 +820,7 @@ impl Window {
                 }
                 //Event::Frame {} => {}
                 //Event::AxisSource { axis_source } => {}
-                Event::AxisStop { time: _, axis } => {
+                Event::AxisStop { axis, .. } => {
                     use wayland_client::protocol::wl_pointer::Axis;
 
                     match axis {
