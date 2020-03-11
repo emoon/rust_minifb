@@ -33,6 +33,11 @@ use std::os::unix::io::RawFd;
 use std::rc::Rc;
 use std::sync::mpsc;
 
+const KEY_XKB_OFFSET: u32 = 8;
+const KEY_MOUSE_BTN1: u32 = 272;
+const KEY_MOUSE_BTN2: u32 = 273;
+const KEY_MOUSE_BTN3: u32 = 274;
+
 // These functions are implemented in C in order to always have
 // optimizations on (`-O3`), allowing debug builds to run fast as well.
 extern "C" {
@@ -766,8 +771,6 @@ impl Window {
             self.should_close = true;
         }
 
-        const KEY_XKB_OFFSET: u32 = 8;
-
         for event in self.input.iter_keyboard_events() {
             use wayland_client::protocol::wl_keyboard::Event;
             match event {
@@ -869,11 +872,11 @@ impl Window {
 
                     match button {
                         //Left
-                        272 => self.buttons[0] = st,
+                        KEY_MOUSE_BTN1 => self.buttons[0] = st,
                         //Right
-                        273 => self.buttons[1] = st,
+                        KEY_MOUSE_BTN2 => self.buttons[1] = st,
                         //Middle
-                        274 => self.buttons[2] = st,
+                        KEY_MOUSE_BTN3 => self.buttons[2] = st,
                         _ => {}
                     }
                 }
