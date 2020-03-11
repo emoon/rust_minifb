@@ -434,52 +434,6 @@ impl DisplayInfo {
 
         (configure, close)
     }
-
-    // Keyboard, Pointer, Touch
-    fn _check_capabilities(
-        seat: &Main<WlSeat>,
-        event_queue: &mut EventQueue,
-    ) -> (bool, bool, bool) {
-        let keyboard_fl = Rc::new(RefCell::new(false));
-        let pointer_fl = Rc::new(RefCell::new(false));
-        let touch_fl = Rc::new(RefCell::new(false));
-
-        {
-            let keyboard_fl = keyboard_fl.clone();
-            let pointer_fl = pointer_fl.clone();
-            let touch_fl = touch_fl.clone();
-
-            // Check pointer and mouse capability
-            seat.quick_assign(move |_, event, _| {
-                use wayland_client::protocol::wl_seat::{Capability, Event};
-
-                if let Event::Capabilities { capabilities } = event {
-                    if !*pointer_fl.borrow() && capabilities.contains(Capability::Pointer) {
-                        *pointer_fl.borrow_mut() = true;
-                    }
-                    if !*keyboard_fl.borrow() && capabilities.contains(Capability::Keyboard) {
-                        *keyboard_fl.borrow_mut() = true;
-                    }
-                    if !*touch_fl.borrow() && capabilities.contains(Capability::Touch) {
-                        *touch_fl.borrow_mut() = true;
-                    }
-                }
-            });
-        }
-
-        event_queue
-            .sync_roundtrip(&mut (), |_, _, _| {})
-            .map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))
-            .unwrap();
-
-        let ret = (
-            *keyboard_fl.borrow(),
-            *pointer_fl.borrow(),
-            *touch_fl.borrow(),
-        );
-
-        ret
-    }
 }
 
 struct WaylandInput {
