@@ -1025,8 +1025,7 @@ impl Window {
                         0,
                     );
                     //wrap keymap
-                    let kb_map = Keymap::from_ptr(kb_map_ptr as *mut _ as *mut c_void);
-                    kb_map
+                    Keymap::from_ptr(kb_map_ptr as *mut _ as *mut c_void)
                 }
             }
             _ => unimplemented!("Only XKB keymaps supported"),
