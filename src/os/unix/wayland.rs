@@ -14,13 +14,13 @@ use wayland_client::protocol::{
     wl_buffer::WlBuffer,
     wl_compositor::WlCompositor,
     wl_display::WlDisplay,
-    wl_keyboard::KeymapFormat,
-    wl_keyboard::WlKeyboard,
+    wl_keyboard::{KeymapFormat, WlKeyboard},
     wl_pointer::WlPointer,
     wl_seat::WlSeat,
     wl_shm::{Format, WlShm},
     wl_shm_pool::WlShmPool,
     wl_surface::WlSurface,
+    {wl_keyboard, wl_pointer},
 };
 use wayland_client::{Attached, Main};
 use wayland_client::{EventQueue, GlobalManager};
@@ -33,9 +33,8 @@ use std::os::unix::io::RawFd;
 use std::rc::Rc;
 use std::sync::mpsc;
 
-// We have these in C so we can always have optimize on (-O3) so they
-// run fast in debug build as well. These functions should be seen as
-// "system" functions that just doesn't exist in X11
+// These functions are implemented in C in order to always have
+// optimizations on (`-O3`), allowing debug builds to run fast as well.
 extern "C" {
     fn Image_upper_left(
         target: *mut u32,
@@ -83,15 +82,17 @@ extern "C" {
 
 struct SingleBuffer {
     fd: std::fs::File,
-    //Shm pool and size
-    pool: (Main<WlShmPool>, i32),
-    //buffer and state
-    buffer: (Main<WlBuffer>, Rc<RefCell<bool>>),
+    // Shm pool and size
+    pool: Main<WlShmPool>,
+    pool_size: i32,
+    // Buffer and state
+    buffer: Main<WlBuffer>,
+    buffer_state: Rc<RefCell<bool>>,
     fb_size: (i32, i32),
 }
 
 struct BufferPool {
-    v: Vec<SingleBuffer>,
+    pool: Vec<SingleBuffer>,
     shm: Main<WlShm>,
     format: Format,
 }
@@ -99,7 +100,7 @@ struct BufferPool {
 impl BufferPool {
     fn new(shm: Main<WlShm>, format: Format) -> Self {
         Self {
-            v: Vec::new(),
+            pool: Vec::new(),
             shm,
             format,
         }
@@ -136,25 +137,28 @@ impl BufferPool {
     fn get_buffer(&mut self, size: (i32, i32)) -> (std::fs::File, &Main<WlBuffer>) {
         use std::os::unix::io::AsRawFd;
 
-        let pos = self.v.iter().rposition(|e| *e.buffer.1.borrow());
+        let pos = self.pool.iter().rposition(|e| *e.buffer_state.borrow());
         let size_bytes = size.0 * size.1 * std::mem::size_of::<u32>() as i32;
-        //If possible take an older shm_pool and create a new buffer onto it
+        // If possible take an older shm_pool and create a new buffer onto it
         if let Some(idx) = pos {
-            //shm_pool not allowed to be truncated
-            if size_bytes > self.v[idx].pool.1 {
-                self.v[idx].pool.0.resize(size_bytes);
-                self.v[idx].pool.1 = size_bytes;
+            // Shm_pool not allowed to be truncated
+            if size_bytes > self.pool[idx].pool_size {
+                self.pool[idx].pool.resize(size_bytes);
+                self.pool[idx].pool_size = size_bytes;
             }
 
-            //Different buffer size
-            if self.v[idx].fb_size != size {
-                let new_buffer = Self::create_shm_buffer(&self.v[idx].pool.0, size, self.format);
-                let old_buffer = std::mem::replace(&mut self.v[idx].buffer, new_buffer);
-                old_buffer.0.destroy();
-                self.v[idx].fb_size = size;
+            // Different buffer size
+            if self.pool[idx].fb_size != size {
+                let new_buffer = Self::create_shm_buffer(&self.pool[idx].pool, size, self.format);
+                let old_buffer = std::mem::replace(&mut self.pool[idx].buffer, new_buffer.0);
+                old_buffer.destroy();
+                self.pool[idx].fb_size = size;
             }
 
-            (self.v[idx].fd.try_clone().unwrap(), &self.v[idx].buffer.0)
+            (
+                self.pool[idx].fd.try_clone().unwrap(),
+                &self.pool[idx].buffer,
+            )
         } else {
             let file = tempfile::tempfile().unwrap();
             let shm_pool = self.shm.create_pool(
@@ -163,15 +167,18 @@ impl BufferPool {
             );
             let buffer = Self::create_shm_buffer(&shm_pool, size, self.format);
 
-            self.v.push(SingleBuffer {
+            self.pool.push(SingleBuffer {
                 fd: file,
-                pool: (shm_pool, size_bytes),
-                buffer,
+                pool: shm_pool,
+                pool_size: size_bytes,
+                buffer: buffer.0,
+                buffer_state: buffer.1,
                 fb_size: size,
             });
+
             (
-                self.v[self.v.len() - 1].fd.try_clone().unwrap(),
-                &self.v[self.v.len() - 1].buffer.0,
+                self.pool[self.pool.len() - 1].fd.try_clone().unwrap(),
+                &self.pool[self.pool.len() - 1].buffer,
             )
         }
     }
@@ -179,7 +186,7 @@ impl BufferPool {
 
 struct DisplayInfo {
     wl_display: Attached<WlDisplay>,
-    _comp: Main<WlCompositor>,
+    _compositor: Main<WlCompositor>,
     _base: Main<XdgWmBase>,
     surface: Main<WlSurface>,
     xdg_surface: Main<XdgSurface>,
@@ -195,72 +202,70 @@ struct DisplayInfo {
 }
 
 impl DisplayInfo {
-    //size: size of the surface to be created
-    //alpha: whether the alpha channel shall be rendered
-    //decoration: whether server-side window decoration shall be created
+    // size: size of the surface to be created
+    // alpha: whether the alpha channel shall be rendered
+    // decoration: whether server-side window decoration shall be created
     fn new(size: (i32, i32), alpha: bool, decoration: bool) -> Result<(Self, WaylandInput)> {
-        //Get the wayland display
+        // Get the wayland display
         let display = wayland_client::Display::connect_to_env().map_err(|e| {
             Error::WindowCreate(format!("Failed connecting to the Wayland Display: {:?}", e))
         })?;
-        let mut event_q = display.create_event_queue();
-        let tkn = event_q.token();
-        //Access internal WlDisplay with a token
-        let wl_display = (*display).clone().attach(tkn);
-        let global_man = GlobalManager::new(&wl_display);
+        let mut event_queue = display.create_event_queue();
 
-        //wait the wayland server to process all events
-        event_q
+        // Access internal WlDisplay with a token
+        let wl_display = (*display).clone().attach(event_queue.token());
+        let globals = GlobalManager::new(&wl_display);
+
+        // Wait the wayland server to process all events
+        event_queue
             .sync_roundtrip(&mut (), |_, _, _| unreachable!())
             .map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
-        //requires version 5 for the scroll events
-        let seat = global_man
+        // Requires version 5 for the scroll events
+        let seat = globals
             .instantiate_exact::<WlSeat>(5)
             .map_err(|e| Error::WindowCreate(format!("Failed retrieving the WlSeat: {:?}", e)))?;
 
-        //create the input devices already at this point
+        // Create the input devices already at this point
         let input = WaylandInput::new(&seat);
 
-        //retrieve some types from globals
-        let comp = global_man
-            .instantiate_exact::<WlCompositor>(4)
-            .map_err(|e| {
-                Error::WindowCreate(format!("Failed retrieving the compositor: {:?}", e))
-            })?;
-        let shm = global_man.instantiate_exact::<WlShm>(1).map_err(|e| {
+        // Retrieve some types from globals
+        let compositor = globals.instantiate_exact::<WlCompositor>(4).map_err(|e| {
+            Error::WindowCreate(format!("Failed retrieving the compositor: {:?}", e))
+        })?;
+        let shm = globals.instantiate_exact::<WlShm>(1).map_err(|e| {
             Error::WindowCreate(format!("Failed creating the shared memory: {:?}", e))
         })?;
 
-        let surface = comp.create_surface();
+        let surface = compositor.create_surface();
 
-        //specify format
+        // Specify format
         let format = if alpha {
             Format::Argb8888
         } else {
             Format::Xrgb8888
         };
 
-        //Retrive file to write to
+        // Retrive file to write to
         let mut buf_pool = BufferPool::new(shm.clone(), format);
-        let (mut tmp_f, buffer) = buf_pool.get_buffer(size);
+        let (mut tempfile, buffer) = buf_pool.get_buffer(size);
 
-        //Add a black canvas into the framebuffer
-        let frame: Vec<u32> = vec![0xFF000000; (size.0 * size.1) as usize];
+        // Add a black canvas into the framebuffer
+        let frame: Vec<u32> = vec![0xFF00_0000; (size.0 * size.1) as usize];
         let slice = unsafe {
             std::slice::from_raw_parts(
                 frame[..].as_ptr() as *const u8,
                 frame.len() * std::mem::size_of::<u32>(),
             )
         };
-        tmp_f.write_all(&slice[..]).unwrap();
-        tmp_f.flush().unwrap();
+        tempfile.write_all(&slice[..]).unwrap();
+        tempfile.flush().unwrap();
 
-        let xdg_wm_base = global_man.instantiate_exact::<XdgWmBase>(1).map_err(|e| {
+        let xdg_wm_base = globals.instantiate_exact::<XdgWmBase>(1).map_err(|e| {
             Error::WindowCreate(format!("Failed retrieving the XdgWmBase: {:?}", e))
         })?;
 
-        //Ping Pong
+        // Reply to Ping
         xdg_wm_base.quick_assign(|xdg_wm_base, event, _| {
             use wayland_protocols::xdg_shell::client::xdg_wm_base::Event;
 
@@ -270,23 +275,23 @@ impl DisplayInfo {
         });
 
         let xdg_surface = xdg_wm_base.get_xdg_surface(&surface);
-        let _surface = surface.clone();
-        //Ping Pong
+        let surface_clone = surface.clone();
+        // Handle Ping
         xdg_surface.quick_assign(move |xdg_surface, event, _| {
             use wayland_protocols::xdg_shell::client::xdg_surface::Event;
 
             if let Event::Configure { serial } = event {
                 xdg_surface.ack_configure(serial);
-                _surface.commit();
+                surface_clone.commit();
             }
         });
 
-        //Assigns the toplevel role and commit
+        // Assigns the toplevel role and commit
         let xdg_toplevel = xdg_surface.get_toplevel();
         if decoration {
             use wayland_protocols::unstable::xdg_decoration::v1::client::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1;
 
-            if let Ok(deco_man) = global_man
+            if let Ok(decorations) = globals
                 .instantiate_exact::<ZxdgDecorationManagerV1>(1)
                 .map_err(|e| {
                     Error::WindowCreate(format!(
@@ -296,17 +301,17 @@ impl DisplayInfo {
                 })
                 .map_err(|e| println!("{:?}", e))
             {
-                deco_man.get_toplevel_decoration(&xdg_toplevel);
-                deco_man.destroy();
+                decorations.get_toplevel_decoration(&xdg_toplevel);
+                decorations.destroy();
             }
         }
         surface.commit();
 
-        event_q
+        event_queue
             .sync_roundtrip(&mut (), |_, _, _| {})
             .map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
-        //give the surface the buffer and commit
+        // Give the surface the buffer and commit
         surface.attach(Some(&buffer), 0, 0);
         surface.damage(0, 0, i32::max_value(), i32::max_value());
         surface.commit();
@@ -317,7 +322,7 @@ impl DisplayInfo {
             xdg_surface.quick_assign(move |_xdg_surface, event, _| {
                 use wayland_protocols::xdg_shell::client::xdg_surface::Event;
 
-                //Acknowledge only the last configure
+                // Acknowledge only the last configure
                 if let Event::Configure { serial } = event {
                     *xdg_config.borrow_mut() = Some(serial);
                 }
@@ -325,19 +330,19 @@ impl DisplayInfo {
         }
 
         let cursor = wayland_cursor::load_theme(None, 16, &shm);
-        let cursor_surface = comp.create_surface();
+        let cursor_surface = compositor.create_surface();
 
         Ok((
             Self {
                 _display: display,
                 wl_display,
-                _comp: comp,
+                _compositor: compositor,
                 _base: xdg_wm_base,
                 surface,
                 xdg_surface,
                 toplevel: xdg_toplevel,
                 _shm: shm,
-                event_queue: event_q,
+                event_queue: event_queue,
                 _seat: seat,
                 xdg_config,
                 cursor,
@@ -362,7 +367,7 @@ impl DisplayInfo {
         self.toplevel.set_min_size(size.0, size.1);
     }
 
-    //Sets a specific cursor style
+    // Sets a specific cursor style
     fn update_cursor(&mut self, cursor: &str) {
         let csr = self.cursor.get_cursor(cursor).unwrap();
         let img = csr.frame_buffer(0).unwrap();
@@ -371,7 +376,7 @@ impl DisplayInfo {
         self.cursor_surface.commit();
     }
 
-    //resizes when buffer is bigger or less
+    // Resizes when buffer is bigger or less
     fn update_framebuffer(&mut self, buffer: &[u32], size: (i32, i32)) {
         use std::io::{Seek, SeekFrom};
 
@@ -387,7 +392,7 @@ impl DisplayInfo {
         fd.write_all(&slice[..]).unwrap();
         fd.flush().unwrap();
 
-        //Acknowledge the last configure event
+        // Acknowledge the last configure event
         if let Some(serial) = (*self.xdg_config.borrow_mut()).take() {
             self.xdg_surface.ack_configure(serial);
         }
@@ -398,7 +403,7 @@ impl DisplayInfo {
         self.surface.commit();
     }
 
-    //Keyboard, Pointer, Touch
+    // Keyboard, Pointer, Touch
     fn _check_capabilities(
         seat: &Main<WlSeat>,
         event_queue: &mut EventQueue,
@@ -412,7 +417,7 @@ impl DisplayInfo {
             let pointer_fl = pointer_fl.clone();
             let touch_fl = touch_fl.clone();
 
-            //check pointer and mouse capability
+            // Check pointer and mouse capability
             seat.quick_assign(move |_, event, _| {
                 use wayland_client::protocol::wl_seat::{Capability, Event};
 
@@ -446,14 +451,15 @@ impl DisplayInfo {
 }
 
 struct WaylandInput {
-    kb_events: mpsc::Receiver<wayland_client::protocol::wl_keyboard::Event>,
-    pt_events: mpsc::Receiver<wayland_client::protocol::wl_pointer::Event>,
-    input_devs: (Main<WlKeyboard>, Main<WlPointer>),
+    kb_events: mpsc::Receiver<wl_keyboard::Event>,
+    pt_events: mpsc::Receiver<wl_pointer::Event>,
+    keyboard: Main<WlKeyboard>,
+    pointer: Main<WlPointer>,
 }
 
 impl WaylandInput {
     fn new(seat: &Main<WlSeat>) -> Self {
-        let (keyboard, pointer, _touch) = (seat.get_keyboard(), seat.get_pointer(), ());
+        let (keyboard, pointer) = (seat.get_keyboard(), seat.get_pointer());
 
         let (kb_sender, kb_receiver) = mpsc::sync_channel(1024);
 
@@ -470,23 +476,20 @@ impl WaylandInput {
         Self {
             kb_events: kb_receiver,
             pt_events: pt_receiver,
-            input_devs: (keyboard, pointer),
+            keyboard,
+            pointer,
         }
     }
 
     fn get_pointer(&self) -> &Main<WlPointer> {
-        &self.input_devs.1
+        &self.pointer
     }
 
-    fn iter_keyboard_events(
-        &self,
-    ) -> std::sync::mpsc::TryIter<wayland_client::protocol::wl_keyboard::Event> {
+    fn iter_keyboard_events(&self) -> mpsc::TryIter<wl_keyboard::Event> {
         self.kb_events.try_iter()
     }
 
-    fn iter_pointer_events(
-        &self,
-    ) -> std::sync::mpsc::TryIter<wayland_client::protocol::wl_pointer::Event> {
+    fn iter_pointer_events(&self) -> mpsc::TryIter<wl_pointer::Event> {
         self.pt_events.try_iter()
     }
 }
@@ -512,23 +515,23 @@ pub struct Window {
     active: bool,
 
     key_handler: KeyHandler,
-    //option because MaybeUninit's get_ref() is nightly-only
+    // Option because MaybeUninit's get_ref() is nightly-only
     keymap: Option<xkb::keymap::Keymap>,
     update_rate: UpdateRate,
     menu_counter: MenuHandle,
     menus: Vec<UnixMenu>,
     input: WaylandInput,
     resizable: bool,
-    //temporary buffer
+    // Temporary buffer
     buffer: Vec<u32>,
-    //configure, close
+    // Configure, close
     toplevel_info: (Rc<RefCell<Option<(i32, i32)>>>, Rc<RefCell<bool>>),
 }
 
 impl Window {
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Self> {
         let scale: i32 = match opts.scale {
-            //STUB: currently not working in Wayland
+            // STUB: currently not working in Wayland
             Scale::FitScreen => 1,
 
             Scale::X1 => 1,

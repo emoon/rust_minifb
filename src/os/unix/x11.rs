@@ -24,9 +24,8 @@ use crate::mouse_handler;
 const Button6: c_uint = xlib::Button5 + 1;
 const Button7: c_uint = xlib::Button5 + 2;
 
-// We have these in C so we can always have optimize on (-O3) so they
-// run fast in debug build as well. These functions should be seen as
-// "system" functions that just doesn't exist in X11
+// These functions are implemented in C in order to always have
+// optimizations on (`-O3`), allowing debug builds to run fast as well.
 extern "C" {
     fn Image_upper_left(
         target: *mut u32,
