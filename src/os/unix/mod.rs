@@ -155,6 +155,13 @@ impl Window {
         }
     }
 
+    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+        match *self {
+            Window::X11(ref w) => w.get_keys_released(),
+            Window::Wayland(ref _w) => unimplemented!(),
+        }
+    }
+
     pub fn is_key_down(&self, key: Key) -> bool {
         match *self {
             Window::X11(ref w) => w.is_key_down(key),
