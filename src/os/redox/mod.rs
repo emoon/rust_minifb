@@ -189,6 +189,10 @@ impl Window {
         self.key_handler.get_keys_pressed(repeat)
     }
 
+    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+        self.key_handler.get_keys_released()
+    }
+
     pub fn is_key_down(&self, key: Key) -> bool {
         self.key_handler.is_key_down(key)
     }
