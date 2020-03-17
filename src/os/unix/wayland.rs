@@ -1,37 +1,43 @@
+// TODO: there's a lot of unwrapping going on. Is there a better way to handle these potential
+// errors than panicking?
+use crate::buffer_helper;
 use crate::key_handler::KeyHandler;
 use crate::mouse_handler;
+use crate::os::unix::x11::Menu;
 use crate::rate::UpdateRate;
-use crate::{
-    os::unix::x11::Menu, InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode,
-    WindowOptions,
-};
 use crate::{CursorStyle, MenuHandle, UnixMenu};
 use crate::{Error, Result};
+use crate::{
+    InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions,
+};
 
-use std::ffi::c_void;
-use std::io::Write;
-use wayland_client::protocol::{
-    wl_buffer::WlBuffer,
-    wl_compositor::WlCompositor,
-    wl_display::WlDisplay,
-    wl_keyboard::{KeymapFormat, WlKeyboard},
-    wl_pointer::WlPointer,
-    wl_seat::WlSeat,
-    wl_shm::{Format, WlShm},
-    wl_shm_pool::WlShmPool,
-    wl_surface::WlSurface,
-    {wl_keyboard, wl_pointer},
-};
-use wayland_client::{Attached, Main};
-use wayland_client::{EventQueue, GlobalManager};
-use wayland_protocols::xdg_shell::client::{
-    xdg_surface::XdgSurface, xdg_toplevel::XdgToplevel, xdg_wm_base::XdgWmBase,
-};
+use wayland_client::protocol::wl_buffer::WlBuffer;
+use wayland_client::protocol::wl_compositor::WlCompositor;
+use wayland_client::protocol::wl_display::WlDisplay;
+use wayland_client::protocol::wl_keyboard::{KeymapFormat, WlKeyboard};
+use wayland_client::protocol::wl_pointer::WlPointer;
+use wayland_client::protocol::wl_seat::WlSeat;
+use wayland_client::protocol::wl_shm::{Format, WlShm};
+use wayland_client::protocol::wl_shm_pool::WlShmPool;
+use wayland_client::protocol::wl_surface::WlSurface;
+use wayland_client::protocol::{wl_keyboard, wl_pointer};
+use wayland_client::{Attached, Display, EventQueue, GlobalManager, Main};
+use wayland_protocols::unstable::xdg_decoration::v1::client::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1;
+use wayland_protocols::xdg_shell::client::xdg_surface::XdgSurface;
+use wayland_protocols::xdg_shell::client::xdg_toplevel::XdgToplevel;
+use wayland_protocols::xdg_shell::client::xdg_wm_base::XdgWmBase;
+use xkb::keymap::Keymap;
 
 use std::cell::RefCell;
-use std::os::unix::io::RawFd;
+use std::ffi::c_void;
+use std::fs::File;
+use std::io::{Read, Seek, SeekFrom, Write};
+use std::mem;
+use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 use std::rc::Rc;
+use std::slice;
 use std::sync::mpsc;
+use std::time::Duration;
 
 const KEY_XKB_OFFSET: u32 = 8;
 const KEY_MOUSE_BTN1: u32 = 272;
@@ -88,19 +94,17 @@ extern "C" {
     );
 }
 
-struct SingleBuffer {
-    fd: std::fs::File,
-    // Shm pool and size
+struct Buffer {
+    fd: File,
     pool: Main<WlShmPool>,
     pool_size: i32,
-    // Buffer and state
     buffer: Main<WlBuffer>,
     buffer_state: Rc<RefCell<bool>>,
     fb_size: (i32, i32),
 }
 
 struct BufferPool {
-    pool: Vec<SingleBuffer>,
+    pool: Vec<Buffer>,
     shm: Main<WlShm>,
     format: Format,
 }
@@ -123,31 +127,30 @@ impl BufferPool {
             0,
             size.0,
             size.1,
-            size.0 * std::mem::size_of::<u32>() as i32,
+            size.0 * mem::size_of::<u32>() as i32,
             format,
         );
-        let buf_not_needed = Rc::new(RefCell::new(false));
-        {
-            let buf_not_needed = buf_not_needed.clone();
+        // TODO: is this name still accurate? Is the buffer discarded when it is no longer needed?
+        // "buf_not_needed" is too verbose with not enough information, IMO
+        let discard_buf = Rc::new(RefCell::new(false));
+        let discard_buf_clone = discard_buf.clone();
 
-            buf.quick_assign(move |_, event, _| {
-                use wayland_client::protocol::wl_buffer::Event;
+        buf.quick_assign(move |_, event, _| {
+            use wayland_client::protocol::wl_buffer::Event;
 
-                if let Event::Release = event {
-                    *buf_not_needed.borrow_mut() = true;
-                }
-            });
-        }
+            if let Event::Release = event {
+                *discard_buf_clone.borrow_mut() = true;
+            }
+        });
 
-        (buf, buf_not_needed)
+        (buf, discard_buf)
     }
 
-    fn get_buffer(&mut self, size: (i32, i32)) -> (std::fs::File, &Main<WlBuffer>) {
-        use std::os::unix::io::AsRawFd;
-
+    fn get_buffer(&mut self, size: (i32, i32)) -> (File, &Main<WlBuffer>) {
         let pos = self.pool.iter().rposition(|e| *e.buffer_state.borrow());
-        let size_bytes = size.0 * size.1 * std::mem::size_of::<u32>() as i32;
-        // If possible take an older shm_pool and create a new buffer onto it
+        let size_bytes = size.0 * size.1 * mem::size_of::<u32>() as i32;
+
+        // If possible, take an older shm_pool and create a new buffer in it
         if let Some(idx) = pos {
             // Shm_pool not allowed to be truncated
             if size_bytes > self.pool[idx].pool_size {
@@ -158,7 +161,7 @@ impl BufferPool {
             // Different buffer size
             if self.pool[idx].fb_size != size {
                 let new_buffer = Self::create_shm_buffer(&self.pool[idx].pool, size, self.format);
-                let old_buffer = std::mem::replace(&mut self.pool[idx].buffer, new_buffer.0);
+                let old_buffer = mem::replace(&mut self.pool[idx].buffer, new_buffer.0);
                 old_buffer.destroy();
                 self.pool[idx].fb_size = size;
             }
@@ -168,15 +171,15 @@ impl BufferPool {
                 &self.pool[idx].buffer,
             )
         } else {
-            let file = tempfile::tempfile().unwrap();
+            let tempfile = tempfile::tempfile().unwrap();
             let shm_pool = self.shm.create_pool(
-                file.as_raw_fd(),
-                size.0 * size.1 * std::mem::size_of::<u32>() as i32,
+                tempfile.as_raw_fd(),
+                size.0 * size.1 * mem::size_of::<u32>() as i32,
             );
             let buffer = Self::create_shm_buffer(&shm_pool, size, self.format);
 
-            self.pool.push(SingleBuffer {
-                fd: file,
+            self.pool.push(Buffer {
+                fd: tempfile,
                 pool: shm_pool,
                 pool_size: size_bytes,
                 buffer: buffer.0,
@@ -193,7 +196,8 @@ impl BufferPool {
 }
 
 struct DisplayInfo {
-    wl_display: Attached<WlDisplay>,
+    // TODO: If these are never read, why are they necessary in the struct in the first place?
+    attached_display: Attached<WlDisplay>,
     _compositor: Main<WlCompositor>,
     _base: Main<XdgWmBase>,
     surface: Main<WlSurface>,
@@ -205,45 +209,41 @@ struct DisplayInfo {
     xdg_config: Rc<RefCell<Option<u32>>>,
     cursor: wayland_cursor::CursorTheme,
     cursor_surface: Main<WlSurface>,
-    _display: wayland_client::Display,
+    _display: Display,
     buf_pool: BufferPool,
 }
 
 impl DisplayInfo {
-    // size: size of the surface to be created
-    // alpha: whether the alpha channel shall be rendered
-    // decoration: whether server-side window decoration shall be created
-    fn new(size: (i32, i32), alpha: bool, decoration: bool) -> Result<(Self, WaylandInput)> {
+    /// Accepts the size of the surface to be created, whether or not the alpha channel will be
+    /// rendered, and whether or not server-side decorations will be used.
+    fn new(size: (i32, i32), alpha: bool, decorate: bool) -> Result<(Self, WaylandInput)> {
         // Get the wayland display
-        let display = wayland_client::Display::connect_to_env().map_err(|e| {
-            Error::WindowCreate(format!("Failed connecting to the Wayland Display: {:?}", e))
+        let display = Display::connect_to_env().map_err(|e| {
+            Error::WindowCreate(format!("Failed to connect to the Wayland display: {:?}", e))
         })?;
         let mut event_queue = display.create_event_queue();
 
         // Access internal WlDisplay with a token
-        let wl_display = (*display).clone().attach(event_queue.token());
-        let globals = GlobalManager::new(&wl_display);
+        let attached_display = (*display).clone().attach(event_queue.token());
+        let globals = GlobalManager::new(&attached_display);
 
-        // Wait the wayland server to process all events
+        // Wait for the Wayland server to process all events
         event_queue
             .sync_roundtrip(&mut (), |_, _, _| unreachable!())
             .map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
-        // Requires version 5 for the scroll events
+        // Version 5 is required for scroll events
         let seat = globals
             .instantiate_exact::<WlSeat>(5)
-            .map_err(|e| Error::WindowCreate(format!("Failed retrieving the WlSeat: {:?}", e)))?;
+            .map_err(|e| Error::WindowCreate(format!("Failed to retrieve the WlSeat: {:?}", e)))?;
 
-        // Create the input devices already at this point
-        let input = WaylandInput::new(&seat);
-
-        // Retrieve some types from globals
+        let input_devices = WaylandInput::new(&seat);
         let compositor = globals.instantiate_exact::<WlCompositor>(4).map_err(|e| {
-            Error::WindowCreate(format!("Failed retrieving the compositor: {:?}", e))
+            Error::WindowCreate(format!("Failed to retrieve the compositor: {:?}", e))
         })?;
-        let shm = globals.instantiate_exact::<WlShm>(1).map_err(|e| {
-            Error::WindowCreate(format!("Failed creating the shared memory: {:?}", e))
-        })?;
+        let shm = globals
+            .instantiate_exact::<WlShm>(1)
+            .map_err(|e| Error::WindowCreate(format!("Failed to create shared memory: {:?}", e)))?;
 
         let surface = compositor.create_surface();
 
@@ -254,26 +254,26 @@ impl DisplayInfo {
             Format::Xrgb8888
         };
 
-        // Retrive file to write to
+        // Retrive shm buffer for writing
         let mut buf_pool = BufferPool::new(shm.clone(), format);
         let (mut tempfile, buffer) = buf_pool.get_buffer(size);
 
         // Add a black canvas into the framebuffer
         let frame: Vec<u32> = vec![0xFF00_0000; (size.0 * size.1) as usize];
         let slice = unsafe {
-            std::slice::from_raw_parts(
+            slice::from_raw_parts(
                 frame[..].as_ptr() as *const u8,
-                frame.len() * std::mem::size_of::<u32>(),
+                frame.len() * mem::size_of::<u32>(),
             )
         };
         tempfile.write_all(&slice[..]).unwrap();
         tempfile.flush().unwrap();
 
         let xdg_wm_base = globals.instantiate_exact::<XdgWmBase>(1).map_err(|e| {
-            Error::WindowCreate(format!("Failed retrieving the XdgWmBase: {:?}", e))
+            Error::WindowCreate(format!("Failed to retrieve the XdgWmBase: {:?}", e))
         })?;
 
-        // Reply to Ping
+        // Reply to ping event
         xdg_wm_base.quick_assign(|xdg_wm_base, event, _| {
             use wayland_protocols::xdg_shell::client::xdg_wm_base::Event;
 
@@ -284,7 +284,8 @@ impl DisplayInfo {
 
         let xdg_surface = xdg_wm_base.get_xdg_surface(&surface);
         let surface_clone = surface.clone();
-        // Handle Ping
+
+        // Handle configure event
         xdg_surface.quick_assign(move |xdg_surface, event, _| {
             use wayland_protocols::xdg_shell::client::xdg_surface::Event;
 
@@ -294,16 +295,15 @@ impl DisplayInfo {
             }
         });
 
-        // Assigns the toplevel role and commit
+        // Assign the toplevel role and commit
         let xdg_toplevel = xdg_surface.get_toplevel();
-        if decoration {
-            use wayland_protocols::unstable::xdg_decoration::v1::client::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1;
 
+        if decorate {
             if let Ok(decorations) = globals
                 .instantiate_exact::<ZxdgDecorationManagerV1>(1)
                 .map_err(|e| {
                     Error::WindowCreate(format!(
-                        "Failed creating server-side surface decoration: {:?}",
+                        "Failed to create server-side surface decoration: {:?}",
                         e
                     ))
                 })
@@ -313,29 +313,28 @@ impl DisplayInfo {
                 decorations.destroy();
             }
         }
-        surface.commit();
 
+        surface.commit();
         event_queue
             .sync_roundtrip(&mut (), |_, _, _| {})
             .map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
-        // Give the surface the buffer and commit
+        // Give the buffer to the surface and commit
         surface.attach(Some(&buffer), 0, 0);
         surface.damage(0, 0, i32::max_value(), i32::max_value());
         surface.commit();
 
         let xdg_config = Rc::new(RefCell::new(None));
-        {
-            let xdg_config = xdg_config.clone();
-            xdg_surface.quick_assign(move |_xdg_surface, event, _| {
-                use wayland_protocols::xdg_shell::client::xdg_surface::Event;
+        let xdg_config_clone = xdg_config.clone();
 
-                // Acknowledge only the last configure
-                if let Event::Configure { serial } = event {
-                    *xdg_config.borrow_mut() = Some(serial);
-                }
-            });
-        }
+        xdg_surface.quick_assign(move |_xdg_surface, event, _| {
+            use wayland_protocols::xdg_shell::client::xdg_surface::Event;
+
+            // Acknowledge only the last configure
+            if let Event::Configure { serial } = event {
+                *xdg_config_clone.borrow_mut() = Some(serial);
+            }
+        });
 
         let cursor = wayland_cursor::load_theme(None, 16, &shm);
         let cursor_surface = compositor.create_surface();
@@ -343,7 +342,7 @@ impl DisplayInfo {
         Ok((
             Self {
                 _display: display,
-                wl_display,
+                attached_display,
                 _compositor: compositor,
                 _base: xdg_wm_base,
                 surface,
@@ -357,7 +356,7 @@ impl DisplayInfo {
                 cursor_surface,
                 buf_pool,
             },
-            input,
+            input_devices,
         ))
     }
 
@@ -377,8 +376,8 @@ impl DisplayInfo {
 
     // Sets a specific cursor style
     fn update_cursor(&mut self, cursor: &str) {
-        let csr = self.cursor.get_cursor(cursor).unwrap();
-        let img = csr.frame_buffer(0).unwrap();
+        let cursor = self.cursor.get_cursor(cursor).unwrap();
+        let img = cursor.frame_buffer(0).unwrap();
         self.cursor_surface.attach(Some(&*img), 0, 0);
         self.cursor_surface.damage(0, 0, 32, 32);
         self.cursor_surface.commit();
@@ -386,17 +385,17 @@ impl DisplayInfo {
 
     // Resizes when buffer is bigger or less
     fn update_framebuffer(&mut self, buffer: &[u32], size: (i32, i32)) {
-        use std::io::{Seek, SeekFrom};
-
         let (mut fd, buf) = self.buf_pool.get_buffer(size);
 
         fd.seek(SeekFrom::Start(0)).unwrap();
+
         let slice = unsafe {
-            std::slice::from_raw_parts(
+            slice::from_raw_parts(
                 buffer[..].as_ptr() as *const u8,
-                buffer.len() * std::mem::size_of::<u32>(),
+                buffer.len() * mem::size_of::<u32>(),
             )
         };
+
         fd.write_all(&slice[..]).unwrap();
         fd.flush().unwrap();
 
@@ -412,25 +411,23 @@ impl DisplayInfo {
     }
 
     fn get_toplevel_info(&self) -> (ToplevelResolution, ToplevelClosed) {
-        let configure = Rc::new(RefCell::new(None));
-        let close = Rc::new(RefCell::new(false));
+        let resolution = Rc::new(RefCell::new(None));
+        let closed = Rc::new(RefCell::new(false));
 
-        {
-            let configure = configure.clone();
-            let close = close.clone();
+        let resolution_clone = resolution.clone();
+        let closed_clone = closed.clone();
 
-            self.toplevel.quick_assign(move |_, event, _| {
-                use wayland_protocols::xdg_shell::client::xdg_toplevel::Event;
+        self.toplevel.quick_assign(move |_, event, _| {
+            use wayland_protocols::xdg_shell::client::xdg_toplevel::Event;
 
-                if let Event::Configure { width, height, .. } = event {
-                    *configure.borrow_mut() = Some((width, height));
-                } else if let Event::Close = event {
-                    *close.borrow_mut() = true;
-                }
-            });
-        }
+            if let Event::Configure { width, height, .. } = event {
+                *resolution_clone.borrow_mut() = Some((width, height));
+            } else if let Event::Close = event {
+                *closed_clone.borrow_mut() = true;
+            }
+        });
 
-        (configure, close)
+        (resolution, closed)
     }
 }
 
@@ -444,7 +441,6 @@ struct WaylandInput {
 impl WaylandInput {
     fn new(seat: &Main<WlSeat>) -> Self {
         let (keyboard, pointer) = (seat.get_keyboard(), seat.get_pointer());
-
         let (kb_sender, kb_receiver) = mpsc::sync_channel(1024);
 
         keyboard.quick_assign(move |_, event, _| {
@@ -492,7 +488,8 @@ pub struct Window {
     mouse_y: f32,
     scroll_x: f32,
     scroll_y: f32,
-    buttons: [u8; 3],
+    // TODO: Was there a reason this was u8?
+    buttons: [bool; 8], // changed length to 8 in order to support future additions (Linux kernel defines 8 mouse buttons)
     prev_cursor: CursorStyle,
 
     should_close: bool,
@@ -500,7 +497,7 @@ pub struct Window {
 
     key_handler: KeyHandler,
     // Option because MaybeUninit's get_ref() is nightly-only
-    keymap: Option<xkb::keymap::Keymap>,
+    keymap: Option<Keymap>,
     update_rate: UpdateRate,
     menu_counter: MenuHandle,
     menus: Vec<UnixMenu>,
@@ -508,7 +505,7 @@ pub struct Window {
     resizable: bool,
     // Temporary buffer
     buffer: Vec<u32>,
-    // Configure, close
+    // Resolution, closed
     toplevel_info: (ToplevelResolution, ToplevelClosed),
 }
 
@@ -516,6 +513,7 @@ impl Window {
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Self> {
         let scale: i32 = match opts.scale {
             // Relies on the fact that this is done by the server
+            // https://docs.rs/winit/0.22.0/winit/dpi/index.html#how-is-the-scale-factor-calculated
             Scale::FitScreen => 1,
 
             Scale::X1 => 1,
@@ -526,22 +524,23 @@ impl Window {
             Scale::X32 => 32,
         };
 
-        let (dsp, input) = DisplayInfo::new(
+        let (display, input) = DisplayInfo::new(
             (width as i32 * scale, height as i32 * scale),
             false,
             !opts.borderless,
         )?;
+
         if opts.title {
-            dsp.set_title(name);
+            display.set_title(name);
         }
         if !opts.resize {
-            dsp.set_no_resize((width as i32 * scale, height as i32 * scale));
+            display.set_no_resize((width as i32 * scale, height as i32 * scale));
         }
 
-        let (configure, close) = dsp.get_toplevel_info();
+        let (resolution, closed) = display.get_toplevel_info();
 
         Ok(Self {
-            display: dsp,
+            display,
 
             width: width as i32 * scale,
             height: height as i32 * scale,
@@ -554,7 +553,7 @@ impl Window {
             mouse_y: 0.,
             scroll_x: 0.,
             scroll_y: 0.,
-            buttons: [0; 3],
+            buttons: [false; 8],
             prev_cursor: CursorStyle::Arrow,
 
             should_close: false,
@@ -568,7 +567,7 @@ impl Window {
             input,
             resizable: opts.resize,
             buffer: Vec::with_capacity(width * height * scale as usize * scale as usize),
-            toplevel_info: (configure, close),
+            toplevel_info: (resolution, closed),
         })
     }
 
@@ -613,9 +612,9 @@ impl Window {
 
     pub fn get_mouse_down(&self, button: MouseButton) -> bool {
         match button {
-            MouseButton::Left => self.buttons[0] > 0,
-            MouseButton::Right => self.buttons[1] > 0,
-            MouseButton::Middle => self.buttons[2] > 0,
+            MouseButton::Left => self.buttons[0],
+            MouseButton::Right => self.buttons[1],
+            MouseButton::Middle => self.buttons[2],
         }
     }
 
@@ -647,7 +646,7 @@ impl Window {
             .set_geometry((x as i32, y as i32), (self.width, self.height));
     }
 
-    pub fn set_rate(&mut self, rate: Option<std::time::Duration>) {
+    pub fn set_rate(&mut self, rate: Option<Duration>) {
         self.update_rate.set_rate(rate);
     }
 
@@ -682,6 +681,7 @@ impl Window {
     fn next_menu_handle(&mut self) -> MenuHandle {
         let handle = self.menu_counter;
         self.menu_counter.0 += 1;
+
         handle
     }
 
@@ -690,10 +690,12 @@ impl Window {
         let mut menu = menu.internal.clone();
         menu.handle = handle;
         self.menus.push(menu);
+
         handle
     }
 
     pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
+        // TODO: Why is this an option if it's always Some? Just unimplemented?
         Some(&self.menus)
     }
 
@@ -702,6 +704,7 @@ impl Window {
     }
 
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
+        // TODO: Why is this None? Just unimplemented?
         None
     }
 
@@ -713,7 +716,7 @@ impl Window {
             .unwrap();
 
         if let Some(resize) = (*self.toplevel_info.0.borrow_mut()).take() {
-            //Dont try to resize to 0x0
+            // Don't try to resize to 0x0
             if self.resizable && resize != (0, 0) {
                 self.width = resize.0;
                 self.height = resize.1;
@@ -725,6 +728,7 @@ impl Window {
 
         for event in self.input.iter_keyboard_events() {
             use wayland_client::protocol::wl_keyboard::Event;
+
             match event {
                 Event::Keymap { format, fd, size } => {
                     self.keymap = Some(Self::handle_keymap(format, fd, size));
@@ -777,6 +781,7 @@ impl Window {
                 } => {
                     self.mouse_x = surface_x as f32;
                     self.mouse_y = surface_y as f32;
+
                     self.input.get_pointer().set_cursor(
                         serial,
                         Some(&self.display.cursor_surface),
@@ -797,16 +802,19 @@ impl Window {
                 Event::Button { button, state, .. } => {
                     use wayland_client::protocol::wl_pointer::ButtonState;
 
-                    let st = (state == ButtonState::Pressed) as u8;
+                    let pressed = state == ButtonState::Pressed;
 
                     match button {
-                        //Left
-                        KEY_MOUSE_BTN1 => self.buttons[0] = st,
-                        //Right
-                        KEY_MOUSE_BTN2 => self.buttons[1] = st,
-                        //Middle
-                        KEY_MOUSE_BTN3 => self.buttons[2] = st,
-                        _ => {}
+                        // Left mouse button
+                        KEY_MOUSE_BTN1 => self.buttons[0] = pressed,
+                        // Right mouse button
+                        KEY_MOUSE_BTN2 => self.buttons[1] = pressed,
+                        // Middle mouse button
+                        KEY_MOUSE_BTN3 => self.buttons[2] = pressed,
+                        _ => {
+                            // TODO: handle more mouse buttons (see: linux/input-event-codes.h from
+                            // the Linux kernel)
+                        }
                     }
                 }
                 Event::Axis { axis, value, .. } => {
@@ -818,8 +826,13 @@ impl Window {
                         _ => {}
                     }
                 }
-                //Event::Frame {} => {}
-                //Event::AxisSource { axis_source } => {}
+                Event::Frame {} => {
+                    // TODO
+                }
+                Event::AxisSource { axis_source } => {
+                    let _ = axis_source;
+                    // TODO
+                }
                 Event::AxisStop { axis, .. } => {
                     use wayland_client::protocol::wl_pointer::Axis;
 
@@ -829,7 +842,10 @@ impl Window {
                         _ => {}
                     }
                 }
-                //Event::AxisDiscrete { axis, discrete } => {}
+                Event::AxisDiscrete { axis, discrete } => {
+                    let _ = (axis, discrete);
+                    // TODO
+                }
                 _ => {}
             }
         }
@@ -838,15 +854,12 @@ impl Window {
     }
 
     fn handle_key(
-        keymap: &xkb::keymap::Keymap,
+        keymap: &Keymap,
         key: u32,
-        state: wayland_client::protocol::wl_keyboard::KeyState,
+        state: wl_keyboard::KeyState,
         key_handler: &mut KeyHandler,
     ) {
-        use wayland_client::protocol::wl_keyboard::KeyState;
-
-        let is_down = state == KeyState::Pressed;
-
+        let is_down = state == wl_keyboard::KeyState::Pressed;
         let state = keymap.state();
         let key_xkb = state.key(key);
 
@@ -898,9 +911,9 @@ impl Window {
                 key::comma => Key::Comma,
                 key::equal => Key::Equal,
                 key::bracketleft => Key::LeftBracket,
+                key::bracketright => Key::RightBracket,
                 key::minus => Key::Minus,
                 key::period => Key::Period,
-                key::braceright => Key::RightBracket,
                 key::semicolon => Key::Semicolon,
                 key::slash => Key::Slash,
                 key::space => Key::Space,
@@ -968,38 +981,34 @@ impl Window {
                     return;
                 }
             };
+
             key_handler.set_key_state(key_i, is_down);
         }
     }
 
-    fn handle_keymap(keymap: KeymapFormat, fd: RawFd, len: u32) -> xkb::keymap::Keymap {
-        use std::io::Read;
-        use std::os::unix::io::FromRawFd;
-
+    fn handle_keymap(keymap: KeymapFormat, fd: RawFd, len: u32) -> Keymap {
         match keymap {
             KeymapFormat::XkbV1 => {
-                use xkb::keymap::Keymap;
-
                 unsafe {
-                    //read in fd content into vec
-                    let mut file = std::fs::File::from_raw_fd(fd);
+                    // Read fd content into Vec
+                    let mut file = File::from_raw_fd(fd);
                     let mut v = Vec::with_capacity(len as usize);
                     v.set_len(len as usize);
                     file.read_exact(&mut v).unwrap();
 
                     let ctx = xkbcommon_sys::xkb_context_new(0);
-                    //create keymap from string
                     let kb_map_ptr = xkbcommon_sys::xkb_keymap_new_from_string(
                         ctx,
                         v.as_ptr() as *const _ as *const std::os::raw::c_char,
                         xkbcommon_sys::xkb_keymap_format::XKB_KEYMAP_FORMAT_TEXT_v1,
                         0,
                     );
+
                     // Wrap keymap
                     Keymap::from_ptr(kb_map_ptr as *mut _ as *mut c_void)
                 }
             }
-            _ => unimplemented!("Only XKB keymaps supported"),
+            _ => unimplemented!("Only XKB keymaps are supported"),
         }
     }
 
@@ -1030,13 +1039,12 @@ impl Window {
         buf_height: usize,
         buf_stride: usize,
     ) -> Result<()> {
-        crate::buffer_helper::check_buffer_size(buf_width, buf_height, buf_width, buffer)?;
+        buffer_helper::check_buffer_size(buf_width, buf_height, buf_width, buffer)?;
 
         unsafe { self.scale_buffer(buffer, buf_width, buf_height, buf_stride) };
 
         self.display
             .update_framebuffer(&self.buffer[..], (self.width as i32, self.height as i32));
-
         self.update();
 
         Ok(())
@@ -1110,8 +1118,14 @@ unsafe impl raw_window_handle::HasRawWindowHandle for Window {
     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
         let mut handle = raw_window_handle::unix::WaylandHandle::empty();
         handle.surface = self.display.surface.as_ref().c_ptr() as *mut _ as *mut c_void;
-        handle.display =
-            self.display.wl_display.clone().detach().as_ref().c_ptr() as *mut _ as *mut c_void;
+        handle.display = self
+            .display
+            .attached_display
+            .clone()
+            .detach()
+            .as_ref()
+            .c_ptr() as *mut _ as *mut c_void;
+
         raw_window_handle::RawWindowHandle::Wayland(handle)
     }
 }
