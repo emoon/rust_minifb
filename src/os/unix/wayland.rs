@@ -130,7 +130,8 @@ impl BufferPool {
             size.0 * mem::size_of::<u32>() as i32,
             format,
         );
-        //Whether or not the buffer has been released by the compositor
+
+        // Whether or not the buffer has been released by the compositor
         let buf_released = Rc::new(RefCell::new(false));
         let buf_released_clone = buf_released.clone();
 
