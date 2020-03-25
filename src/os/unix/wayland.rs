@@ -690,7 +690,6 @@ impl Window {
     }
 
     pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
-        Some(&self.menus)
         //FIXME
         unimplemented!()
     }
@@ -700,7 +699,6 @@ impl Window {
     }
 
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
-        None
         //FIXME
         unimplemented!()
     }
