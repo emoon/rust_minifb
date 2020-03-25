@@ -691,7 +691,6 @@ impl Window {
     }
 
     pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
-        // TODO: Why is this an option if it's always Some? Just unimplemented?
         Some(&self.menus)
     }
 
@@ -700,7 +699,6 @@ impl Window {
     }
 
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
-        // TODO: Why is this None? Just unimplemented?
         None
     }
 
