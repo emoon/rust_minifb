@@ -130,20 +130,19 @@ impl BufferPool {
             size.0 * mem::size_of::<u32>() as i32,
             format,
         );
-        // TODO: is this name still accurate? Is the buffer discarded when it is no longer needed?
-        // "buf_not_needed" is too verbose with not enough information, IMO
-        let discard_buf = Rc::new(RefCell::new(false));
-        let discard_buf_clone = discard_buf.clone();
+        //Whether or not the buffer has been released by the compositor
+        let buf_released = Rc::new(RefCell::new(false));
+        let buf_released_clone = buf_released.clone();
 
         buf.quick_assign(move |_, event, _| {
             use wayland_client::protocol::wl_buffer::Event;
 
             if let Event::Release = event {
-                *discard_buf_clone.borrow_mut() = true;
+                *buf_released_clone.borrow_mut() = true;
             }
         });
 
-        (buf, discard_buf)
+        (buf, buf_released)
     }
 
     fn get_buffer(&mut self, size: (i32, i32)) -> (File, &Main<WlBuffer>) {
