@@ -691,6 +691,8 @@ impl Window {
 
     pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
         Some(&self.menus)
+        //FIXME
+        unimplemented!()
     }
 
     pub fn remove_menu(&mut self, handle: MenuHandle) {
@@ -699,6 +701,8 @@ impl Window {
 
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
         None
+        //FIXME
+        unimplemented!()
     }
 
     pub fn update(&mut self) {
