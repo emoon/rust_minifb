@@ -485,8 +485,7 @@ pub struct Window {
     mouse_y: f32,
     scroll_x: f32,
     scroll_y: f32,
-    // TODO: Was there a reason this was u8?
-    buttons: [bool; 8], // changed length to 8 in order to support future additions (Linux kernel defines 8 mouse buttons)
+    buttons: [bool; 8], // Linux kernel defines 8 mouse buttons
     prev_cursor: CursorStyle,
 
     should_close: bool,
