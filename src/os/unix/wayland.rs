@@ -196,16 +196,14 @@ impl BufferPool {
 }
 
 struct DisplayInfo {
-    // TODO: If these are never read, why are they necessary in the struct in the first place?
     attached_display: Attached<WlDisplay>,
-    _compositor: Main<WlCompositor>,
-    _base: Main<XdgWmBase>,
+    //_compositor: Main<WlCompositor>,
+    //_base: Main<XdgWmBase>,
     surface: Main<WlSurface>,
     xdg_surface: Main<XdgSurface>,
     toplevel: Main<XdgToplevel>,
-    _shm: Main<WlShm>,
     event_queue: EventQueue,
-    _seat: Main<WlSeat>,
+    //_seat: Main<WlSeat>,
     xdg_config: Rc<RefCell<Option<u32>>>,
     cursor: wayland_cursor::CursorTheme,
     cursor_surface: Main<WlSurface>,
@@ -343,14 +341,13 @@ impl DisplayInfo {
             Self {
                 _display: display,
                 attached_display,
-                _compositor: compositor,
-                _base: xdg_wm_base,
+                //_compositor: compositor,
+                //_base: xdg_wm_base,
                 surface,
                 xdg_surface,
                 toplevel: xdg_toplevel,
-                _shm: shm,
                 event_queue,
-                _seat: seat,
+                //_seat: seat,
                 xdg_config,
                 cursor,
                 cursor_surface,
