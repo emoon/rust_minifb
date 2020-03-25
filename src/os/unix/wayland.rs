@@ -197,13 +197,10 @@ impl BufferPool {
 
 struct DisplayInfo {
     attached_display: Attached<WlDisplay>,
-    //_compositor: Main<WlCompositor>,
-    //_base: Main<XdgWmBase>,
     surface: Main<WlSurface>,
     xdg_surface: Main<XdgSurface>,
     toplevel: Main<XdgToplevel>,
     event_queue: EventQueue,
-    //_seat: Main<WlSeat>,
     xdg_config: Rc<RefCell<Option<u32>>>,
     cursor: wayland_cursor::CursorTheme,
     cursor_surface: Main<WlSurface>,
@@ -341,13 +338,10 @@ impl DisplayInfo {
             Self {
                 _display: display,
                 attached_display,
-                //_compositor: compositor,
-                //_base: xdg_wm_base,
                 surface,
                 xdg_surface,
                 toplevel: xdg_toplevel,
                 event_queue,
-                //_seat: seat,
                 xdg_config,
                 cursor,
                 cursor_surface,
