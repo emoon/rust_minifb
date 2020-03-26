@@ -1,5 +1,3 @@
-// TODO: there's a lot of unwrapping going on. Is there a better way to handle these potential
-// errors than panicking?
 use crate::buffer_helper;
 use crate::key_handler::KeyHandler;
 use crate::mouse_handler;
@@ -146,7 +144,7 @@ impl BufferPool {
         (buf, buf_released)
     }
 
-    fn get_buffer(&mut self, size: (i32, i32)) -> (File, &Main<WlBuffer>) {
+    fn get_buffer(&mut self, size: (i32, i32)) -> std::io::Result<(File, &Main<WlBuffer>)> {
         let pos = self.pool.iter().rposition(|e| *e.buffer_state.borrow());
         let size_bytes = size.0 * size.1 * mem::size_of::<u32>() as i32;
 
@@ -166,12 +164,9 @@ impl BufferPool {
                 self.pool[idx].fb_size = size;
             }
 
-            (
-                self.pool[idx].fd.try_clone().unwrap(),
-                &self.pool[idx].buffer,
-            )
+            Ok((self.pool[idx].fd.try_clone()?, &self.pool[idx].buffer))
         } else {
-            let tempfile = tempfile::tempfile().unwrap();
+            let tempfile = tempfile::tempfile()?;
             let shm_pool = self.shm.create_pool(
                 tempfile.as_raw_fd(),
                 size.0 * size.1 * mem::size_of::<u32>() as i32,
@@ -187,10 +182,10 @@ impl BufferPool {
                 fb_size: size,
             });
 
-            (
-                self.pool[self.pool.len() - 1].fd.try_clone().unwrap(),
+            Ok((
+                self.pool[self.pool.len() - 1].fd.try_clone()?,
                 &self.pool[self.pool.len() - 1].buffer,
-            )
+            ))
         }
     }
 }
@@ -251,7 +246,9 @@ impl DisplayInfo {
 
         // Retrive shm buffer for writing
         let mut buf_pool = BufferPool::new(shm.clone(), format);
-        let (mut tempfile, buffer) = buf_pool.get_buffer(size);
+        let (mut tempfile, buffer) = buf_pool
+            .get_buffer(size)
+            .map_err(|e| Error::WindowCreate(format!("Failed to retrieve Buffer: {:?}", e)))?;
 
         // Add a black canvas into the framebuffer
         let frame: Vec<u32> = vec![0xFF00_0000; (size.0 * size.1) as usize];
@@ -261,8 +258,12 @@ impl DisplayInfo {
                 frame.len() * mem::size_of::<u32>(),
             )
         };
-        tempfile.write_all(&slice[..]).unwrap();
-        tempfile.flush().unwrap();
+        tempfile
+            .write_all(&slice[..])
+            .map_err(|e| Error::WindowCreate(format!("Io Error: {:?}", e)))?;
+        tempfile
+            .flush()
+            .map_err(|e| Error::WindowCreate(format!("Io Error: {:?}", e)))?;
 
         let xdg_wm_base = globals.instantiate_exact::<XdgWmBase>(1).map_err(|e| {
             Error::WindowCreate(format!("Failed to retrieve the XdgWmBase: {:?}", e))
@@ -366,19 +367,25 @@ impl DisplayInfo {
     }
 
     // Sets a specific cursor style
-    fn update_cursor(&mut self, cursor: &str) {
-        let cursor = self.cursor.get_cursor(cursor).unwrap();
-        let img = cursor.frame_buffer(0).unwrap();
-        self.cursor_surface.attach(Some(&*img), 0, 0);
-        self.cursor_surface.damage(0, 0, 32, 32);
-        self.cursor_surface.commit();
+    fn update_cursor(&mut self, cursor: &str) -> std::result::Result<(), ()> {
+        let cursor = self.cursor.get_cursor(cursor);
+        if let Some(cursor) = cursor {
+            let img = cursor.frame_buffer(0);
+            if let Some(img) = img {
+                self.cursor_surface.attach(Some(&*img), 0, 0);
+                self.cursor_surface.damage(0, 0, 32, 32);
+                self.cursor_surface.commit();
+                return Ok(());
+            }
+        }
+        Err(())
     }
 
     // Resizes when buffer is bigger or less
-    fn update_framebuffer(&mut self, buffer: &[u32], size: (i32, i32)) {
-        let (mut fd, buf) = self.buf_pool.get_buffer(size);
+    fn update_framebuffer(&mut self, buffer: &[u32], size: (i32, i32)) -> std::io::Result<()> {
+        let (mut fd, buf) = self.buf_pool.get_buffer(size)?;
 
-        fd.seek(SeekFrom::Start(0)).unwrap();
+        fd.seek(SeekFrom::Start(0))?;
 
         let slice = unsafe {
             slice::from_raw_parts(
@@ -387,8 +394,8 @@ impl DisplayInfo {
             )
         };
 
-        fd.write_all(&slice[..]).unwrap();
-        fd.flush().unwrap();
+        fd.write_all(&slice[..])?;
+        fd.flush()?;
 
         // Acknowledge the last configure event
         if let Some(serial) = (*self.xdg_config.borrow_mut()).take() {
@@ -399,6 +406,8 @@ impl DisplayInfo {
         self.surface
             .damage(0, 0, i32::max_value(), i32::max_value());
         self.surface.commit();
+
+        Ok(())
     }
 
     fn get_toplevel_info(&self) -> (ToplevelResolution, ToplevelClosed) {
@@ -721,7 +730,7 @@ impl Window {
 
             match event {
                 Event::Keymap { format, fd, size } => {
-                    self.keymap = Some(Self::handle_keymap(format, fd, size));
+                    self.keymap = Some(Self::handle_keymap(format, fd, size).unwrap());
                 }
                 Event::Enter { .. } => {
                     self.active = true;
@@ -779,7 +788,8 @@ impl Window {
                         0,
                     );
                     self.display
-                        .update_cursor(Self::decode_cursor(self.prev_cursor));
+                        .update_cursor(Self::decode_cursor(self.prev_cursor))
+                        .unwrap();
                 }
                 Event::Motion {
                     surface_x,
@@ -976,7 +986,7 @@ impl Window {
         }
     }
 
-    fn handle_keymap(keymap: KeymapFormat, fd: RawFd, len: u32) -> Keymap {
+    fn handle_keymap(keymap: KeymapFormat, fd: RawFd, len: u32) -> std::io::Result<Keymap> {
         match keymap {
             KeymapFormat::XkbV1 => {
                 unsafe {
@@ -984,7 +994,7 @@ impl Window {
                     let mut file = File::from_raw_fd(fd);
                     let mut v = Vec::with_capacity(len as usize);
                     v.set_len(len as usize);
-                    file.read_exact(&mut v).unwrap();
+                    file.read_exact(&mut v)?;
 
                     let ctx = xkbcommon_sys::xkb_context_new(0);
                     let kb_map_ptr = xkbcommon_sys::xkb_keymap_new_from_string(
@@ -995,7 +1005,7 @@ impl Window {
                     );
 
                     // Wrap keymap
-                    Keymap::from_ptr(kb_map_ptr as *mut _ as *mut c_void)
+                    Ok(Keymap::from_ptr(kb_map_ptr as *mut _ as *mut c_void))
                 }
             }
             _ => unimplemented!("Only XKB keymaps are supported"),
@@ -1017,7 +1027,9 @@ impl Window {
 
     pub fn set_cursor_style(&mut self, cursor: CursorStyle) {
         if self.prev_cursor != cursor {
-            self.display.update_cursor(Self::decode_cursor(cursor));
+            self.display
+                .update_cursor(Self::decode_cursor(cursor))
+                .unwrap();
             self.prev_cursor = cursor;
         }
     }
@@ -1034,7 +1046,8 @@ impl Window {
         unsafe { self.scale_buffer(buffer, buf_width, buf_height, buf_stride) };
 
         self.display
-            .update_framebuffer(&self.buffer[..], (self.width as i32, self.height as i32));
+            .update_framebuffer(&self.buffer[..], (self.width as i32, self.height as i32))
+            .map_err(|e| Error::UpdateFailed(format!("Error updating framebuffer: {:?}", e)))?;
         self.update();
 
         Ok(())
