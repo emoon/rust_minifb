@@ -58,6 +58,16 @@ fn main() {
             }
         });
 
+        window.get_keys_released().map(|keys| {
+            for t in keys {
+                match t {
+                    Key::W => println!("released w!"),
+                    Key::T => println!("released t!"),
+                    _ => (),
+                }
+            }
+        });
+
         window
             .update_with_buffer(&buffer, new_size.0, new_size.1)
             .unwrap();

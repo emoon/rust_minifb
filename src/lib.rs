@@ -562,6 +562,29 @@ impl Window {
     }
 
     ///
+    /// Get the current released keys.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    /// window.get_keys_released().map(|keys| {
+    ///     for t in keys {
+    ///         match t {
+    ///             Key::W => println!("released w"),
+    ///             Key::T => println!("released t"),
+    ///             _ => (),
+    ///         }
+    ///     }
+    /// });
+    /// ```
+    #[inline]
+    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+        self.0.get_keys_released()
+    }
+
+    ///
     /// Check if a single key is down.
     ///
     /// # Examples

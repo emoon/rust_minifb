@@ -91,6 +91,20 @@ impl KeyHandler {
         Some(keys)
     }
 
+    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+        let mut keys: Vec<Key> = Vec::new();
+
+        for (idx, is_down) in self.keys.iter().enumerate() {
+            if !(*is_down) && self.is_key_index_released(idx) {
+                unsafe {
+                    keys.push(mem::transmute(idx as u8));
+                }
+            }
+        }
+
+        Some(keys)
+    }
+
     #[inline]
     pub fn is_key_down(&self, key: Key) -> bool {
         return self.keys[key as usize];
@@ -134,6 +148,11 @@ impl KeyHandler {
     #[inline]
     pub fn is_key_released(&self, key: Key) -> bool {
         let idx = key as usize;
+        return self.is_key_index_released(idx);
+    }
+
+    #[inline]
+    fn is_key_index_released(&self, idx: usize) -> bool {
         return self.keys_prev[idx] && !self.keys[idx];
     }
 }
