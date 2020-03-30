@@ -1,5 +1,5 @@
-use crate::{MenuItem, UnixMenu, MenuHandle, UnixMenuItem, MenuItemHandle, Key};
 use crate::Result;
+use crate::{Key, MenuHandle, MenuItem, MenuItemHandle, UnixMenu, UnixMenuItem};
 
 pub struct Menu {
     pub internal: UnixMenu,

@@ -1104,4 +1104,3 @@ impl Drop for Window {
         }
     }
 }
-
