@@ -185,6 +185,8 @@ pub struct WindowOptions {
     pub scale: Scale,
     /// Adjust how the scaling of the buffer used with update_with_buffer should be done.
     pub scale_mode: ScaleMode,
+    /// Should the window be the topmost window (default: false)
+    pub topmost: bool,
 }
 
 impl Window {
@@ -995,6 +997,7 @@ impl Default for WindowOptions {
             resize: false,
             scale: Scale::X1,
             scale_mode: ScaleMode::Stretch,
+            topmost: false,
         }
     }
 }
