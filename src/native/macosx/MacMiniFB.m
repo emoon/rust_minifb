@@ -293,17 +293,17 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Sets whether window is the topmost window
-void mfb_topmost(void* win, bool topmost)
+void mfb_topmost(void* window, bool topmost)
 {
 
-	OSXWindow* window = (OSXWindow*)win;
+	OSXWindow* win = (OSXWindow*)window;
 
 	if(topmost)
 	{
-		window.level = NSFloatingWindowLevel; // set level to floating
+		win.level = NSFloatingWindowLevel; // set level to floating
 	} else 
 	{
-		window.level = 0; // set to default/normal
+		win.level = 0; // set to default/normal
 	}
 
 }
