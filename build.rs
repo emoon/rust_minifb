@@ -6,8 +6,7 @@ fn main() {
         target_os = "macos",
         target_os = "windows",
         target_os = "redox"
-    ))) {
-        if cfg!(not(any(feature = "wayland", feature = "x11"))) {
+    ))) && cfg!(not(any(feature = "wayland", feature = "x11"))) {
             panic!("At least one of the x11 or wayland features must be enabled");
         }
     }
