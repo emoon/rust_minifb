@@ -41,98 +41,17 @@ features = [
 
 [features]
 default = ["wayland", "x11"]
-x11 = []
-wayland = []
+x11 = ["x11-dl"]
+wayland = ["wayland-client", "wayland-protocols", "wayland-cursor", "tempfile", "xkb", "xkbcommon-sys"]
 
-[target.i686-unknown-linux-gnu.dependencies]
-x11-dl = "2.18.3"
-wayland-client = "0.25"
-wayland-protocols = { version = "0.25", features = ["client", "unstable_protocols"] }
-wayland-cursor = "0.25"
-xkb = "0.2.1"
-xkbcommon-sys = "0.7"
-tempfile = "3.1.0"
-
-[target.x86_64-unknown-linux-gnu.dependencies]
-x11-dl = "2.18.3"
-wayland-client = "0.25"
-wayland-protocols = { version = "0.25", features = ["client", "unstable_protocols"] }
-wayland-cursor = "0.25"
-xkb = "0.2.1"
-xkbcommon-sys = "0.7"
-tempfile = "3.1.0"
-
-[target.arm-unknown-linux-gnueabihf.dependencies]
-x11-dl = "2.18.3"
-wayland-client = "0.25"
-wayland-protocols = { version = "0.25", features = ["client", "unstable_protocols"] }
-wayland-cursor = "0.25"
-xkb = "0.2.1"
-xkbcommon-sys = "0.7"
-tempfile = "3.1.0"
-
-[target.armv7-unknown-linux-gnueabihf.dependencies]
-x11-dl = "2.18.3"
-wayland-client = "0.25"
-wayland-protocols = { version = "0.25", features = ["client", "unstable_protocols"] }
-wayland-cursor = "0.25"
-xkb = "0.2.1"
-xkbcommon-sys = "0.7"
-tempfile = "3.1.0"
-
-[target.aarch64-unknown-linux-gnu.dependencies]
-x11-dl = "2.18.3"
-wayland-client = "0.25"
-wayland-protocols = { version = "0.25", features = ["client", "unstable_protocols"] }
-wayland-cursor = "0.25"
-xkb = "0.2.1"
-xkbcommon-sys = "0.7"
-tempfile = "3.1.0"
-
-[target.x86_64-unknown-dragonfly.dependencies]
-x11-dl = "2.18.3"
-wayland-client = "0.25"
-wayland-protocols = { version = "0.25", features = ["client", "unstable_protocols"] }
-wayland-cursor = "0.25"
-xkb = "0.2.1"
-xkbcommon-sys = "0.7"
-tempfile = "3.1.0"
-
-[target.armv6-unknown-freebsd.dependencies]
-x11-dl = "2.18.3"
-wayland-client = "0.25"
-wayland-protocols = { version = "0.25", features = ["client", "unstable_protocols"] }
-wayland-cursor = "0.25"
-xkb = "0.2.1"
-xkbcommon-sys = "0.7"
-tempfile = "3.1.0"
-
-[target.armv7-unknown-freebsd.dependencies]
-x11-dl = "2.18.3"
-wayland-client = "0.25"
-wayland-protocols = { version = "0.25", features = ["client", "unstable_protocols"] }
-wayland-cursor = "0.25"
-xkb = "0.2.1"
-xkbcommon-sys = "0.7"
-tempfile = "3.1.0"
-
-[target.aarch64-unknown-freebsd.dependencies]
-x11-dl = "2.18.3"
-wayland-client = "0.25"
-wayland-protocols = { version = "0.25", features = ["client", "unstable_protocols"] }
-wayland-cursor = "0.25"
-xkb = "0.2.1"
-xkbcommon-sys = "0.7"
-tempfile = "3.1.0"
-
-[target.x86_64-unknown-freebsd.dependencies]
-x11-dl = "2.18.3"
-wayland-client = "0.25"
-wayland-protocols = { version = "0.25", features = ["client", "unstable_protocols"] }
-wayland-cursor = "0.25"
-xkb = "0.2.1"
-xkbcommon-sys = "0.7"
-tempfile = "3.1.0"
+[target.'cfg(unix)'.dependencies]
+wayland-client = {version = "0.25", optional = true}
+wayland-protocols = { version = "0.25", features = ["client", "unstable_protocols"], optional = true }
+wayland-cursor = {version = "0.25", optional = true}
+tempfile = {version = "3.1.0", optional = true}
+xkb = {version = "0.2.1", optional = true}
+xkbcommon-sys = {version = "0.7", optional = true}
+x11-dl = {version = "2.18.3", optional = true}
 
 [target.x86_64-unknown-redox.dependencies]
 orbclient = "0.3.20"
