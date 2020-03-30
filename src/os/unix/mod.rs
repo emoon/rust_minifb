@@ -11,11 +11,12 @@
 mod key_mapping;
 mod wayland;
 mod x11;
+mod common;
 
 use crate::Result;
 use crate::{CursorStyle, MenuHandle, UnixMenu};
 use crate::{InputCallback, Key, KeyRepeat, MouseButton, MouseMode, WindowOptions};
-pub use x11::Menu;
+pub use common::Menu;
 
 use std::os::raw;
 

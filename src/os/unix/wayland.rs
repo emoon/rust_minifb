@@ -1,13 +1,14 @@
 use crate::buffer_helper;
 use crate::key_handler::KeyHandler;
 use crate::mouse_handler;
-use crate::os::unix::x11::Menu;
 use crate::rate::UpdateRate;
 use crate::{CursorStyle, MenuHandle, UnixMenu};
 use crate::{Error, Result};
 use crate::{
     InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions,
 };
+
+use super::common::Menu;
 
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_compositor::WlCompositor;
