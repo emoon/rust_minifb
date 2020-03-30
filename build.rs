@@ -8,7 +8,6 @@ fn main() {
         target_os = "redox"
     ))) && cfg!(not(any(feature = "wayland", feature = "x11"))) {
             panic!("At least one of the x11 or wayland features must be enabled");
-        }
     }
 
     let env = env::var("TARGET").unwrap();
