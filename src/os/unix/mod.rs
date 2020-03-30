@@ -26,6 +26,7 @@ pub enum Window {
 }
 
 impl Window {
+    #[cfg(all(feature = "x11", feature = "wayland"))]
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
         // Try to create Wayland display first
         let wl_window = wayland::Window::new(name, width, height, opts);
@@ -37,6 +38,18 @@ impl Window {
                 Ok(window)
             }
         }
+    }
+
+    #[cfg(all(feature = "wayland", not(feature = "x11")))]
+    pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
+        let wl_window = wayland::Window::new(name, width, height, opts)?;
+        Ok(Window::Wayland(wl_window))
+    }
+
+    #[cfg(all(feature = "x11", not(feature = "wayland")))]
+    pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
+        let window = Window::X11(x11::Window::new(name, width, height, opts)?);
+        Ok(window)
     }
 
     pub fn set_title(&mut self, title: &str) {

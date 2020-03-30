@@ -39,6 +39,11 @@ features = [
     "errhandlingapi"
 ]
 
+[features]
+default = ["wayland", "x11"]
+x11 = []
+wayland = []
+
 [target.i686-unknown-linux-gnu.dependencies]
 x11-dl = "2.18.3"
 wayland-client = "0.25"

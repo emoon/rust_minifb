@@ -2,6 +2,16 @@ use std::env;
 extern crate cc;
 
 fn main() {
+    if cfg!(not(any(
+        target_os = "macos",
+        target_os = "windows",
+        target_os = "redox"
+    ))) {
+        if cfg!(not(any(feature = "wayland", feature = "x11"))) {
+            panic!("At least one of the x11 or wayland features must be enabled");
+        }
+    }
+
     let env = env::var("TARGET").unwrap();
     if env.contains("darwin") {
         cc::Build::new()
