@@ -173,13 +173,13 @@ uint32_t upper_power_of_two(uint32_t v) {
 	const int buffer_width = m_draw_parameters->buffer_width;
 	const int buffer_height = m_draw_parameters->buffer_height;
 
-    // Wait to ensure only MaxBuffersInFlight number of frames are getting proccessed
-    //   by any stage in the Metal pipeline (App, Metal, Drivers, GPU, etc)
-    dispatch_semaphore_wait(m_semaphore, DISPATCH_TIME_FOREVER);
-
     if (!m_draw_parameters->buffer) {
     	return;
     }
+
+    // Wait to ensure only MaxBuffersInFlight number of frames are getting proccessed
+    //   by any stage in the Metal pipeline (App, Metal, Drivers, GPU, etc)
+    dispatch_semaphore_wait(m_semaphore, DISPATCH_TIME_FOREVER);
 
     // Iterate through our Metal buffers, and cycle back to the first when we've written to MaxBuffersInFlight
     m_current_buffer = (m_current_buffer + 1) % MaxBuffersInFlight;

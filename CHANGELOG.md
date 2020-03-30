@@ -2,6 +2,14 @@
 
 This project follows semantic versioning.
 
+### v0.15.3 (2020-01-21)
+
+- [Added] On macOS NSView (MTKView) is supplied with raw_window_handle now
+
+### v0.15.2 (2020-01-21)
+
+- [fixed] Fixed forever block on macOS when using `update` and not `update_with_buffer`
+
 ### v0.15.1 (2019-12-27)
 
 - [fixed] Fixed access to raw_window_handle()

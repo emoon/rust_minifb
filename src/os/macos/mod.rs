@@ -161,6 +161,7 @@ extern "C" {
         height: u32,
         flags: u32,
         scale: i32,
+        view_handle: *mut *const c_void,
     ) -> *mut c_void;
     fn mfb_set_title(window: *mut c_void, title: *const c_char);
     fn mfb_close(window: *mut c_void);
@@ -218,6 +219,7 @@ pub struct SharedData {
 
 pub struct Window {
     window_handle: *mut c_void,
+    view_handle: *const c_void,
     scale_factor: usize,
     pub shared_data: SharedData,
     key_handler: KeyHandler,
@@ -257,7 +259,7 @@ unsafe impl raw_window_handle::HasRawWindowHandle for Window {
     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
         let handle = raw_window_handle::macos::MacOSHandle {
             ns_window: self.window_handle as *mut _,
-            ns_view: std::ptr::null_mut(),
+            ns_view: self.view_handle as *mut _,
             ..raw_window_handle::macos::MacOSHandle::empty()
         };
         raw_window_handle::RawWindowHandle::MacOS(handle)
@@ -276,12 +278,14 @@ impl Window {
 
         unsafe {
             let scale_factor = Self::get_scale_factor(width, height, opts.scale) as usize;
+            let mut view_handle = ptr::null();
             let handle = mfb_open(
                 n.as_ptr(),
                 width as u32,
                 height as u32,
                 window_flags::get_flags(opts),
                 scale_factor as i32,
+                &mut view_handle,
             );
 
             if handle == ptr::null_mut() {
@@ -290,6 +294,7 @@ impl Window {
 
             Ok(Window {
                 window_handle: handle,
+                view_handle,
                 scale_factor,
                 shared_data: SharedData {
                     bg_color: 0,
@@ -461,6 +466,11 @@ impl Window {
     #[inline]
     pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
         self.key_handler.get_keys_pressed(repeat)
+    }
+
+    #[inline]
+    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+        self.key_handler.get_keys_released()
     }
 
     #[inline]
