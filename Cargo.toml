@@ -20,7 +20,7 @@ exclude = [
 maintenance = {status = "actively-developed"}
 
 [dev-dependencies]
-png = "0.15"
+png = "0.16"
 
 [build-dependencies]
 cc = "1.0"
@@ -43,44 +43,62 @@ features = [
 
 [target.i686-unknown-linux-gnu.dependencies]
 x11-dl = "2.18.3"
-wayland-client = "0.24"
-wayland-protocols = { version = "0.24", features = ["client"] }
+wayland-client = "0.25"
+wayland-protocols = { version = "0.25", features = ["client"] }
 tempfile = "3.1.0"
 
 [target.x86_64-unknown-linux-gnu.dependencies]
 x11-dl = "2.18.3"
-wayland-client = "0.24"
-wayland-protocols = { version = "0.24", features = ["client"] }
+wayland-client = "0.25"
+wayland-protocols = { version = "0.25", features = ["client"] }
 tempfile = "3.1.0"
 
 [target.arm-unknown-linux-gnueabihf.dependencies]
 x11-dl = "2.18.3"
-wayland-client = "0.24"
-wayland-protocols = { version = "0.24", features = ["client"] }
+wayland-client = "0.25"
+wayland-protocols = { version = "0.25", features = ["client"] }
 tempfile = "3.1.0"
 
 [target.armv7-unknown-linux-gnueabihf.dependencies]
 x11-dl = "2.18.3"
-wayland-client = "0.24"
-wayland-protocols = { version = "0.24", features = ["client"] }
+wayland-client = "0.25"
+wayland-protocols = { version = "0.25", features = ["client"] }
 tempfile = "3.1.0"
 
 [target.aarch64-unknown-linux-gnu.dependencies]
 x11-dl = "2.18.3"
-wayland-client = "0.24"
-wayland-protocols = { version = "0.24", features = ["client"] }
+wayland-client = "0.25"
+wayland-protocols = { version = "0.25", features = ["client"] }
 tempfile = "3.1.0"
 
 [target.x86_64-unknown-dragonfly.dependencies]
 x11-dl = "2.18.3"
-wayland-client = "0.24"
-wayland-protocols = { version = "0.24", features = ["client"] }
+wayland-client = "0.25"
+wayland-protocols = { version = "0.25", features = ["client"] }
+tempfile = "3.1.0"
+
+[target.armv6-unknown-freebsd.dependencies]
+x11-dl = "2.18.3"
+wayland-client = "0.25"
+wayland-protocols = { version = "0.25", features = ["client"] }
+tempfile = "3.1.0"
+
+[target.armv7-unknown-freebsd.dependencies]
+x11-dl = "2.18.3"
+wayland-client = "0.25"
+wayland-protocols = { version = "0.25", features = ["client"] }
+tempfile = "3.1.0"
+
+[target.aarch64-unknown-freebsd.dependencies]
+x11-dl = "2.18.3"
+wayland-client = "0.25"
+wayland-protocols = { version = "0.25", features = ["client"] }
 tempfile = "3.1.0"
 
 [target.x86_64-unknown-freebsd.dependencies]
 x11-dl = "2.18.3"
-wayland-client = "0.24"
-wayland-protocols = { version = "0.24", features = ["client"] }
+wayland-client = "0.25"
+wayland-protocols = { version = "0.25", features = ["client"] }
 tempfile = "3.1.0"
 
 [target.x86_64-unknown-redox.dependencies]

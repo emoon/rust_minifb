@@ -191,6 +191,8 @@ pub struct WindowOptions {
     pub scale: Scale,
     /// Adjust how the scaling of the buffer used with update_with_buffer should be done.
     pub scale_mode: ScaleMode,
+    /// Should the window be the topmost window (default: false)
+    pub topmost: bool,
 }
 
 impl Window {
@@ -565,6 +567,29 @@ impl Window {
     #[inline]
     pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
         self.0.get_keys_pressed(repeat)
+    }
+
+    ///
+    /// Get the current released keys.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    /// window.get_keys_released().map(|keys| {
+    ///     for t in keys {
+    ///         match t {
+    ///             Key::W => println!("released w"),
+    ///             Key::T => println!("released t"),
+    ///             _ => (),
+    ///         }
+    ///     }
+    /// });
+    /// ```
+    #[inline]
+    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+        self.0.get_keys_released()
     }
 
     ///
@@ -978,6 +1003,7 @@ impl Default for WindowOptions {
             resize: false,
             scale: Scale::X1,
             scale_mode: ScaleMode::Stretch,
+            topmost: false,
         }
     }
 }

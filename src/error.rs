@@ -1,9 +1,7 @@
-use std::error::Error as StdError;
 use std::fmt;
 
-/// Errors that can be return from various operatiors
+/// Errors that can be returned from various operations
 ///
-#[derive(Debug)]
 pub enum Error {
     /// Returned if menu Menu function isn't supported
     MenusNotSupported,
@@ -15,22 +13,13 @@ pub enum Error {
     UpdateFailed(String),
 }
 
-impl StdError for Error {
-    fn description(&self) -> &str {
+impl fmt::Debug for Error {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
-            Error::MenusNotSupported => "Menus not supported",
-            Error::MenuExists(_) => "Menu already exists",
-            Error::WindowCreate(_) => "Failed to create window",
-            Error::UpdateFailed(_) => "Failed to Update",
-        }
-    }
-
-    fn cause(&self) -> Option<&dyn StdError> {
-        match *self {
-            Error::MenusNotSupported => None,
-            Error::MenuExists(_) => None,
-            Error::WindowCreate(_) => None,
-            Error::UpdateFailed(_) => None,
+            Error::MenusNotSupported => write!(formatter, "Menus not supported"),
+            Error::MenuExists(_) => write!(formatter, "Menu already exists"),
+            Error::WindowCreate(_) => write!(formatter, "Failed to create window"),
+            Error::UpdateFailed(_) => write!(formatter, "Failed to Update"),
         }
     }
 }
@@ -38,10 +27,10 @@ impl StdError for Error {
 impl fmt::Display for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::MenusNotSupported => write!(fmt, "{}", self.description()),
-            Error::MenuExists(ref e) => write!(fmt, "{} {:?}", self.description(), e),
-            Error::WindowCreate(ref e) => write!(fmt, "{} {:?}", self.description(), e),
-            Error::UpdateFailed(ref e) => write!(fmt, "{} {:?}", self.description(), e),
+            Error::MenusNotSupported => write!(fmt, "{:?}", self),
+            Error::MenuExists(ref e) => write!(fmt, "{:?} {:?}", self, e),
+            Error::WindowCreate(ref e) => write!(fmt, "{:?} {:?}", self, e),
+            Error::UpdateFailed(ref e) => write!(fmt, "{:?} {:?}", self, e),
         }
     }
 }
