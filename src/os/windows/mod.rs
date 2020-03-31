@@ -644,7 +644,7 @@ impl Window {
     pub fn topmost(&self, topmost: bool) {
         unsafe {
             match topmost {
-                true => winuser::SetWindowPos( 
+                true => winuser::SetWindowPos(
                     self.window.unwrap(),
                     winuser::HWND_TOPMOST,
                     0,
@@ -661,11 +661,10 @@ impl Window {
                     0,
                     0,
                     winuser::SWP_SHOWWINDOW | winuser::SWP_NOSIZE | winuser::SWP_NOMOVE,
-                )
+                ),
             }
         };
     }
-    
 
     #[inline]
     pub fn get_size(&self) -> (usize, usize) {

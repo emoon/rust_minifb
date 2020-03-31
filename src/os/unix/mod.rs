@@ -85,6 +85,14 @@ impl Window {
         }
     }
 
+    pub fn topmost(&self, topmost: bool) {
+        match *self {
+            // We will just do nothing until it is implemented so that nothing breaks
+            Window::X11(ref mut w) => (),
+            Window::Wayland(ref mut _w) => (),
+        }
+    }
+
     pub fn get_size(&self) -> (usize, usize) {
         match *self {
             Window::X11(ref w) => w.get_size(),

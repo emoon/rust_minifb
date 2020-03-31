@@ -350,7 +350,7 @@ impl Window {
         self.0.set_position(x, y)
     }
 
-      ///
+    ///
     /// Makes the window the topmost window and makes it stay always on top. This is useful if you
     /// want the window to float above all over windows
     ///

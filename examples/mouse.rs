@@ -7,7 +7,6 @@ const HEIGHT: usize = 360;
 
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
-
     let mut window = match Window::new(
         "Mouse Draw - Press ESC to exit",
         WIDTH,
