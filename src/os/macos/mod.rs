@@ -291,7 +291,7 @@ impl Window {
                 &mut view_handle,
             );
 
-            if opts.topmost { 
+            if opts.topmost {
                 mfb_topmost(handle, true);
             }
 
