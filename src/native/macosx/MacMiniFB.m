@@ -292,6 +292,23 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Sets whether window is the topmost window
+void mfb_topmost(void* window, bool topmost)
+{
+
+	OSXWindow* win = (OSXWindow*)window;
+
+	if(topmost)
+	{
+		win.level = NSFloatingWindowLevel; // set level to floating
+	} else 
+	{
+		win.level = 0; // set to default/normal
+	}
+
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 static NSString* findAppName(void)
 {
     size_t i;

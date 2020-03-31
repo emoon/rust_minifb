@@ -192,6 +192,9 @@ extern "C" {
     fn mfb_create_menu(name: *const c_char) -> *mut c_void;
     fn mfb_remove_menu_at(window: *mut c_void, index: i32);
 
+    /// Sets the whether or not the window is the topmost window
+    fn mfb_topmost(window: *mut c_void, topmost: bool);
+
     fn mfb_add_menu_item(
         menu_item: *mut c_void,
         menu_id: i32,
@@ -287,6 +290,11 @@ impl Window {
                 scale_factor as i32,
                 &mut view_handle,
             );
+
+
+            if opts.topmost { 
+                mfb_topmost(handle, true);
+            }
 
             if handle == ptr::null_mut() {
                 return Err(Error::WindowCreate("Unable to open Window".to_owned()));
