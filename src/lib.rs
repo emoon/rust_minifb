@@ -185,7 +185,7 @@ pub struct WindowOptions {
     pub scale: Scale,
     /// Adjust how the scaling of the buffer used with update_with_buffer should be done.
     pub scale_mode: ScaleMode,
-    /// Should the window be the topmost window (default: false)
+    /// Should the window be the topmost window and always on top (default: false)
     pub topmost: bool,
 }
 
@@ -348,6 +348,24 @@ impl Window {
     #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
         self.0.set_position(x, y)
+    }
+
+      ///
+    /// Makes the window the topmost window and makes it stay always on top. This is useful if you
+    /// want the window to float above all over windows
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    /// // Makes the window always on top
+    /// window.topmost(true);
+    /// ```
+    ///
+    #[inline]
+    pub fn topmost(&self, topmost: bool) {
+        self.0.topmost(topmost)
     }
 
     ///

@@ -402,6 +402,11 @@ impl Window {
         unsafe { mfb_set_position(self.window_handle, x as i32, y as i32) }
     }
 
+    #[inline]
+    pub fn topmost(&self, topmost: bool) {
+        unsafe { mfb_topmost(self.window_handle, topmost) }
+    }
+
     pub fn get_size(&self) -> (usize, usize) {
         (
             self.shared_data.width as usize,

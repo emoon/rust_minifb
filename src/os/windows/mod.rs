@@ -604,6 +604,10 @@ impl Window {
                 },
             };
 
+            if opts.topmost {
+                window.topmost(true);
+            }
+
             Ok(window)
         }
     }
@@ -635,6 +639,33 @@ impl Window {
             );
         }
     }
+
+    #[inline]
+    pub fn topmost(&self, topmost: bool) {
+        unsafe {
+            match topmost {
+                true => winuser::SetWindowPos( 
+                    self.window.unwrap(),
+                    winuser::HWND_TOPMOST,
+                    0,
+                    0,
+                    0,
+                    0,
+                    winuser::SWP_SHOWWINDOW | winuser::SWP_NOSIZE | winuser::SWP_NOMOVE,
+                ),
+                false => winuser::SetWindowPos(
+                    self.window.unwrap(),
+                    winuser::HWND_TOP,
+                    0,
+                    0,
+                    0,
+                    0,
+                    winuser::SWP_SHOWWINDOW | winuser::SWP_NOSIZE | winuser::SWP_NOMOVE,
+                )
+            }
+        };
+    }
+    
 
     #[inline]
     pub fn get_size(&self) -> (usize, usize) {
