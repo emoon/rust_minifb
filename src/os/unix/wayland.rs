@@ -298,13 +298,7 @@ impl DisplayInfo {
         if decorate {
             if let Ok(decorations) = globals
                 .instantiate_exact::<ZxdgDecorationManagerV1>(1)
-                .map_err(|e| {
-                    Error::WindowCreate(format!(
-                        "Failed to create server-side surface decoration: {:?}",
-                        e
-                    ))
-                })
-                .map_err(|e| println!("{:?}", e))
+                .map_err(|e| println!("Failed to create server-side surface decoration: {:?}", e))
             {
                 decorations.get_toplevel_decoration(&xdg_toplevel);
                 decorations.destroy();
