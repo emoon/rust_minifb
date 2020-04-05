@@ -29,7 +29,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - if: matrix.os == 'ubuntu-latest'
-        run: sudo apt install libwayland-cursor0 libxkbcommon-dev
+        run: sudo apt install libwayland-cursor0 libxkbcommon-dev libwayland-dev
       - uses: actions/checkout@v1
       - uses: actions-rs/toolchain@v1
         with:
