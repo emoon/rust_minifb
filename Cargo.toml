@@ -44,7 +44,7 @@ default = ["wayland", "x11"]
 x11 = ["x11-dl"]
 wayland = ["wayland-client", "wayland-protocols", "wayland-cursor", "tempfile", "xkb", "xkbcommon-sys"]
 
-[target.'cfg(unix)'.dependencies]
+[target.'cfg(not(any(target_os = "macos", target_os = "redox", windows)))'.dependencies]
 wayland-client = {version = "0.25", optional = true}
 wayland-protocols = { version = "0.25", features = ["client", "unstable_protocols"], optional = true }
 wayland-cursor = {version = "0.25", optional = true}
