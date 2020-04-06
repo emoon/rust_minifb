@@ -828,8 +828,17 @@ impl Window {
 
     #[inline]
     pub fn is_active(&mut self) -> bool {
-        // TODO: Proper implementation
-        true
+        match self.window {
+            Some(hwnd) => {
+                let active = unsafe { winapi::um::winuser::GetActiveWindow() };
+                if !active.is_null() && active == hwnd {
+                    true
+                } else {
+                    false
+                }
+            }
+            None => false,
+        }
     }
 
     unsafe fn get_scale_factor(width: usize, height: usize, scale: Scale) -> i32 {
