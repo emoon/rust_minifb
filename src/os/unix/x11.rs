@@ -320,8 +320,24 @@ impl Window {
 
             let root = (d.lib.XDefaultRootWindow)(d.display);
 
+            let mut vinfo: xlib::XVisualInfo = std::mem::zeroed();
+            vinfo.visual = d.visual;
+            //FIXME: X_PutImage
+            if opts.transparency {
+                (d.lib.XMatchVisualInfo)(
+                    d.display,
+                    (d.lib.XDefaultScreen)(d.display),
+                    32,
+                    xlib::TrueColor,
+                    &mut vinfo as *mut _,
+                );
+            }
+            d.visual = vinfo.visual;
+
             attributes.border_pixel = (d.lib.XBlackPixel)(d.display, d.screen);
             attributes.background_pixel = attributes.border_pixel;
+            attributes.colormap =
+                (d.lib.XCreateColormap)(d.display, root, vinfo.visual, xlib::AllocNone);
 
             attributes.backing_store = xlib::NotUseful;
 
@@ -344,10 +360,10 @@ impl Window {
                 width as u32,
                 height as u32,
                 0, /* border_width */
-                d.depth,
+                vinfo.depth,
                 xlib::InputOutput as u32, /* class */
-                d.visual,
-                xlib::CWBackingStore | xlib::CWBackPixel | xlib::CWBorderPixel,
+                vinfo.visual,
+                xlib::CWColormap | xlib::CWBackingStore | xlib::CWBackPixel | xlib::CWBorderPixel,
                 &mut attributes,
             );
 
