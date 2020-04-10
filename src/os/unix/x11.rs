@@ -90,8 +90,8 @@ struct DisplayInfo {
 }
 
 impl DisplayInfo {
-    fn new() -> Result<DisplayInfo> {
-        let mut display = Self::setup()?;
+    fn new(transparency: bool) -> Result<DisplayInfo> {
+        let mut display = Self::setup(transparency)?;
 
         display.check_formats()?;
         display.check_extensions()?;
@@ -101,7 +101,7 @@ impl DisplayInfo {
         Ok(display)
     }
 
-    fn setup() -> Result<DisplayInfo> {
+    fn setup(transparency: bool) -> Result<DisplayInfo> {
         unsafe {
             let lib = xlib::Xlib::open()
                 .map_err(|e| Error::WindowCreate(format!("failed to load Xlib: {:?}", e)))?;
@@ -115,10 +115,30 @@ impl DisplayInfo {
                 return Err(Error::WindowCreate("XOpenDisplay failed".to_owned()));
             }
 
-            let screen = (lib.XDefaultScreen)(display);
-            let visual = (lib.XDefaultVisual)(display, screen);
+            let screen;
+            let visual;
+            let depth;
+
+            let mut vinfo: xlib::XVisualInfo = std::mem::zeroed();
+            //FIXME: X_PutImage
+            if transparency {
+                (lib.XMatchVisualInfo)(
+                    display,
+                    (lib.XDefaultScreen)(display),
+                    32,
+                    xlib::TrueColor,
+                    &mut vinfo as *mut _,
+                );
+                depth = vinfo.depth;
+                visual = vinfo.visual;
+                screen = vinfo.screen;
+            } else {
+                screen = (lib.XDefaultScreen)(display);
+                visual = (lib.XDefaultVisual)(display, screen);
+                depth = (lib.XDefaultDepth)(display, screen);
+            }
+
             let gc = (lib.XDefaultGC)(display, screen);
-            let depth = (lib.XDefaultDepth)(display, screen);
 
             let screen_width = cast::usize((lib.XDisplayWidth)(display, screen))
                 .map_err(|e| Error::WindowCreate(format!("illegal width: {}", e)))?;
@@ -307,7 +327,7 @@ impl Window {
         // FIXME: this DisplayInfo should be a singleton, hence this code
         // is probably no good when using multiple windows.
 
-        let mut d = DisplayInfo::new()?;
+        let mut d = DisplayInfo::new(opts.transparency)?;
 
         let scale =
             Self::get_scale_factor(width, height, d.screen_width, d.screen_height, opts.scale);
@@ -320,24 +340,12 @@ impl Window {
 
             let root = (d.lib.XDefaultRootWindow)(d.display);
 
-            let mut vinfo: xlib::XVisualInfo = std::mem::zeroed();
-            vinfo.visual = d.visual;
-            //FIXME: X_PutImage
-            if opts.transparency {
-                (d.lib.XMatchVisualInfo)(
-                    d.display,
-                    (d.lib.XDefaultScreen)(d.display),
-                    32,
-                    xlib::TrueColor,
-                    &mut vinfo as *mut _,
-                );
-            }
-            d.visual = vinfo.visual;
-
             attributes.border_pixel = (d.lib.XBlackPixel)(d.display, d.screen);
             attributes.background_pixel = attributes.border_pixel;
-            attributes.colormap =
-                (d.lib.XCreateColormap)(d.display, root, vinfo.visual, xlib::AllocNone);
+            if opts.transparency {
+                attributes.colormap =
+                    (d.lib.XCreateColormap)(d.display, root, d.visual, xlib::AllocNone);
+            }
 
             attributes.backing_store = xlib::NotUseful;
 
@@ -360,9 +368,9 @@ impl Window {
                 width as u32,
                 height as u32,
                 0, /* border_width */
-                vinfo.depth,
+                d.depth,
                 xlib::InputOutput as u32, /* class */
-                vinfo.visual,
+                d.visual,
                 xlib::CWColormap | xlib::CWBackingStore | xlib::CWBackPixel | xlib::CWBorderPixel,
                 &mut attributes,
             );
@@ -452,7 +460,6 @@ impl Window {
         let bytes_per_line = (width as i32) * 4;
 
         draw_buffer.resize(width * height, 0);
-
         let image = (d.lib.XCreateImage)(
             d.display,
             d.visual, /* TODO: this was CopyFromParent in the C code */
