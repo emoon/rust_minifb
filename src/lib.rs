@@ -187,7 +187,7 @@ pub struct WindowOptions {
     pub scale_mode: ScaleMode,
     /// Should the window be the topmost window (default: false)
     pub topmost: bool,
-    /// Specifies whether or not the window is allowed to draw transparent pixels(default: false)
+    /// Specifies whether or not the window is allowed to draw transparent pixels (default: false)
     /// Requires borderless to be 'true'
     pub transparency: bool,
 }
