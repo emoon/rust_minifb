@@ -1,5 +1,3 @@
-extern crate minifb;
-
 use minifb::{Key, ScaleMode, Window, WindowOptions};
 
 fn main() {
