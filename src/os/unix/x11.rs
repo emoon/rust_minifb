@@ -120,7 +120,6 @@ impl DisplayInfo {
             let depth;
 
             let mut vinfo: xlib::XVisualInfo = std::mem::zeroed();
-            //FIXME: X_PutImage
             if transparency {
                 (lib.XMatchVisualInfo)(
                     display,
@@ -129,9 +128,9 @@ impl DisplayInfo {
                     xlib::TrueColor,
                     &mut vinfo as *mut _,
                 );
-                depth = vinfo.depth;
-                visual = vinfo.visual;
                 screen = vinfo.screen;
+                visual = vinfo.visual;
+                depth = vinfo.depth;
             } else {
                 screen = (lib.XDefaultScreen)(display);
                 visual = (lib.XDefaultVisual)(display, screen);
@@ -374,6 +373,8 @@ impl Window {
                 xlib::CWColormap | xlib::CWBackingStore | xlib::CWBackPixel | xlib::CWBorderPixel,
                 &mut attributes,
             );
+
+			d.gc = (d.lib.XCreateGC)(d.display, handle, 0, ptr::null_mut());
 
             if handle == 0 {
                 return Err(Error::WindowCreate("Unable to open Window".to_owned()));
