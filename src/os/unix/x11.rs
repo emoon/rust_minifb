@@ -374,7 +374,7 @@ impl Window {
                 &mut attributes,
             );
 
-			d.gc = (d.lib.XCreateGC)(d.display, handle, 0, ptr::null_mut());
+            d.gc = (d.lib.XCreateGC)(d.display, handle, 0, ptr::null_mut());
 
             if handle == 0 {
                 return Err(Error::WindowCreate("Unable to open Window".to_owned()));
