@@ -817,25 +817,32 @@ impl Window {
         Self::message_loop(self, window);
 
         unsafe {
-            if let Some(dc) = self.dc {
-                let mut bf: winapi::um::wingdi::BLENDFUNCTION = std::mem::zeroed();
+            use winapi::um::winnt::LONG;
 
-                bf.BlendOp = winapi::um::wingdi::AC_SRC_OVER;
+            if let Some(dc) = self.dc {
+                let mut bf: wingdi::BLENDFUNCTION = std::mem::zeroed();
+                let mut sizewnd = winapi::shared::windef::SIZE {
+                    cx: self.width as LONG,
+                    cy: self.height as LONG,
+                };
+                let mut point = winapi::shared::windef::POINT { x: 0, y: 0 };
+
+                bf.BlendOp = wingdi::AC_SRC_OVER;
                 bf.BlendFlags = 0;
-                bf.SourceConstantAlpha = 255;
-                bf.AlphaFormat = winapi::um::wingdi::AC_SRC_ALPHA;
+                bf.SourceConstantAlpha = 0xFF;
+                bf.AlphaFormat = wingdi::AC_SRC_ALPHA;
 
                 if let Some(hwnd) = self.window {
                     winuser::UpdateLayeredWindow(
                         hwnd,
+                        ptr::null_mut(),
+                        ptr::null_mut(),
+                        &mut sizewnd as *mut _,
                         dc,
-                        ptr::null_mut(),
-                        ptr::null_mut(),
-                        dc,
-                        ptr::null_mut(),
-                        winapi::um::wingdi::RGB(0, 0, 0),
+                        &mut point as *mut _,
+                        0,
                         &mut bf as *mut _,
-                        winuser::ULW_OPAQUE,
+                        winuser::ULW_ALPHA,
                     );
                 }
                 winuser::InvalidateRect(window, ptr::null_mut(), minwindef::TRUE);
