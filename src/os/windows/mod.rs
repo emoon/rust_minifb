@@ -535,6 +535,10 @@ impl Window {
                 flags &= !winuser::WS_THICKFRAME;
             }
 
+            if opts.transparency {
+                flags &= winuser::WS_EX_LAYERED;
+            }
+
             let handle = winuser::CreateWindowExW(
                 0,
                 class_name.as_ptr(),
@@ -810,11 +814,33 @@ impl Window {
         // stride currently not supported
         //self.draw_params.buffer_stride = buf_stride as u32;
 
-        unsafe {
-            winuser::InvalidateRect(window, ptr::null_mut(), minwindef::TRUE);
-        }
-
         Self::message_loop(self, window);
+
+        unsafe {
+            if let Some(dc) = self.dc {
+                let mut bf: winapi::um::wingdi::BLENDFUNCTION = std::mem::zeroed();
+
+                bf.BlendOp = winapi::um::wingdi::AC_SRC_OVER;
+                bf.BlendFlags = 0;
+                bf.SourceConstantAlpha = 255;
+                bf.AlphaFormat = winapi::um::wingdi::AC_SRC_ALPHA;
+
+                if let Some(hwnd) = self.window {
+                    winuser::UpdateLayeredWindow(
+                        hwnd,
+                        dc,
+                        ptr::null_mut(),
+                        ptr::null_mut(),
+                        dc,
+                        ptr::null_mut(),
+                        winapi::um::wingdi::RGB(0, 0, 0),
+                        &mut bf as *mut _,
+                        winuser::ULW_OPAQUE,
+                    );
+                }
+                winuser::InvalidateRect(window, ptr::null_mut(), minwindef::TRUE);
+            }
+        }
 
         Ok(())
     }
