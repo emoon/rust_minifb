@@ -2,6 +2,13 @@
 
 This project follows semantic versioning.
 
+### v0.16 (2020-04-05)
+
+- [added] Wayland support. (Big thanks to Antonino Siena add this support with assistance by Cole Helbling!)
+- [added] Added `get_released_keys` (Thanks to Alex Melville!)
+- [added] Added Topmost/Always on Top functionality to macOS (Thanks phillvancejr!)
+- [fixed] Removed left over logging on macOS (Thanks phillvancejr!)
+
 ### v0.15.3 (2020-01-21)
 
 - [Added] On macOS NSView (MTKView) is supplied with raw_window_handle now

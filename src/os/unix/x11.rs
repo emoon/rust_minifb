@@ -282,6 +282,7 @@ pub struct Window {
     scroll_y: f32,
     buttons: [u8; 3],
     prev_cursor: CursorStyle,
+    active: bool,
 
     should_close: bool, // received delete window message from X server
 
@@ -372,7 +373,8 @@ impl Window {
                     | xlib::KeyPressMask
                     | xlib::KeyReleaseMask
                     | xlib::ButtonPressMask
-                    | xlib::ButtonReleaseMask,
+                    | xlib::ButtonReleaseMask
+                    | xlib::FocusChangeMask,
             );
 
             if !opts.resize {
@@ -444,6 +446,7 @@ impl Window {
                 buttons: [0, 0, 0],
                 prev_cursor: CursorStyle::Arrow,
                 should_close: false,
+                active: false,
                 key_handler: KeyHandler::new(),
                 update_rate: UpdateRate::new(),
                 menu_counter: MenuHandle(0),
@@ -661,8 +664,7 @@ impl Window {
 
     #[inline]
     pub fn is_active(&mut self) -> bool {
-        // TODO: Proper implementation
-        true
+        self.active
     }
 
     fn get_scale_factor(
@@ -893,6 +895,12 @@ impl Window {
                     &mut self.draw_buffer,
                 )
                 .expect("todo");
+            }
+            xlib::FocusOut => {
+                self.active = false;
+            }
+            xlib::FocusIn => {
+                self.active = true;
             }
 
             _ => {}

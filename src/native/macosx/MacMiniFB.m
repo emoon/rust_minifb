@@ -114,8 +114,6 @@ static bool create_shaders() {
 		return false;
 	}
 
-	NSLog(@"Names %@", [g_library functionNames]);
-
 	g_library = library;
 
 	id<MTLFunction> vertex_shader_func = [g_library newFunctionWithName:@"vertFunc"];
