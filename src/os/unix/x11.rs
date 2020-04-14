@@ -14,7 +14,7 @@ use crate::{CursorStyle, MenuHandle, UnixMenu};
 use std::ffi::CString;
 use std::mem;
 use std::os::raw;
-use std::os::raw::{c_char, c_uint};
+use std::os::raw::{c_char, c_long, c_uchar, c_uint, c_ulong};
 use std::ptr;
 
 use crate::buffer_helper;
@@ -71,6 +71,15 @@ extern "C" {
         dest_width: u32,
         dest_height: u32,
     );
+}
+
+#[repr(C)]
+struct MwmHints {
+    flags: c_ulong,
+    functions: c_ulong,
+    decorations: c_ulong,
+    input_mode: c_long,
+    status: c_ulong,
 }
 
 struct DisplayInfo {
@@ -379,6 +388,25 @@ impl Window {
                     d.display,
                     handle,
                     &mut size_hints as *mut xlib::XSizeHints,
+                );
+            }
+
+            if opts.borderless {
+                let hints_property =
+                    (d.lib.XInternAtom)(d.display, "_MOTIF_WM_HINTS\0" as *const _ as *const i8, 0);
+                assert!(hints_property != 0);
+                let mut hints: MwmHints = std::mem::zeroed();
+                hints.flags = 2;
+                hints.decorations = 0;
+                (d.lib.XChangeProperty)(
+                    d.display,
+                    handle,
+                    hints_property,
+                    hints_property,
+                    32,
+                    xlib::PropModeReplace,
+                    &hints as *const _ as *const c_uchar,
+                    5,
                 );
             }
 
