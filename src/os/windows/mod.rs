@@ -535,6 +535,12 @@ impl Window {
                 flags &= !winuser::WS_THICKFRAME;
             }
 
+            //TODO: UpdateLayeredWindow, etc.
+            //https://gist.github.com/texus/31676aba4ca774b1298e1e15133b8141
+            if opts.transparency {
+                flags &= winuser::WS_EX_LAYERED;
+            }
+
             let handle = winuser::CreateWindowExW(
                 0,
                 class_name.as_ptr(),

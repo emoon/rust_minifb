@@ -67,6 +67,9 @@ impl Window {
         if !opts.title {
             window_flags.push(orbclient::WindowFlag::Borderless);
         }
+        if opts.transparency {
+            window_flags.push(orbclient::WindowFlag::Transparent);
+        }
 
         let window_opt =
             orbclient::Window::new_flags(-1, -1, window_width, window_height, name, &window_flags);

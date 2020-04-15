@@ -1,5 +1,3 @@
-extern crate minifb;
-
 use minifb::{Key, Scale, ScaleMode, Window, WindowOptions};
 
 const WIDTH: usize = 100;

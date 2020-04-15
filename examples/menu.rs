@@ -1,5 +1,3 @@
-extern crate minifb;
-
 use minifb::MENU_KEY_CTRL;
 use minifb::{InputCallback, Key, Menu, Scale, Window, WindowOptions};
 

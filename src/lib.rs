@@ -187,6 +187,10 @@ pub struct WindowOptions {
     pub scale_mode: ScaleMode,
     /// Should the window be the topmost window (default: false)
     pub topmost: bool,
+    /// Specifies whether or not the window is allowed to draw transparent pixels (default: false)
+    /// Requires borderless to be 'true'
+    /// TODO: Currently not implemented on Windows and OSX
+    pub transparency: bool,
 }
 
 impl Window {
@@ -220,6 +224,11 @@ impl Window {
     ///  .expect("Unable to open Window");
     /// ```
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
+        if opts.transparency && !opts.borderless {
+            return Err(Error::WindowCreate(
+                "Window transparency requires the borderless property".to_owned(),
+            ));
+        }
         imp::Window::new(name, width, height, opts).map(Window)
     }
 
@@ -993,6 +1002,7 @@ impl Default for WindowOptions {
     fn default() -> WindowOptions {
         WindowOptions {
             borderless: false,
+            transparency: false,
             title: true,
             resize: false,
             scale: Scale::X1,

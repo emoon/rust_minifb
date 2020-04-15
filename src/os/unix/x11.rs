@@ -99,8 +99,8 @@ struct DisplayInfo {
 }
 
 impl DisplayInfo {
-    fn new() -> Result<DisplayInfo> {
-        let mut display = Self::setup()?;
+    fn new(transparency: bool) -> Result<DisplayInfo> {
+        let mut display = Self::setup(transparency)?;
 
         display.check_formats()?;
         display.check_extensions()?;
@@ -110,7 +110,7 @@ impl DisplayInfo {
         Ok(display)
     }
 
-    fn setup() -> Result<DisplayInfo> {
+    fn setup(transparency: bool) -> Result<DisplayInfo> {
         unsafe {
             let lib = xlib::Xlib::open()
                 .map_err(|e| Error::WindowCreate(format!("failed to load Xlib: {:?}", e)))?;
@@ -124,10 +124,29 @@ impl DisplayInfo {
                 return Err(Error::WindowCreate("XOpenDisplay failed".to_owned()));
             }
 
-            let screen = (lib.XDefaultScreen)(display);
-            let visual = (lib.XDefaultVisual)(display, screen);
+            let screen;
+            let visual;
+            let depth;
+
+            let mut vinfo: xlib::XVisualInfo = std::mem::zeroed();
+            if transparency {
+                (lib.XMatchVisualInfo)(
+                    display,
+                    (lib.XDefaultScreen)(display),
+                    32,
+                    xlib::TrueColor,
+                    &mut vinfo as *mut _,
+                );
+                screen = vinfo.screen;
+                visual = vinfo.visual;
+                depth = vinfo.depth;
+            } else {
+                screen = (lib.XDefaultScreen)(display);
+                visual = (lib.XDefaultVisual)(display, screen);
+                depth = (lib.XDefaultDepth)(display, screen);
+            }
+
             let gc = (lib.XDefaultGC)(display, screen);
-            let depth = (lib.XDefaultDepth)(display, screen);
 
             let screen_width = cast::usize((lib.XDisplayWidth)(display, screen))
                 .map_err(|e| Error::WindowCreate(format!("illegal width: {}", e)))?;
@@ -316,7 +335,7 @@ impl Window {
         // FIXME: this DisplayInfo should be a singleton, hence this code
         // is probably no good when using multiple windows.
 
-        let mut d = DisplayInfo::new()?;
+        let mut d = DisplayInfo::new(opts.transparency)?;
 
         let scale =
             Self::get_scale_factor(width, height, d.screen_width, d.screen_height, opts.scale);
@@ -331,6 +350,10 @@ impl Window {
 
             attributes.border_pixel = (d.lib.XBlackPixel)(d.display, d.screen);
             attributes.background_pixel = attributes.border_pixel;
+            if opts.transparency {
+                attributes.colormap =
+                    (d.lib.XCreateColormap)(d.display, root, d.visual, xlib::AllocNone);
+            }
 
             attributes.backing_store = xlib::NotUseful;
 
@@ -356,9 +379,11 @@ impl Window {
                 d.depth,
                 xlib::InputOutput as u32, /* class */
                 d.visual,
-                xlib::CWBackingStore | xlib::CWBackPixel | xlib::CWBorderPixel,
+                xlib::CWColormap | xlib::CWBackingStore | xlib::CWBackPixel | xlib::CWBorderPixel,
                 &mut attributes,
             );
+
+            d.gc = (d.lib.XCreateGC)(d.display, handle, 0, ptr::null_mut());
 
             if handle == 0 {
                 return Err(Error::WindowCreate("Unable to open Window".to_owned()));
@@ -464,7 +489,6 @@ impl Window {
         let bytes_per_line = (width as i32) * 4;
 
         draw_buffer.resize(width * height, 0);
-
         let image = (d.lib.XCreateImage)(
             d.display,
             d.visual, /* TODO: this was CopyFromParent in the C code */

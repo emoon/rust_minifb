@@ -520,7 +520,7 @@ impl Window {
 
         let (display, input) = DisplayInfo::new(
             (width as i32 * scale, height as i32 * scale),
-            false,
+            opts.transparency,
             !opts.borderless,
         )?;
 
