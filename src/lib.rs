@@ -189,6 +189,7 @@ pub struct WindowOptions {
     pub topmost: bool,
     /// Specifies whether or not the window is allowed to draw transparent pixels (default: false)
     /// Requires borderless to be 'true'
+    /// TODO: Currently not implemented on Windows and OSX
     pub transparency: bool,
 }
 
