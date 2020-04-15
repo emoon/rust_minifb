@@ -535,6 +535,8 @@ impl Window {
                 flags &= !winuser::WS_THICKFRAME;
             }
 
+            //TODO: UpdateLayeredWindow, etc.
+            //https://gist.github.com/texus/31676aba4ca774b1298e1e15133b8141
             if opts.transparency {
                 flags &= winuser::WS_EX_LAYERED;
             }
@@ -814,40 +816,11 @@ impl Window {
         // stride currently not supported
         //self.draw_params.buffer_stride = buf_stride as u32;
 
-        Self::message_loop(self, window);
-
         unsafe {
-            use winapi::um::winnt::LONG;
-
-            if let Some(dc) = self.dc {
-                let mut bf: wingdi::BLENDFUNCTION = std::mem::zeroed();
-                let mut sizewnd = winapi::shared::windef::SIZE {
-                    cx: self.width as LONG,
-                    cy: self.height as LONG,
-                };
-                let mut point = winapi::shared::windef::POINT { x: 0, y: 0 };
-
-                bf.BlendOp = wingdi::AC_SRC_OVER;
-                bf.BlendFlags = 0;
-                bf.SourceConstantAlpha = 0xFF;
-                bf.AlphaFormat = wingdi::AC_SRC_ALPHA;
-
-                if let Some(hwnd) = self.window {
-                    winuser::UpdateLayeredWindow(
-                        hwnd,
-                        ptr::null_mut(),
-                        ptr::null_mut(),
-                        &mut sizewnd as *mut _,
-                        dc,
-                        &mut point as *mut _,
-                        0,
-                        &mut bf as *mut _,
-                        winuser::ULW_ALPHA,
-                    );
-                }
-                winuser::InvalidateRect(window, ptr::null_mut(), minwindef::TRUE);
-            }
+            winuser::InvalidateRect(window, ptr::null_mut(), minwindef::TRUE);
         }
+
+        Self::message_loop(self, window);
 
         Ok(())
     }
