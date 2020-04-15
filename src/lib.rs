@@ -224,11 +224,10 @@ impl Window {
     ///  .expect("Unable to open Window");
     /// ```
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
-        if opts.transparency {
-            assert!(
-                opts.borderless,
-                "Window needs to be borderless for it to allow transparency"
-            );
+        if opts.transparency && !opts.borderless {
+            return Err(Error::WindowCreate(
+                "Window transparency requires the borderless".to_owned(),
+            ));
         }
         imp::Window::new(name, width, height, opts).map(Window)
     }
