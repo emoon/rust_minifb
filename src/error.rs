@@ -1,4 +1,5 @@
 use std::fmt;
+use std::error::Error as StdError;
 
 /// Errors that can be returned from various operations
 ///
@@ -34,3 +35,5 @@ impl fmt::Display for Error {
         }
     }
 }
+
+impl StdError for Error {}
