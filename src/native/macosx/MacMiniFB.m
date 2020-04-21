@@ -426,10 +426,10 @@ void mfb_set_title(void* window, const char* title)
 void mfb_set_cursor_visibility(void *window, bool visibility)
 {
 	if (visibility){
-		[NSCursor show]
+		[NSCursor show];
 	}
 	else{
-		[NSCursor hide]
+		[NSCursor hide];
 	}
 }
 
