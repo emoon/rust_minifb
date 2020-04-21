@@ -182,6 +182,7 @@ extern "C" {
     );
     fn mfb_set_mouse_data(window_handle: *mut c_void, shared_data: *mut SharedData);
     fn mfb_set_cursor_style(window: *mut c_void, cursor: u32);
+    fn mfb_set_cursor_visibility(window: *mut c_void, visibility: bool);
     fn mfb_should_close(window: *mut c_void) -> i32;
     fn mfb_get_screen_size() -> u32;
     fn mfb_is_active(window: *mut c_void) -> u32;
@@ -349,6 +350,13 @@ impl Window {
     #[inline]
     pub fn set_background_color(&mut self, color: u32) {
         self.shared_data.bg_color = color;
+    }
+
+    #[inline]
+    pub fn set_cursor_visibility(&mut self, visibility: bool) {
+        unsafe {
+            mfb_set_cursor_visibility(visibility);
+        }
     }
 
     pub fn update_with_buffer_stride(
