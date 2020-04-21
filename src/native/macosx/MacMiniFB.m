@@ -423,6 +423,16 @@ void mfb_set_title(void* window, const char* title)
 	[win setTitle: ns_title];
 }
 
+void mfb_set_cursor_visibility(void *window, bool visibility)
+{
+	if (visibility){
+		[NSCursor unhide];
+	}
+	else{
+		[NSCursor hide];
+	}
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void mfb_close(void* win)

@@ -184,6 +184,10 @@ impl Window {
         // Orbital doesn't support cursor styles yet
     }
 
+    pub fn set_cursor_visibility(&mut self, visibility: bool) {
+        self.window.set_mouse_cursor(visibility);
+    }
+
     pub fn get_keys(&self) -> Option<Vec<Key>> {
         self.key_handler.get_keys()
     }
