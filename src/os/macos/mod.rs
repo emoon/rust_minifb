@@ -355,7 +355,7 @@ impl Window {
     #[inline]
     pub fn set_cursor_visibility(&mut self, visibility: bool) {
         unsafe {
-            mfb_set_cursor_visibility(visibility);
+            mfb_set_cursor_visibility(self.window_handle, visibility);
         }
     }
 
