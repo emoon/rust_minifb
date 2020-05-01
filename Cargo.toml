@@ -27,7 +27,7 @@ cc = "1.0"
 
 [dependencies]
 cast = "0.2"
-time = "0.1.34"
+time = "0.2.12"
 raw-window-handle = "0.3.3"
 
 [target.'cfg(windows)'.dependencies.winapi]
