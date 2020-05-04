@@ -101,13 +101,6 @@ mod mouse_handler;
 mod os;
 mod rate;
 mod window_flags;
-//mod menu;
-//pub use menu::Menu as Menu;
-//pub use menu::MENU_KEY_COMMAND;
-//pub use menu::MENU_KEY_WIN;
-//pub use menu::MENU_KEY_SHIFT;
-//pub use menu::MENU_KEY_CTRL;
-//pub use menu::MENU_KEY_ALT;
 
 #[cfg(target_os = "macos")]
 use self::os::macos as imp;
