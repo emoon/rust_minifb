@@ -113,6 +113,15 @@ impl Window {
         }
     }
 
+    pub fn set_cursor_visibility(&mut self, visibility: bool) {
+        match *self {
+            #[cfg(feature = "x11")]
+            Window::X11(ref mut w) => w.set_cursor_visibility(visibility),
+            #[cfg(feature = "wayland")]
+            Window::Wayland(ref mut w) => w.set_cursor_visibility(visibility),
+        }
+    }
+
     pub fn set_position(&mut self, x: isize, y: isize) {
         match *self {
             #[cfg(feature = "x11")]

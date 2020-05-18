@@ -504,6 +504,7 @@ pub struct Window {
     buffer: Vec<u32>,
     // Resolution, closed
     toplevel_info: (ToplevelResolution, ToplevelClosed),
+    pointer_visibility: bool,
 }
 
 impl Window {
@@ -566,6 +567,7 @@ impl Window {
             resizable: opts.resize,
             buffer: Vec::with_capacity(width * height * scale as usize * scale as usize),
             toplevel_info: (resolution, closed),
+            pointer_visibility: false,
         })
     }
 
@@ -575,6 +577,10 @@ impl Window {
 
     pub fn set_background_color(&mut self, bg_color: u32) {
         self.bg_color = bg_color;
+    }
+
+    pub fn set_cursor_visibility(&mut self, visibility: bool) {
+        self.pointer_visibility = visibility;
     }
 
     pub fn is_open(&self) -> bool {
@@ -795,6 +801,17 @@ impl Window {
                     self.display
                         .update_cursor(Self::decode_cursor(self.prev_cursor))
                         .unwrap();
+
+                    if self.pointer_visibility {
+                        self.input.get_pointer().set_cursor(
+                            serial,
+                            Some(&self.display.cursor_surface),
+                            0,
+                            0,
+                        );
+                    } else {
+                        self.input.get_pointer().set_cursor(serial, None, 0, 0);
+                    }
                 }
                 Event::Motion {
                     surface_x,
@@ -804,7 +821,12 @@ impl Window {
                     self.mouse_x = surface_x as f32;
                     self.mouse_y = surface_y as f32;
                 }
-                Event::Button { button, state, .. } => {
+                Event::Button {
+                    button,
+                    state,
+                    serial,
+                    ..
+                } => {
                     use wayland_client::protocol::wl_pointer::ButtonState;
 
                     let pressed = state == ButtonState::Pressed;
@@ -820,6 +842,17 @@ impl Window {
                             // TODO: handle more mouse buttons (see: linux/input-event-codes.h from
                             // the Linux kernel)
                         }
+                    }
+
+                    if self.pointer_visibility {
+                        self.input.get_pointer().set_cursor(
+                            serial,
+                            Some(&self.display.cursor_surface),
+                            0,
+                            0,
+                        );
+                    } else {
+                        self.input.get_pointer().set_cursor(serial, None, 0, 0);
                     }
                 }
                 Event::Axis { axis, value, .. } => {
@@ -850,6 +883,18 @@ impl Window {
                 Event::AxisDiscrete { axis, discrete } => {
                     let _ = (axis, discrete);
                     // TODO
+                }
+                Event::Leave { serial, .. } => {
+                    if self.pointer_visibility {
+                        self.input.get_pointer().set_cursor(
+                            serial,
+                            Some(&self.display.cursor_surface),
+                            0,
+                            0,
+                        );
+                    } else {
+                        self.input.get_pointer().set_cursor(serial, None, 0, 0);
+                    }
                 }
                 _ => {}
             }

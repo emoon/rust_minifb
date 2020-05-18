@@ -574,6 +574,39 @@ impl Window {
     }
 
     #[inline]
+    pub fn set_cursor_visibility(&mut self, visibility: bool) {
+        unsafe {
+            if visibility {
+                (self.d.lib.XDefineCursor)(
+                    self.d.display,
+                    self.handle,
+                    self.d.cursors[self.prev_cursor as usize],
+                );
+            } else {
+                static empty: [c_char; 8] = [0; 8];
+                let mut color = std::mem::zeroed();
+                let pixmap = (self.d.lib.XCreateBitmapFromData)(
+                    self.d.display,
+                    self.handle,
+                    empty.as_ptr(),
+                    8,
+                    8,
+                );
+                let cursor = (self.d.lib.XCreatePixmapCursor)(
+                    self.d.display,
+                    pixmap,
+                    pixmap,
+                    &mut color as *mut _,
+                    &mut color as *mut _,
+                    0,
+                    0,
+                );
+                (self.d.lib.XDefineCursor)(self.d.display, self.handle, cursor);
+            }
+        }
+    }
+
+    #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
         unsafe {
             (self.d.lib.XMoveWindow)(self.d.display, self.handle, x as i32, y as i32);

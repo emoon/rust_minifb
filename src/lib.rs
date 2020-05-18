@@ -386,6 +386,15 @@ impl Window {
     }
 
     ///
+    /// Changes whether or not the cursor image should be shown or if the cursor image
+    /// should be invisible inside the window
+    /// When creating a new window the default is 'false'
+    #[inline]
+    pub fn set_cursor_visibility(&mut self, visibility: bool) {
+        self.0.set_cursor_visibility(visibility);
+    }
+
+    ///
     /// Limits the update rate of polling for new events in order to reduce CPU usage.
     /// The problem of having a tight loop that does something like this
     ///

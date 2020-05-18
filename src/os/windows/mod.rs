@@ -797,6 +797,12 @@ impl Window {
         }
     }
 
+    pub fn set_cursor_visibility(&mut self, visibility: bool) {
+        unsafe {
+            winuser::ShowCursor(visibility as i32);
+        }
+    }
+
     pub fn update_with_buffer_stride(
         &mut self,
         buffer: &[u32],
