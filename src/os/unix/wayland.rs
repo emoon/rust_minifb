@@ -1,6 +1,8 @@
+use super::scancode::KEY_LOOKUP;
 use crate::buffer_helper;
 use crate::key_handler::KeyHandler;
 use crate::mouse_handler;
+use crate::physical_key_handler::PhysicalKeyHandler;
 use crate::rate::UpdateRate;
 use crate::{CursorStyle, MenuHandle, UnixMenu};
 use crate::{Error, Result};
@@ -9,6 +11,7 @@ use crate::{
 };
 
 use super::common::Menu;
+use super::common::XKB_KEY_OFFSET;
 
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_compositor::WlCompositor;
@@ -38,7 +41,6 @@ use std::slice;
 use std::sync::mpsc;
 use std::time::Duration;
 
-const KEY_XKB_OFFSET: u32 = 8;
 const KEY_MOUSE_BTN1: u32 = 272;
 const KEY_MOUSE_BTN2: u32 = 273;
 const KEY_MOUSE_BTN3: u32 = 274;
@@ -490,6 +492,7 @@ pub struct Window {
     active: bool,
 
     key_handler: KeyHandler,
+    ph_key_handler: PhysicalKeyHandler,
     // Option because MaybeUninit's get_ref() is nightly-only
     keymap: Option<Keymap>,
     update_rate: UpdateRate,
@@ -554,6 +557,7 @@ impl Window {
             active: false,
 
             key_handler: KeyHandler::new(),
+            ph_key_handler: PhysicalKeyHandler::new(),
             keymap: None,
             update_rate: UpdateRate::new(),
             menu_counter: MenuHandle(0),
@@ -737,10 +741,16 @@ impl Window {
                     if let Some(ref keymap) = self.keymap {
                         Self::handle_key(
                             keymap,
-                            key + KEY_XKB_OFFSET,
+                            key + XKB_KEY_OFFSET,
                             state,
                             &mut self.key_handler,
                         );
+                        if key > 0 {
+                            self.ph_key_handler.set_key_state(
+                                KEY_LOOKUP[key as usize],
+                                state == wl_keyboard::KeyState::Pressed,
+                            );
+                        }
                     }
                 }
                 Event::Modifiers {

@@ -10,6 +10,7 @@
 
 mod common;
 mod key_mapping;
+mod scancode;
 #[cfg(feature = "wayland")]
 mod wayland;
 #[cfg(feature = "x11")]

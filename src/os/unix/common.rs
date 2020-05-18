@@ -1,6 +1,8 @@
 use crate::Result;
 use crate::{Key, MenuHandle, MenuItem, MenuItemHandle, UnixMenu, UnixMenuItem};
 
+pub const XKB_KEY_OFFSET: u32 = 8;
+
 pub struct Menu {
     pub internal: UnixMenu,
 }

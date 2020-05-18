@@ -94,11 +94,13 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub use raw_window_handle::HasRawWindowHandle;
 
 mod key;
+mod scancode;
 pub use key::Key;
 mod buffer_helper;
 mod key_handler;
 mod mouse_handler;
 mod os;
+mod physical_key_handler;
 mod rate;
 mod window_flags;
 //mod menu;

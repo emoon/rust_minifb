@@ -1,8 +1,12 @@
+use super::common::XKB_KEY_OFFSET;
+use super::scancode::KEY_LOOKUP;
 use crate::key_handler::KeyHandler;
+use crate::physical_key_handler::PhysicalKeyHandler;
 use crate::rate::UpdateRate;
 use crate::{
     InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions,
 };
+
 use x11_dl::keysym::*;
 use x11_dl::xcursor;
 use x11_dl::xlib;
@@ -306,6 +310,7 @@ pub struct Window {
     should_close: bool, // received delete window message from X server
 
     key_handler: KeyHandler,
+    ph_key_handler: PhysicalKeyHandler,
     update_rate: UpdateRate,
     menu_counter: MenuHandle,
     menus: Vec<UnixMenu>,
@@ -473,6 +478,7 @@ impl Window {
                 should_close: false,
                 active: false,
                 key_handler: KeyHandler::new(),
+                ph_key_handler: PhysicalKeyHandler::new(),
                 update_rate: UpdateRate::new(),
                 menu_counter: MenuHandle(0),
                 menus: Vec::new(),
@@ -959,6 +965,11 @@ impl Window {
                 _ => {}
             }
         }
+
+        // physical key
+        let keycode = unsafe { ev.key.keycode };
+        self.ph_key_handler
+            .set_key_state(KEY_LOOKUP[(keycode - XKB_KEY_OFFSET) as usize], is_down);
 
         // normal keys...
 
