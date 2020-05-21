@@ -1022,15 +1022,17 @@ impl Window {
             return;
         }
 
-        if let Some(code_point) = super::key_mapping::keysym_to_unicode(sym as u32) {
-            // Taken from GLFW
-            if code_point < 32 || (code_point > 126 && code_point < 160) {
-                return;
-            }
+        let keysym = xkb::Keysym(sym as u32);
+        let code_point = keysym.utf32();
+        // Taken from GLFW
+        if code_point == 0 {
+            return;
+        } else if code_point < 32 || (code_point > 126 && code_point < 160) {
+            return;
+        }
 
-            if let Some(ref mut callback) = self.key_handler.key_callback {
-                callback.add_char(code_point);
-            }
+        if let Some(ref mut callback) = self.key_handler.key_callback {
+            callback.add_char(code_point);
         }
     }
 

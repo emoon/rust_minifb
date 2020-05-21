@@ -758,6 +758,19 @@ impl Window {
                             );
                         }
                     }
+
+                    if state == wl_keyboard::KeyState::Pressed {
+                        let keysym = xkb::Keysym(key);
+                        let code_point = keysym.utf32();
+                        if code_point != 0 {
+                            // Taken from GLFW
+                            if !(code_point < 32 || (code_point > 126 && code_point < 160)) {
+                                if let Some(ref mut callback) = self.key_handler.key_callback {
+                                    callback.add_char(code_point);
+                                }
+                            }
+                        }
+                    }
                 }
                 Event::Modifiers {
                     mods_depressed,

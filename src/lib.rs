@@ -103,13 +103,6 @@ mod os;
 mod physical_key_handler;
 mod rate;
 mod window_flags;
-//mod menu;
-//pub use menu::Menu as Menu;
-//pub use menu::MENU_KEY_COMMAND;
-//pub use menu::MENU_KEY_WIN;
-//pub use menu::MENU_KEY_SHIFT;
-//pub use menu::MENU_KEY_CTRL;
-//pub use menu::MENU_KEY_ALT;
 
 #[cfg(target_os = "macos")]
 use self::os::macos as imp;
@@ -164,7 +157,7 @@ pub enum ScaleMode {
     Stretch,
     /// Keep the correct aspect ratio to be displayed while scaling up fully in the other axis. Fill area will be filed with Window::set_bg_color (default 0, 0, 0)
     AspectRatioStretch,
-    /// Places the buffer in the middle of the window without any scaling. Fills the borders with color set Window::set_bg_color (default 0,0,0)
+    /// Places the buffer in the middle of the window without any scaling. Fills the borders with color set `Window::set_background_color` (default 0, 0, 0)
     /// If the window is smaller than the buffer the center of the buffer will be displayed
     Center,
     /// Same as Center but places the buffer in the upper left corner of the window.
