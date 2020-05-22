@@ -528,7 +528,7 @@ impl Window {
         };
     }
 
-    pub fn update_with_buffer_stride(
+    pub fn update_buffer_with_stride(
         &mut self,
         buffer: &[u32],
         buf_width: usize,
@@ -538,8 +538,6 @@ impl Window {
         buffer_helper::check_buffer_size(buf_width, buf_height, buf_stride, buffer)?;
 
         unsafe { self.raw_blit_buffer(buffer, buf_width, buf_height, buf_stride) };
-
-        self.update();
 
         Ok(())
     }

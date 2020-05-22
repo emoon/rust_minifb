@@ -65,7 +65,7 @@ impl Window {
         }
     }
 
-    pub fn update_with_buffer_stride(
+    pub fn update_buffer_with_stride(
         &mut self,
         buffer: &[u32],
         buf_width: usize,
@@ -75,11 +75,11 @@ impl Window {
         match *self {
             #[cfg(feature = "x11")]
             Window::X11(ref mut w) => {
-                w.update_with_buffer_stride(buffer, buf_width, buf_height, buf_stride)
+                w.update_buffer_with_stride(buffer, buf_width, buf_height, buf_stride)
             }
             #[cfg(feature = "wayland")]
             Window::Wayland(ref mut w) => {
-                w.update_with_buffer_stride(buffer, buf_width, buf_height, buf_stride)
+                w.update_buffer_with_stride(buffer, buf_width, buf_height, buf_stride)
             }
         }
     }

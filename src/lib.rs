@@ -263,6 +263,9 @@ impl Window {
     ///
     /// Notice that the buffer needs to be at least the size of the created window.
     ///
+    /// This will only update the framebuffer but not the window and input state.
+    /// To update the window state, call `.update()` separatly.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -282,18 +285,13 @@ impl Window {
     ///
     /// let mut window = Window::new("Test", window_width, window_height, WindowOptions::default()).unwrap();
     ///
-    /// window.update_with_buffer(&buffer, buffer_width, buffer_height).unwrap();
+    /// window.update(); // Update input state
+    /// window.update_buffer(&buffer, buffer_width, buffer_height).unwrap(); // Update framebuffer
     /// ```
     #[inline]
-    pub fn update_with_buffer(
-        &mut self,
-        buffer: &[u32],
-        width: usize,
-        height: usize,
-    ) -> Result<()> {
-        self.0.update_rate();
+    pub fn update_buffer(&mut self, buffer: &[u32], width: usize, height: usize) -> Result<()> {
         self.0
-            .update_with_buffer_stride(buffer, width, height, width)
+            .update_buffer_with_stride(buffer, width, height, width)
     }
 
     ///

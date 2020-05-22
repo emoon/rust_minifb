@@ -359,15 +359,13 @@ impl Window {
         }
     }
 
-    pub fn update_with_buffer_stride(
+    pub fn update_buffer_with_stride(
         &mut self,
         buffer: &[u32],
         buf_width: usize,
         buf_height: usize,
         buf_stride: usize,
     ) -> Result<()> {
-        self.key_handler.update();
-
         buffer_helper::check_buffer_size(buf_width, buf_height, buf_stride, buffer)?;
 
         unsafe {
@@ -377,13 +375,6 @@ impl Window {
                 buf_width as u32,
                 buf_height as u32,
                 buf_stride as u32,
-            );
-            Self::set_mouse_data(self);
-            mfb_set_key_callback(
-                self.window_handle,
-                mem::transmute(self),
-                key_callback,
-                char_callback,
             );
         }
 

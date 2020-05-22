@@ -100,22 +100,16 @@ impl Window {
         0 as *mut raw::c_void
     }
 
-    pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
-        self.process_events();
-        self.key_handler.update();
-
-        let check_res = buffer_helper::check_buffer_size(
-            self.buffer_width,
-            self.buffer_height,
-            self.window_scale,
-            buffer,
-        );
-        if check_res.is_err() {
-            return check_res;
-        }
+    pub fn update_buffer_with_stride(
+        &mut self,
+        buffer: &[u32],
+        buf_width: usize,
+        buf_height: usize,
+        buf_stride: usize,
+    ) -> Result<()> {
+        buffer_helper::check_buffer_size(buf_width, buf_height, buf_stride, buffer)?;
 
         self.render_buffer(buffer);
-        self.window.sync();
 
         Ok(())
     }

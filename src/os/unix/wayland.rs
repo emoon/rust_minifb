@@ -1087,7 +1087,7 @@ impl Window {
         }
     }
 
-    pub fn update_with_buffer_stride(
+    pub fn update_buffer_with_stride(
         &mut self,
         buffer: &[u32],
         buf_width: usize,
@@ -1101,7 +1101,6 @@ impl Window {
         self.display
             .update_framebuffer(&self.buffer[..], (self.width as i32, self.height as i32))
             .map_err(|e| Error::UpdateFailed(format!("Error updating framebuffer: {:?}", e)))?;
-        self.update();
 
         Ok(())
     }
