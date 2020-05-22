@@ -61,7 +61,8 @@ fn main() {
         angle += 0.1;
 
         // We unwrap here as we want this code to exit if it fails
-        window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
+        window.update();
+        window.update_buffer(&buffer, WIDTH, HEIGHT).unwrap();
     }
 }
 

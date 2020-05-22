@@ -59,8 +59,9 @@ fn main() {
         });
 
         // We unwrap here as we want this code to exit if it fails
+        window.update();
         window
-            .update_with_buffer(&buffer, width / 2, height / 2)
+            .update_buffer(&buffer, width / 2, height / 2)
             .unwrap();
     }
 }

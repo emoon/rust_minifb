@@ -66,8 +66,9 @@ fn main() {
             }
         });
 
+        window.update();
         window
-            .update_with_buffer(&buffer, new_size.0, new_size.1)
+            .update_buffer(&buffer, new_size.0, new_size.1)
             .unwrap();
     }
 }
