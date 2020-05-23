@@ -97,6 +97,9 @@ extern "C" void Image_center(
         int new_height = h - y_offset;
         source += y_offset * s;
 
+        if (new_height > window_height)
+            new_height = window_height;
+
         if (w > window_width) {
             int x_offset = (w - window_width) / 2;
             source += x_offset;
