@@ -9,7 +9,6 @@
 #![allow(non_upper_case_globals)]
 
 mod common;
-mod key_mapping;
 mod scancode;
 #[cfg(feature = "wayland")]
 mod wayland;
