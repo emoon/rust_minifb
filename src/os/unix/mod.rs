@@ -9,6 +9,7 @@
 #![allow(non_upper_case_globals)]
 
 mod common;
+mod scancode;
 #[cfg(feature = "wayland")]
 mod wayland;
 #[cfg(feature = "x11")]
