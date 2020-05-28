@@ -1,11 +1,12 @@
 use crate::scancode::Scancode;
-use crate::{InputCallback, Key, KeyRepeat};
+use crate::{InputCallback, KeyRepeat};
 use std::mem;
+use std::time::{Duration, Instant};
 
 pub struct PhysicalKeyHandler {
     pub key_callback: Option<Box<dyn InputCallback>>,
-    prev_time: f64,
-    delta_time: f32,
+    prev_time: Instant,
+    delta_time: Duration,
     keys: [bool; 512],
     keys_prev: [bool; 512],
     keys_down_duration: [f32; 512],
@@ -20,8 +21,8 @@ impl PhysicalKeyHandler {
             keys: [false; 512],
             keys_prev: [false; 512],
             keys_down_duration: [-1.0; 512],
-            prev_time: time::precise_time_s(),
-            delta_time: 0.0,
+            prev_time: Instant::now(),
+            delta_time: Duration::from_secs(0),
             key_repeat_delay: 0.250,
             key_repeat_rate: 0.050,
         }
@@ -50,10 +51,10 @@ impl PhysicalKeyHandler {
     }
 
     pub fn update(&mut self) {
-        let current_time = time::precise_time_s();
-        let delta_time = (current_time - self.prev_time) as f32;
+        let current_time = Instant::now();
+        self.delta_time = self.prev_time.elapsed();
         self.prev_time = current_time;
-        self.delta_time = delta_time;
+        let delta_time = self.delta_time.as_secs_f32();
 
         for i in 0..self.keys.len() {
             if self.keys[i] {
@@ -92,8 +93,8 @@ impl PhysicalKeyHandler {
         Some(keys)
     }
 
-    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
-        let mut keys: Vec<Key> = Vec::new();
+    pub fn get_keys_released(&self) -> Option<Vec<Scancode>> {
+        let mut keys: Vec<Scancode> = Vec::new();
 
         for (idx, is_down) in self.keys.iter().enumerate() {
             if !(*is_down) && self.is_key_index_released(idx) {
@@ -129,10 +130,11 @@ impl PhysicalKeyHandler {
         }
 
         if repeat == KeyRepeat::Yes && t > self.key_repeat_delay {
+            let delta_time = self.delta_time.as_secs_f32();
             let delay = self.key_repeat_delay;
             let rate = self.key_repeat_rate;
             if (((t - delay) % rate) > rate * 0.5)
-                != (((t - delay - self.delta_time) % rate) > rate * 0.5)
+                != (((t - delay - delta_time) % rate) > rate * 0.5)
             {
                 return true;
             }
