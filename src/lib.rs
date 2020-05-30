@@ -184,6 +184,7 @@ pub struct WindowOptions {
     /// Requires borderless to be 'true'
     /// TODO: Currently not implemented on Windows and OSX
     pub transparency: bool,
+    pub none: bool,
 }
 
 impl Window {
@@ -1039,6 +1040,7 @@ impl Default for WindowOptions {
             scale: Scale::X1,
             scale_mode: ScaleMode::Stretch,
             topmost: false,
+            none: false,
         }
     }
 }
