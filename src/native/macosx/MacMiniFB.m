@@ -114,8 +114,6 @@ static bool create_shaders() {
 		return false;
 	}
 
-	NSLog(@"Names %@", [g_library functionNames]);
-
 	g_library = library;
 
 	id<MTLFunction> vertex_shader_func = [g_library newFunctionWithName:@"vertFunc"];
@@ -423,6 +421,16 @@ void mfb_set_title(void* window, const char* title)
 	OSXWindow* win = (OSXWindow*)window;
 	NSString* ns_title = [NSString stringWithUTF8String: title];
 	[win setTitle: ns_title];
+}
+
+void mfb_set_cursor_visibility(void *window, bool visibility)
+{
+	if (visibility){
+		[NSCursor unhide];
+	}
+	else{
+		[NSCursor hide];
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

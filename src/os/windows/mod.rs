@@ -535,6 +535,12 @@ impl Window {
                 flags &= !winuser::WS_THICKFRAME;
             }
 
+            //TODO: UpdateLayeredWindow, etc.
+            //https://gist.github.com/texus/31676aba4ca774b1298e1e15133b8141
+            if opts.transparency {
+                flags &= winuser::WS_EX_LAYERED;
+            }
+
             let handle = winuser::CreateWindowExW(
                 0,
                 class_name.as_ptr(),
@@ -791,6 +797,12 @@ impl Window {
         }
     }
 
+    pub fn set_cursor_visibility(&mut self, visibility: bool) {
+        unsafe {
+            winuser::ShowCursor(visibility as i32);
+        }
+    }
+
     pub fn update_with_buffer_stride(
         &mut self,
         buffer: &[u32],
@@ -828,8 +840,17 @@ impl Window {
 
     #[inline]
     pub fn is_active(&mut self) -> bool {
-        // TODO: Proper implementation
-        true
+        match self.window {
+            Some(hwnd) => {
+                let active = unsafe { winapi::um::winuser::GetActiveWindow() };
+                if !active.is_null() && active == hwnd {
+                    true
+                } else {
+                    false
+                }
+            }
+            None => false,
+        }
     }
 
     unsafe fn get_scale_factor(width: usize, height: usize, scale: Scale) -> i32 {

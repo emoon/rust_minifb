@@ -82,6 +82,9 @@ impl Window {
         if !opts.title {
             window_flags.push(orbclient::WindowFlag::Borderless);
         }
+        if opts.transparency {
+            window_flags.push(orbclient::WindowFlag::Transparent);
+        }
 
         let window_opt =
             orbclient::Window::new_flags(-1, -1, window_width, window_height, name, &window_flags);
@@ -210,6 +213,10 @@ impl Window {
 
     pub fn set_cursor_style(&mut self, _cursor: CursorStyle) {
         // Orbital doesn't support cursor styles yet
+    }
+
+    pub fn set_cursor_visibility(&mut self, visibility: bool) {
+        self.window.set_mouse_cursor(visibility);
     }
 
     pub fn get_keys(&self) -> Option<Vec<Key>> {

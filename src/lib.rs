@@ -106,13 +106,6 @@ mod mouse_handler;
 mod os;
 mod rate;
 mod window_flags;
-//mod menu;
-//pub use menu::Menu as Menu;
-//pub use menu::MENU_KEY_COMMAND;
-//pub use menu::MENU_KEY_WIN;
-//pub use menu::MENU_KEY_SHIFT;
-//pub use menu::MENU_KEY_CTRL;
-//pub use menu::MENU_KEY_ALT;
 
 #[cfg(target_os = "macos")]
 use self::os::macos as imp;
@@ -168,7 +161,7 @@ pub enum ScaleMode {
     Stretch,
     /// Keep the correct aspect ratio to be displayed while scaling up fully in the other axis. Fill area will be filed with Window::set_bg_color (default 0, 0, 0)
     AspectRatioStretch,
-    /// Places the buffer in the middle of the window without any scaling. Fills the borders with color set Window::set_bg_color (default 0,0,0)
+    /// Places the buffer in the middle of the window without any scaling. Fills the borders with color set `Window::set_background_color` (default 0, 0, 0)
     /// If the window is smaller than the buffer the center of the buffer will be displayed
     Center,
     /// Same as Center but places the buffer in the upper left corner of the window.
@@ -193,6 +186,10 @@ pub struct WindowOptions {
     pub scale_mode: ScaleMode,
     /// Should the window be the topmost window (default: false)
     pub topmost: bool,
+    /// Specifies whether or not the window is allowed to draw transparent pixels (default: false)
+    /// Requires borderless to be 'true'
+    /// TODO: Currently not implemented on Windows and OSX
+    pub transparency: bool,
 }
 
 impl Window {
@@ -226,6 +223,11 @@ impl Window {
     ///  .expect("Unable to open Window");
     /// ```
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
+        if opts.transparency && !opts.borderless {
+            return Err(Error::WindowCreate(
+                "Window transparency requires the borderless property".to_owned(),
+            ));
+        }
         imp::Window::new(name, width, height, opts).map(Window)
     }
 
@@ -378,6 +380,15 @@ impl Window {
         let b = clamp(0, blue, 255);
         self.0
             .set_background_color(((r << 16) | (g << 8) | b) as u32);
+    }
+
+    ///
+    /// Changes whether or not the cursor image should be shown or if the cursor image
+    /// should be invisible inside the window
+    /// When creating a new window the default is 'false'
+    #[inline]
+    pub fn set_cursor_visibility(&mut self, visibility: bool) {
+        self.0.set_cursor_visibility(visibility);
     }
 
     ///
@@ -999,6 +1010,7 @@ impl Default for WindowOptions {
     fn default() -> WindowOptions {
         WindowOptions {
             borderless: false,
+            transparency: false,
             title: true,
             resize: false,
             scale: Scale::X1,

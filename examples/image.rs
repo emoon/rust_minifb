@@ -1,6 +1,3 @@
-extern crate minifb;
-extern crate png;
-
 use minifb::{Key, ScaleMode, Window, WindowOptions};
 
 fn main() {
