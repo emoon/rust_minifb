@@ -58,7 +58,7 @@ fn main() {
 
 Status
 ------
-Currently macOS, Linux and Windows (64-bit and 32-bit) are the current supported platforms. X11 (Linux/FreeBSD/etc) support has been tested on Ubuntu (x64). Bug report(s) for other OSes/CPUs are welcome!
+Currently macOS, Linux and Windows (64-bit and 32-bit) are the current supported platforms. X11 (Linux/FreeBSD/etc) support has been tested on Ubuntu (x64). Linux Wayland support is also available. Bug report(s) for other OSes/CPUs are welcome!
 Notice: That after 0.13 Redox hasn't been updated and some work is required to get that working again. PR are welcome.
 
 Build instructions
