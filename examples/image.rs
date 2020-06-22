@@ -32,8 +32,9 @@ fn main() {
     .expect("Unable to open Window");
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
+        window.update();
         window
-            .update_with_buffer(&u32_buffer, info.width as usize, info.height as usize)
+            .update_buffer(&u32_buffer, info.width as usize, info.height as usize)
             .unwrap();
     }
 }

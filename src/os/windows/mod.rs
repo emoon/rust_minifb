@@ -803,7 +803,7 @@ impl Window {
         }
     }
 
-    pub fn update_with_buffer_stride(
+    pub fn update_buffer_with_stride(
         &mut self,
         buffer: &[u32],
         buf_width: usize,
@@ -811,8 +811,6 @@ impl Window {
         buf_stride: usize,
     ) -> Result<()> {
         let window = self.window.unwrap();
-
-        Self::generic_update(self, window);
 
         buffer_helper::check_buffer_size(buf_width, buf_height, buf_stride, buffer)?;
 
@@ -825,8 +823,6 @@ impl Window {
         unsafe {
             winuser::InvalidateRect(window, ptr::null_mut(), minwindef::TRUE);
         }
-
-        Self::message_loop(self, window);
 
         Ok(())
     }
