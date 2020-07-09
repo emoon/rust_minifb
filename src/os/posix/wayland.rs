@@ -327,7 +327,7 @@ impl DisplayInfo {
             }
         });
 
-        let cursor = wayland_cursor::load_theme(None, 16, &shm);
+        let cursor = wayland_cursor::CursorTheme::load(16, &shm);
         let cursor_surface = compositor.create_surface();
 
         Ok((
@@ -365,13 +365,11 @@ impl DisplayInfo {
     fn update_cursor(&mut self, cursor: &str) -> std::result::Result<(), ()> {
         let cursor = self.cursor.get_cursor(cursor);
         if let Some(cursor) = cursor {
-            let img = cursor.frame_buffer(0);
-            if let Some(img) = img {
-                self.cursor_surface.attach(Some(&*img), 0, 0);
-                self.cursor_surface.damage(0, 0, 32, 32);
-                self.cursor_surface.commit();
-                return Ok(());
-            }
+            let img = &cursor[0];
+            self.cursor_surface.attach(Some(&*img), 0, 0);
+            self.cursor_surface.damage(0, 0, 32, 32);
+            self.cursor_surface.commit();
+            return Ok(());
         }
         Err(())
     }
