@@ -113,7 +113,7 @@ use self::os::redox as imp;
     target_os = "netbsd",
     target_os = "openbsd"
 ))]
-use self::os::unix as imp;
+use self::os::posix as imp;
 #[cfg(target_os = "windows")]
 use self::os::windows as imp;
 ///

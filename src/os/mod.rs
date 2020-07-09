@@ -9,6 +9,6 @@ pub mod redox;
     target_os = "netbsd",
     target_os = "openbsd"
 ))]
-pub mod unix;
+pub mod posix;
 #[cfg(target_os = "windows")]
 pub mod windows;
