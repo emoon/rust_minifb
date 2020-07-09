@@ -309,12 +309,12 @@ impl Window {
         }
     }
 
-    pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
+    pub fn get_posix_menus(&self) -> Option<&Vec<UnixMenu>> {
         match *self {
             #[cfg(feature = "x11")]
-            Window::X11(ref w) => w.get_unix_menus(),
+            Window::X11(ref w) => w.get_posix_menus(),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref w) => w.get_unix_menus(),
+            Window::Wayland(ref w) => w.get_posix_menus(),
         }
     }
 

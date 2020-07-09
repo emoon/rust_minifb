@@ -725,7 +725,7 @@ impl Window {
     /// otherwise ```None```
     ///
     #[cfg(any(target_os = "macos", target_os = "windows"))]
-    pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
+    pub fn get_posix_menus(&self) -> Option<&Vec<UnixMenu>> {
         None
     }
 
@@ -737,8 +737,16 @@ impl Window {
         target_os = "openbsd",
         target_os = "redox"
     ))]
+    pub fn get_posix_menus(&self) -> Option<&Vec<UnixMenu>> {
+        self.0.get_posix_menus()
+    }
+
+    #[deprecated(
+        since = "0.17.0",
+        note = "`get_unix_menus` will be removed in 1.0.0, use `get_posix_menus` instead"
+    )]
     pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
-        self.0.get_unix_menus()
+        self.get_posix_menus()
     }
 
     ///
