@@ -2,6 +2,13 @@
 
 This project follows semantic versioning.
 
+### v0.17 (2020-07-09)
+
+- [changed] unix renamed to posix. (Thanks LoganDark)
+- [changed] bunch of Linux/x11 fixes by Antonino Siena. Such as Transparency support, Borderless, Cursor Visibility. Thanks!
+- [changed] use `std::ptr::null_mut()` to Windows `PeekMessageW` it fix alt-tab stall on Window 7. Thanks lynnux for the report!
+- [added] Implemented std::error::Error for minifb::Error. (Thanks Christofer Nolander!)
+
 ### v0.16 (2020-04-05)
 
 - [added] Wayland support. (Big thanks to Antonino Siena add this support with assistance by Cole Helbling!)

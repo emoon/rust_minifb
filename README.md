@@ -13,7 +13,7 @@ Usage
 ```toml
 # Cargo.toml
 [dependencies]
-minifb = "0.16"
+minifb = "0.17"
 ```
 
 Example
@@ -63,6 +63,12 @@ Notice: That after 0.13 Redox hasn't been updated and some work is required to g
 
 Build instructions
 ------------------
+
+On Linux you may need to install these dependencies first:
+
+```
+sudo apt install libxkbcommon-dev libwayland-cursor0 libwayland-dev
+```
 
 ```
 cargo build
