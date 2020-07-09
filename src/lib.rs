@@ -104,8 +104,6 @@ mod window_flags;
 
 #[cfg(target_os = "macos")]
 use self::os::macos as imp;
-#[cfg(target_os = "redox")]
-use self::os::redox as imp;
 #[cfg(any(
     target_os = "linux",
     target_os = "freebsd",
@@ -114,6 +112,8 @@ use self::os::redox as imp;
     target_os = "openbsd"
 ))]
 use self::os::posix as imp;
+#[cfg(target_os = "redox")]
+use self::os::redox as imp;
 #[cfg(target_os = "windows")]
 use self::os::windows as imp;
 ///

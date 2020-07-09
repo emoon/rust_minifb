@@ -767,7 +767,9 @@ impl Window {
         unsafe {
             let mut msg = mem::zeroed();
 
-            while winuser::PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, winuser::PM_REMOVE) != 0 {
+            while winuser::PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, winuser::PM_REMOVE)
+                != 0
+            {
                 // Make this code a bit nicer
                 if self.accel_table == ptr::null_mut() {
                     winuser::TranslateMessage(&mut msg);
