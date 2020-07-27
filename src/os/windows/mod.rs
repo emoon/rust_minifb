@@ -610,6 +610,10 @@ impl Window {
                 },
             };
 
+            if opts.topmost {
+                window.topmost(true)
+            }
+
             Ok(window)
         }
     }
@@ -984,6 +988,25 @@ impl Window {
             let t = self.accel_key;
             self.accel_key = INVALID_ACCEL;
             Some(t)
+        }
+    }
+
+    #[inline]
+    fn topmost(&self, topmost: bool) {
+        unsafe {
+            winuser::SetWindowPos(
+                self.window.unwrap(),
+                if topmost == true {
+                    winuser::HWND_TOPMOST
+                } else {
+                    winuser::HWND_TOP
+                },
+                0,
+                0,
+                0,
+                0,
+                winuser::SWP_SHOWWINDOW | winuser::SWP_NOSIZE | winuser::SWP_NOMOVE,
+            );
         }
     }
 }
