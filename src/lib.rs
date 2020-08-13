@@ -109,8 +109,6 @@ mod window_flags;
 
 #[cfg(target_os = "macos")]
 use self::os::macos as imp;
-#[cfg(target_os = "redox")]
-use self::os::redox as imp;
 #[cfg(any(
     target_os = "linux",
     target_os = "freebsd",
@@ -118,7 +116,9 @@ use self::os::redox as imp;
     target_os = "netbsd",
     target_os = "openbsd"
 ))]
-use self::os::unix as imp;
+use self::os::posix as imp;
+#[cfg(target_os = "redox")]
+use self::os::redox as imp;
 #[cfg(target_os = "windows")]
 use self::os::windows as imp;
 ///
@@ -710,7 +710,7 @@ impl Window {
     ///   on which window you have active.
     /// Linux/BSD/etc:
     ///   Menus aren't supported as they depend on each WindowManager and is outside of the
-    ///   scope for this library to support. Use [get_unix_menus] to get a structure
+    ///   scope for this library to support. Use [get_posix_menus] to get a structure
     /// ```
     ///
     #[inline]
@@ -727,11 +727,11 @@ impl Window {
     }
 
     ///
-    /// Get Unix menu. Will only return menus on Unix class OSes
+    /// Get POSIX menus. Will only return menus on POSIX-like OSes like Linux or BSD
     /// otherwise ```None```
     ///
     #[cfg(any(target_os = "macos", target_os = "windows"))]
-    pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
+    pub fn get_posix_menus(&self) -> Option<&Vec<UnixMenu>> {
         None
     }
 
@@ -743,8 +743,16 @@ impl Window {
         target_os = "openbsd",
         target_os = "redox"
     ))]
+    pub fn get_posix_menus(&self) -> Option<&Vec<UnixMenu>> {
+        self.0.get_posix_menus()
+    }
+
+    #[deprecated(
+        since = "0.17.0",
+        note = "`get_unix_menus` will be removed in 1.0.0, use `get_posix_menus` instead"
+    )]
     pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
-        self.0.get_unix_menus()
+        self.get_posix_menus()
     }
 
     ///
@@ -770,8 +778,11 @@ pub const MENU_KEY_ALT: usize = 16;
 const MENU_ID_SEPARATOR: usize = 0xffffffff;
 
 ///
-/// Used on Unix (Linux, FreeBSD, etc) as menus aren't supported in a native where there.
-/// This structure can be used by calling [#get_unix_menus] on Window.
+/// Used on POSIX systems (Linux, FreeBSD, etc) as menus aren't supported in a native way there.
+/// This structure can be used by calling [#get_posix_menus] on Window.
+///
+/// In version 1.0.0, this struct will be renamed to PosixMenu, but it remains UnixMenu for backwards compatibility
+/// reasons.
 ///
 #[derive(Debug, Clone)]
 pub struct UnixMenu {
@@ -786,7 +797,7 @@ pub struct UnixMenu {
 }
 
 ///
-/// Used for on Unix (Linux, FreeBSD, etc) as menus aren't supported in a native where there.
+/// Used on POSIX systems (Linux, FreeBSD, etc) as menus aren't supported in a native way there.
 /// This structure holds info for each item in a #UnixMenu
 ///
 #[derive(Debug, Clone)]

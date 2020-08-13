@@ -434,7 +434,7 @@ impl Window {
         handle
     }
 
-    pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
+    pub fn get_posix_menus(&self) -> Option<&Vec<UnixMenu>> {
         Some(&self.menus)
     }
 

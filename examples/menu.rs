@@ -66,7 +66,7 @@ fn main() {
 
     let menu_handle = window.add_menu(&menu);
 
-    window.get_unix_menus().map(|menus| {
+    window.get_posix_menus().map(|menus| {
         println!("Menus {:?}", menus);
     });
 

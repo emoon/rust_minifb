@@ -24,7 +24,7 @@ fn main() {
     } else if !env.contains("windows") {
         // build scalar on non-windows and non-mac
         cc::Build::new()
-            .file("src/native/unix/scalar.cpp")
+            .file("src/native/posix/scalar.cpp")
             .opt_level(3) // always build with opts for scaler so it's fast in debug also
             .compile("libscalar.a")
     }
