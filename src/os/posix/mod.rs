@@ -224,7 +224,7 @@ impl Window {
             #[cfg(feature = "x11")]
             Window::X11(ref w) => w.get_keys_released(),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref _w) => unimplemented!(),
+            Window::Wayland(ref w) => w.get_keys_released(),
         }
     }
 

@@ -597,6 +597,10 @@ impl Window {
         self.key_handler.get_keys_pressed(repeat)
     }
 
+    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+        self.key_handler.get_keys_released()
+    }
+
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         mouse_handler::get_pos(
             mode,
