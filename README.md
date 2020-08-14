@@ -2,7 +2,7 @@
 [![Crates.io](https://img.shields.io/crates/v/minifb.svg)](https://crates.io/crates/minifb)
 [![Documentation](https://docs.rs/minifb/badge.svg)](https://docs.rs/minifb)
 
-minifb is a cross platform library written in [Rust](https://www.rust-lang.org) and that makes it easy to setup a window and to (optional) display a 32-bit pixel buffer.  It also makes it easy to get input from keyboard and mouse.
+minifb is a cross platform library written in [Rust](https://www.rust-lang.org) and that makes it easy to setup a window and to (optional) display a 32-bit pixel buffer.  It also makes it easy to get input from keyboard and mouse. Notice that minifb is primary designed for prototyping and may not include all the features found in full window handling libraries.
 An example is the best way to show how it works:
 
 [Changelog](https://github.com/emoon/rust_minifb/blob/master/CHANGELOG.md)
@@ -13,7 +13,7 @@ Usage
 ```toml
 # Cargo.toml
 [dependencies]
-minifb = "0.17"
+minifb = "0.18"
 ```
 
 Example
