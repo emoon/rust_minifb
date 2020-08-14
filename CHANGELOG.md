@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.18 (2020-08-14)
+
+- [fixed] get_released_keys wasn't working under Wayland.
+
 ### v0.17 (2020-07-09)
 
 - [changed] unix renamed to posix. (Thanks LoganDark)
