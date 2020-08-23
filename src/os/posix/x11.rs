@@ -11,6 +11,7 @@ use crate::error::Error;
 use crate::Result;
 use crate::{CursorStyle, MenuHandle, UnixMenu};
 
+use std::convert::TryFrom;
 use std::ffi::CString;
 use std::mem;
 use std::os::raw;
@@ -148,9 +149,9 @@ impl DisplayInfo {
 
             let gc = (lib.XDefaultGC)(display, screen);
 
-            let screen_width = cast::usize((lib.XDisplayWidth)(display, screen))
+            let screen_width = usize::try_from((lib.XDisplayWidth)(display, screen))
                 .map_err(|e| Error::WindowCreate(format!("illegal width: {}", e)))?;
-            let screen_height = cast::usize((lib.XDisplayHeight)(display, screen))
+            let screen_height = usize::try_from((lib.XDisplayHeight)(display, screen))
                 .map_err(|e| Error::WindowCreate(format!("illegal height: {}", e)))?;
 
             // andrewj: using this instead of XUniqueContext(), as the latter
@@ -947,8 +948,8 @@ impl Window {
                 self.free_image();
                 self.ximage = Self::alloc_image(
                     &self.d,
-                    cast::usize(self.width),
-                    cast::usize(self.height),
+                    self.width as usize,
+                    self.height as usize,
                     &mut self.draw_buffer,
                 )
                 .expect("todo");
