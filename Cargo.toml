@@ -40,7 +40,7 @@ features = [
 
 [features]
 default = ["wayland", "x11"]
-x11 = ["x11-dl", "xkb", "xkbcommon-sys"]
+x11 = ["x11-dl", "xkb"]
 wayland = ["wayland-client", "wayland-protocols", "wayland-cursor", "tempfile", "xkb", "xkbcommon-sys"]
 
 [target.'cfg(not(any(target_os = "macos", target_os = "redox", windows)))'.dependencies]
