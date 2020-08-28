@@ -1009,25 +1009,6 @@ impl Window {
             Some(t)
         }
     }
-
-    #[inline]
-    fn topmost(&self, topmost: bool) {
-        unsafe {
-            winuser::SetWindowPos(
-                self.window.unwrap(),
-                if topmost == true {
-                    winuser::HWND_TOPMOST
-                } else {
-                    winuser::HWND_TOP
-                },
-                0,
-                0,
-                0,
-                0,
-                winuser::SWP_SHOWWINDOW | winuser::SWP_NOSIZE | winuser::SWP_NOMOVE,
-            );
-        }
-    }
 }
 
 #[derive(Clone)]
