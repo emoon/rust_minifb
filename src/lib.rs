@@ -370,7 +370,6 @@ impl Window {
         self.0.topmost(topmost)
     }
 
-
     ///
     /// Sets the background color that is used with update_with_buffer.
     /// In some cases there will be a blank area around the buffer depending on the ScaleMode that has been set.

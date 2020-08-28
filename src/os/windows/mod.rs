@@ -664,7 +664,7 @@ impl Window {
             )
         };
     }
-    
+
     #[inline]
     pub fn get_size(&self) -> (usize, usize) {
         (self.width as usize, self.height as usize)
