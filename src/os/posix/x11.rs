@@ -420,8 +420,11 @@ impl Window {
             }
 
             if opts.borderless {
-                let hints_property =
-                    (d.lib.XInternAtom)(d.display, "_MOTIF_WM_HINTS\0" as *const _ as *const i8, 0);
+                let hints_property = (d.lib.XInternAtom)(
+                    d.display,
+                    "_MOTIF_WM_HINTS\0" as *const _ as *const c_char,
+                    0,
+                );
                 assert!(hints_property != 0);
                 let mut hints: MwmHints = std::mem::zeroed();
                 hints.flags = 2;
