@@ -2,7 +2,7 @@
 
 This project follows semantic versioning.
 
-### v0.18 (2020-09-16)
+### v0.19 (2020-09-16)
 
 - [added] Added char_callback example on how to capture data.
 - [added] Support for topmost on Windows (Thanks phillvancejr!)
