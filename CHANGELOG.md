@@ -2,6 +2,13 @@
 
 This project follows semantic versioning.
 
+### v0.18 (2020-09-16)
+
+- [added] Added char_callback example on how to capture data.
+- [added] Support for topmost on Windows (Thanks phillvancejr!)
+- [fixed] ARM (Raspberry Pi) now builds and runs. (Thanks derpeter!)
+- [changed] Removed a bunch of dependencies not needed anymore (Thanks RazrFalcon!)
+
 ### v0.18 (2020-08-14)
 
 - [fixed] get_released_keys wasn't working under Wayland.
