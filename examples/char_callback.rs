@@ -8,7 +8,7 @@ const HEIGHT: usize = 360;
 type KeyVec = Rc<RefCell<Vec<u32>>>;
 
 struct Input {
-keys: KeyVec,
+    keys: KeyVec,
 }
 
 impl Input {
@@ -27,14 +27,14 @@ fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 
     let mut window = Window::new(
-            "Test - ESC to exit",
-            WIDTH,
-            HEIGHT,
-            WindowOptions::default(),
-            )
-        .unwrap_or_else(|e| {
-                panic!("{}", e);
-                });
+        "Test - ESC to exit",
+        WIDTH,
+        HEIGHT,
+        WindowOptions::default(),
+    )
+    .unwrap_or_else(|e| {
+        panic!("{}", e);
+    });
 
     let keys_data = KeyVec::new(RefCell::new(Vec::new()));
 
@@ -50,9 +50,7 @@ fn main() {
         }
 
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
-        window
-            .update_with_buffer(&buffer, WIDTH, HEIGHT)
-            .unwrap();
+        window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
 
         let mut keys = keys_data.borrow_mut();
 
