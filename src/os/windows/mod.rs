@@ -935,7 +935,6 @@ impl Window {
 
         for menu in self.menus.iter() {
             for item in menu.accel_table.iter() {
-                println!("virt {} - cmd {} - key {}", item.fVirt, item.cmd, item.key);
                 temp_accel_table.push(item.clone());
             }
         }
@@ -948,8 +947,6 @@ impl Window {
             temp_accel_table.as_mut_ptr(),
             temp_accel_table.len() as i32,
         );
-
-        println!("accel {:?}", self.accel_table);
     }
 
     pub fn add_menu(&mut self, menu: &Menu) -> MenuHandle {
@@ -990,7 +987,6 @@ impl Window {
         for i in 0..self.menus.len() {
             if self.menus[i].menu_handle == handle.0 as windef::HMENU {
                 unsafe {
-                    println!("Removed menu at {}", i);
                     let _t = winuser::RemoveMenu(main_menu, i as minwindef::UINT, 0);
                     winuser::DrawMenuBar(self.window.unwrap());
                 }
