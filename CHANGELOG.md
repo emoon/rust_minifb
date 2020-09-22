@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.19 (2020-09-22)
+
+- [fixed] Removed dummy logging
+
 ### v0.19 (2020-09-16)
 
 - [added] Added char_callback example on how to capture data.
