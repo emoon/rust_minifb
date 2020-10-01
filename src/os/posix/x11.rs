@@ -403,7 +403,7 @@ impl Window {
                     | xlib::FocusChangeMask,
             );
 
-            if !opts.resize {
+            if !opts.resize || opts.none {
                 let mut size_hints: xlib::XSizeHints = mem::zeroed();
 
                 size_hints.flags = xlib::PMinSize | xlib::PMaxSize;
@@ -419,7 +419,7 @@ impl Window {
                 );
             }
 
-            if opts.borderless {
+            if opts.borderless || opts.none {
                 let hints_property = (d.lib.XInternAtom)(
                     d.display,
                     "_MOTIF_WM_HINTS\0" as *const _ as *const c_char,

@@ -520,13 +520,13 @@ impl Window {
         let (display, input) = DisplayInfo::new(
             (width as i32 * scale, height as i32 * scale),
             opts.transparency,
-            !opts.borderless,
+            !opts.borderless || opts.none,
         )?;
 
         if opts.title {
             display.set_title(name);
         }
-        if !opts.resize {
+        if !opts.resize || opts.none {
             display.set_no_resize((width as i32 * scale, height as i32 * scale));
         }
 
@@ -558,7 +558,7 @@ impl Window {
             menu_counter: MenuHandle(0),
             menus: Vec::new(),
             input,
-            resizable: opts.resize,
+            resizable: opts.resize && !opts.none,
             buffer: Vec::with_capacity(width * height * scale as usize * scale as usize),
             toplevel_info: (resolution, closed),
             pointer_visibility: false,
