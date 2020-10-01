@@ -182,8 +182,13 @@ pub struct WindowOptions {
     pub topmost: bool,
     /// Specifies whether or not the window is allowed to draw transparent pixels (default: false)
     /// Requires borderless to be 'true'
-    /// TODO: Currently not implemented on Windows and OSX
+    /// TODO: Currently not implemented on OSX.
+    /// TODO: Make it work without none option on windows.
     pub transparency: bool,
+    /// Required for transparency on windows.
+    /// Should be mutually exclusive to resize, automatically assumes borderless.
+    /// Not supported on OSX.
+    pub none: bool,
 }
 
 impl Window {
@@ -1039,6 +1044,7 @@ impl Default for WindowOptions {
             scale: Scale::X1,
             scale_mode: ScaleMode::Stretch,
             topmost: false,
+            none: false,
         }
     }
 }

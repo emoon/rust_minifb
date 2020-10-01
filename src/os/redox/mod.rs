@@ -61,7 +61,7 @@ impl Window {
         let window_height = height as u32 * window_scale as u32;
 
         let mut window_flags = vec![orbclient::WindowFlag::Async];
-        if opts.resize {
+        if opts.resize && !opts.none {
             window_flags.push(orbclient::WindowFlag::Resizable);
         }
         if !opts.title {

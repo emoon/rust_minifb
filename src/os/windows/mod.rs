@@ -541,6 +541,10 @@ impl Window {
                 flags &= winuser::WS_EX_LAYERED;
             }
 
+            if opts.none {
+                flags = winuser::WS_VISIBLE | winuser::WS_POPUP;
+            }
+
             let handle = winuser::CreateWindowExW(
                 0,
                 class_name.as_ptr(),
