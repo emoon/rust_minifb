@@ -1117,7 +1117,7 @@ impl Window {
             XK_bracketleft => Key::LeftBracket,
             XK_minus => Key::Minus,
             XK_period => Key::Period,
-            XK_braceright => Key::RightBracket,
+            XK_bracketright => Key::RightBracket,
             XK_semicolon => Key::Semicolon,
             XK_slash => Key::Slash,
             XK_space => Key::Space,
