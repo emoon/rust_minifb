@@ -561,7 +561,7 @@ impl Window {
             resizable: opts.resize && !opts.none,
             buffer: Vec::with_capacity(width * height * scale as usize * scale as usize),
             toplevel_info: (resolution, closed),
-            pointer_visibility: false,
+            pointer_visibility: true,
         })
     }
 
