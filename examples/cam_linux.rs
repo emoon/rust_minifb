@@ -4,6 +4,12 @@ const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
 
 fn main() {
+    #[cfg(not(target_os = "linux"))]
+    {
+        eprintln!("This example only works on linux");
+        std::process::exit(1);
+    }
+
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 
     let mut window = Window::new(
