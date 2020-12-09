@@ -1272,7 +1272,7 @@ impl Drop for Window {
             }
 
             if self.window.is_some() {
-                winuser::CloseWindow(self.window.unwrap());
+                winuser::DestroyWindow(self.window.unwrap());
             }
         }
     }
