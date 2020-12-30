@@ -14,7 +14,7 @@ pub enum Error {
     UpdateFailed(String),
 }
 
-impl fmt::Debug for Error {
+impl fmt::Display for Error {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Error::MenusNotSupported => write!(formatter, "Menus not supported"),
@@ -25,13 +25,13 @@ impl fmt::Debug for Error {
     }
 }
 
-impl fmt::Display for Error {
+impl fmt::Debug for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::MenusNotSupported => write!(fmt, "{:?}", self),
-            Error::MenuExists(ref e) => write!(fmt, "{:?} {:?}", self, e),
-            Error::WindowCreate(ref e) => write!(fmt, "{:?} {:?}", self, e),
-            Error::UpdateFailed(ref e) => write!(fmt, "{:?} {:?}", self, e),
+            Error::MenusNotSupported => write!(fmt, "{}", self),
+            Error::MenuExists(ref e) => write!(fmt, "{}, {:?}", self, e),
+            Error::WindowCreate(ref e) => write!(fmt, "{}, {:?}", self, e),
+            Error::UpdateFailed(ref e) => write!(fmt, "{}, {:?}", self, e),
         }
     }
 }
