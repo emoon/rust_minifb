@@ -1055,7 +1055,7 @@ impl Window {
                     let kb_map_ptr = xkbcommon_sys::xkb_keymap_new_from_string(
                         ctx,
                         v.as_ptr() as *const _ as *const std::os::raw::c_char,
-                        xkbcommon_sys::xkb_keymap_format::XKB_KEYMAP_FORMAT_TEXT_v1,
+                        xkbcommon_sys::xkb_keymap_format::XKB_KEYMAP_FORMAT_TEXT_V1,
                         0,
                     );
 
