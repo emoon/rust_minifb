@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.19.2 (2021-01-18)
+
+TODO:
+
 ### v0.19 (2020-09-22)
 
 - [fixed] Removed dummy logging
