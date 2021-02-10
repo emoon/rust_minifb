@@ -279,7 +279,7 @@ unsafe extern "system" fn wnd_proc(
             let mut y_offset = 0;
 
             let dc = wnd.dc.unwrap();
-            wingdi::SelectObject(dc, wnd.clear_brush as *mut std::ffi::c_void);
+            wingdi::SelectObject(dc, wnd.clear_brush as *mut winapi::ctypes::c_void);
 
             match wnd.draw_params.scale_mode {
                 ScaleMode::AspectRatioStretch => {
@@ -817,7 +817,7 @@ impl Window {
 
     pub fn set_background_color(&mut self, color: u32) {
         unsafe {
-            wingdi::DeleteObject(self.clear_brush as *mut std::ffi::c_void);
+            wingdi::DeleteObject(self.clear_brush as *mut winapi::ctypes::c_void);
             let r = (color >> 16) & 0xff;
             let g = (color >> 8) & 0xff;
             let b = (color >> 0) & 0xff;
