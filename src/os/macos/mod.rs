@@ -205,6 +205,7 @@ extern "C" {
         modifier: u32,
     ) -> u64;
     fn mfb_remove_menu_item(menu: *mut c_void, item_handle: u64);
+    fn mfb_dpi_scale(window: *mut c_void) -> f32;
 }
 
 #[derive(Default)]
@@ -749,6 +750,12 @@ impl Menu {
     pub fn remove_item(&mut self, handle: &MenuItemHandle) {
         unsafe {
             mfb_remove_menu_item(self.menu_handle, handle.0);
+        }
+    }
+
+    pub fn dpi_scale(&self) -> f32
+        unsafe {
+            mfb_dpi_scale(self.window_handle)
         }
     }
 }

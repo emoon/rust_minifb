@@ -3,9 +3,9 @@ use crate::rate::UpdateRate;
 use crate::{
     InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions,
 };
-use x11_dl::keysym::*;
-use x11_dl::xcursor;
-use x11_dl::xlib;
+use x11_dl::{
+    keysym::*, xcursor, xlib, xrandr::*,
+};
 
 use crate::error::Error;
 use crate::Result;
@@ -90,6 +90,7 @@ struct DisplayInfo {
     visual: *mut xlib::Visual,
     gc: xlib::GC,
     depth: i32,
+    dpi_scale: f32,
     screen_width: usize,
     screen_height: usize,
     _context: xlib::XContext,
@@ -116,8 +117,11 @@ impl DisplayInfo {
             let lib = xlib::Xlib::open()
                 .map_err(|e| Error::WindowCreate(format!("failed to load Xlib: {:?}", e)))?;
 
-            let cursor_lib = xcursor::Xcursor::open()
-                .map_err(|e| Error::WindowCreate(format!("failed to load XCursor: {:?}", e)))?;
+            let xrandr = Xrandr_2_2_0::open()
+                .map_err(|e| Error::WindowCreate(format!("failed to load XRandr: {:?}", e)))?;
+
+            let lib = xlib::Xlib::open()
+                .map_err(|e| Error::WindowCreate(format!("failed to load Xlib: {:?}", e)))?;
 
             let display = (lib.XOpenDisplay)(ptr::null());
 

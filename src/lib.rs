@@ -779,6 +779,13 @@ impl Window {
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
         self.0.is_menu_pressed()
     }
+
+    ///
+    /// Returns the DPI scaling value for the desktop
+    #[inline]
+    pub fn dpi_scale(&self) -> f32 {
+        self.0.dpi_scale()
+    }
 }
 
 /// Command key on Mac OS

@@ -299,7 +299,7 @@ void mfb_topmost(void* window, bool topmost)
 	if(topmost)
 	{
 		win.level = NSFloatingWindowLevel; // set level to floating
-	} else 
+	} else
 	{
 		win.level = 0; // set to default/normal
 	}
@@ -875,4 +875,11 @@ void mfb_remove_menu_at(void* window, int index)
 	[main_menu removeItemAtIndex:index];
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+float mfb_dpi_scale(void* window)
+{
+    NSWindow* win = (NSWindow*)window;
+    return (float)[win backingScaleFactor];
+}
 
