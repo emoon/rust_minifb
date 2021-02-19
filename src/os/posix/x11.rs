@@ -251,6 +251,10 @@ impl DisplayInfo {
         }
     }
 
+    fn round_dpi(v: f32) -> f32 {
+        (((v * 4.0) as u32) as f32) / 4.0
+    }
+
     unsafe fn get_monitor_info(
         xlib: &xlib::Xlib,
         xrandr: Xrandr_2_2_0,
@@ -289,7 +293,7 @@ impl DisplayInfo {
                 available.push(MonitorInfo {
                     position,
                     size,
-                    dpi_scale: Self::get_dpi(&xlib, &xrandr, resources, crtc, display),
+                    dpi_scale: Self::round_dpi(Self::get_dpi(&xlib, &xrandr, resources, crtc, display)),
                 });
             }
 
