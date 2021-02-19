@@ -369,9 +369,8 @@ impl DisplayInfo {
             self.cursor_surface.attach(Some(&*img), 0, 0);
             self.cursor_surface.damage(0, 0, 32, 32);
             self.cursor_surface.commit();
-            return Ok(());
         }
-        Err(())
+        Ok(())
     }
 
     // Resizes when buffer is bigger or less
