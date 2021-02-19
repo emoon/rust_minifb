@@ -340,6 +340,20 @@ impl Window {
             Window::Wayland(ref mut w) => w.is_menu_pressed(),
         }
     }
+
+    pub fn dpi_scale(&mut self) -> f32 {
+        match *self {
+            #[cfg(feature = "x11")]
+            Window::X11(ref mut w) => {
+                w.dpi_scale()
+            }
+            #[cfg(feature = "wayland")]
+            Window::Wayland(ref mut _w) => {
+                // TODO: fix me
+                1.0
+            }
+        }
+    }
 }
 
 unsafe impl raw_window_handle::HasRawWindowHandle for Window {

@@ -783,7 +783,7 @@ impl Window {
     ///
     /// Returns the DPI scaling value for the desktop
     #[inline]
-    pub fn dpi_scale(&self) -> f32 {
+    pub fn dpi_scale(&mut self) -> f32 {
         self.0.dpi_scale()
     }
 }

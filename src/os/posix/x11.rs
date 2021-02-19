@@ -3,20 +3,19 @@ use crate::rate::UpdateRate;
 use crate::{
     InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions,
 };
-use x11_dl::{
-    keysym::*, xcursor, xlib, xrandr::*,
-};
+use x11_dl::{keysym::*, xcursor, xlib, xrandr::*};
 
 use crate::error::Error;
 use crate::Result;
 use crate::{CursorStyle, MenuHandle, UnixMenu};
 
-use std::convert::TryFrom;
-use std::ffi::CString;
-use std::mem;
-use std::os::raw;
-use std::os::raw::{c_char, c_long, c_uchar, c_uint, c_ulong};
-use std::ptr;
+use std::{
+    str::FromStr,
+    convert::TryFrom, mem, os::raw, ptr, ffi::CString,
+    os::raw::{
+        c_char, c_long, c_uchar, c_uint, c_ulong
+    },
+};
 
 use crate::buffer_helper;
 use crate::mouse_handler;
@@ -83,6 +82,13 @@ struct MwmHints {
     status: c_ulong,
 }
 
+#[derive(Debug)]
+struct MonitorInfo {
+    position: (i32, i32),
+    size: (u32, u32),
+    dpi_scale: f32,
+}
+
 struct DisplayInfo {
     lib: x11_dl::xlib::Xlib,
     display: *mut xlib::Display,
@@ -90,7 +96,6 @@ struct DisplayInfo {
     visual: *mut xlib::Visual,
     gc: xlib::GC,
     depth: i32,
-    dpi_scale: f32,
     screen_width: usize,
     screen_height: usize,
     _context: xlib::XContext,
@@ -98,11 +103,12 @@ struct DisplayInfo {
     cursors: [xlib::Cursor; 8],
     keyb_ext: bool,
     wm_delete_window: xlib::Atom,
+    monitors: Vec<MonitorInfo>,
 }
 
 impl DisplayInfo {
     fn new(transparency: bool) -> Result<DisplayInfo> {
-        let mut display = Self::setup(transparency)?;
+        let mut display = unsafe { Self::setup(transparency)? };
 
         display.check_formats()?;
         display.check_extensions()?;
@@ -112,73 +118,189 @@ impl DisplayInfo {
         Ok(display)
     }
 
-    fn setup(transparency: bool) -> Result<DisplayInfo> {
-        unsafe {
-            let lib = xlib::Xlib::open()
-                .map_err(|e| Error::WindowCreate(format!("failed to load Xlib: {:?}", e)))?;
+    unsafe fn setup(transparency: bool) -> Result<DisplayInfo> {
+        let xrandr = Xrandr_2_2_0::open()
+            .map_err(|e| Error::WindowCreate(format!("failed to load XRandr: {:?}", e)))?;
 
-            let xrandr = Xrandr_2_2_0::open()
-                .map_err(|e| Error::WindowCreate(format!("failed to load XRandr: {:?}", e)))?;
+        let cursor_lib = xcursor::Xcursor::open()
+            .map_err(|e| Error::WindowCreate(format!("failed to load XCursor: {:?}", e)))?;
 
-            let lib = xlib::Xlib::open()
-                .map_err(|e| Error::WindowCreate(format!("failed to load Xlib: {:?}", e)))?;
+        let lib = xlib::Xlib::open()
+            .map_err(|e| Error::WindowCreate(format!("failed to load Xlib: {:?}", e)))?;
 
-            let display = (lib.XOpenDisplay)(ptr::null());
+        let display = (lib.XOpenDisplay)(ptr::null());
 
-            if display.is_null() {
-                return Err(Error::WindowCreate("XOpenDisplay failed".to_owned()));
-            }
-
-            let screen;
-            let visual;
-            let depth;
-
-            let mut vinfo: xlib::XVisualInfo = std::mem::zeroed();
-            if transparency {
-                (lib.XMatchVisualInfo)(
-                    display,
-                    (lib.XDefaultScreen)(display),
-                    32,
-                    xlib::TrueColor,
-                    &mut vinfo as *mut _,
-                );
-                screen = vinfo.screen;
-                visual = vinfo.visual;
-                depth = vinfo.depth;
-            } else {
-                screen = (lib.XDefaultScreen)(display);
-                visual = (lib.XDefaultVisual)(display, screen);
-                depth = (lib.XDefaultDepth)(display, screen);
-            }
-
-            let gc = (lib.XDefaultGC)(display, screen);
-
-            let screen_width = usize::try_from((lib.XDisplayWidth)(display, screen))
-                .map_err(|e| Error::WindowCreate(format!("illegal width: {}", e)))?;
-            let screen_height = usize::try_from((lib.XDisplayHeight)(display, screen))
-                .map_err(|e| Error::WindowCreate(format!("illegal height: {}", e)))?;
-
-            // andrewj: using this instead of XUniqueContext(), as the latter
-            // seems to be erroneously feature guarded in the x11_dl crate.
-            let context = (lib.XrmUniqueQuark)();
-
-            Ok(DisplayInfo {
-                lib,
-                display,
-                screen,
-                visual,
-                gc,
-                depth,
-                screen_width,
-                screen_height,
-                _context: context,
-                cursor_lib,
-                // the following are determined later...
-                cursors: [0 as xlib::Cursor; 8],
-                keyb_ext: false,
-                wm_delete_window: 0,
-            })
+        if display.is_null() {
+            return Err(Error::WindowCreate("XOpenDisplay failed".to_owned()));
         }
+
+        let screen;
+        let visual;
+        let depth;
+
+        let monitors = Self::get_monitor_info(&lib, xrandr, display);
+
+        let mut vinfo: xlib::XVisualInfo = std::mem::zeroed();
+        if transparency {
+            (lib.XMatchVisualInfo)(
+                display,
+                (lib.XDefaultScreen)(display),
+                32,
+                xlib::TrueColor,
+                &mut vinfo as *mut _,
+            );
+            screen = vinfo.screen;
+            visual = vinfo.visual;
+            depth = vinfo.depth;
+        } else {
+            screen = (lib.XDefaultScreen)(display);
+            visual = (lib.XDefaultVisual)(display, screen);
+            depth = (lib.XDefaultDepth)(display, screen);
+        }
+
+        let gc = (lib.XDefaultGC)(display, screen);
+
+        let screen_width = usize::try_from((lib.XDisplayWidth)(display, screen))
+            .map_err(|e| Error::WindowCreate(format!("illegal width: {}", e)))?;
+        let screen_height = usize::try_from((lib.XDisplayHeight)(display, screen))
+            .map_err(|e| Error::WindowCreate(format!("illegal height: {}", e)))?;
+
+        // andrewj: using this instead of XUniqueContext(), as the latter
+        // seems to be erroneously feature guarded in the x11_dl crate.
+        let context = (lib.XrmUniqueQuark)();
+
+        Ok(DisplayInfo {
+            lib,
+            display,
+            screen,
+            visual,
+            gc,
+            depth,
+            screen_width,
+            screen_height,
+            _context: context,
+            cursor_lib,
+            // the following are determined later...
+            cursors: [0 as xlib::Cursor; 8],
+            keyb_ext: false,
+            wm_delete_window: 0,
+            monitors
+        })
+    }
+
+    fn calc_dpi_factor(
+        (width_px, height_px): (u32, u32),
+        (width_mm, height_mm): (u64, u64),
+    ) -> f32 {
+        // See http://xpra.org/trac/ticket/728 for more information.
+        if width_mm == 0 || height_mm == 0 {
+            println!("XRandR reported that the display's 0mm in size, which is certifiably insane. Please report this problem");
+            1.0
+        } else {
+            let ppmm = ((width_px as f32 * height_px as f32) / (width_mm as f32 * height_mm as f32)).sqrt();
+            // Quantize 1/12 step size
+            let dpi_factor = ((ppmm * (12.0 * 25.4 / 96.0)).round() / 12.0).max(1.0);
+            dpi_factor
+        }
+    }
+
+    unsafe fn get_xft_dpi(xlib: &xlib::Xlib, display: *mut xlib::Display) -> Option<f32> {
+        (xlib.XrmInitialize)();
+        let resource_manager_str = (xlib.XResourceManagerString)(display);
+        if resource_manager_str == ptr::null_mut() {
+            return None;
+        }
+        if let Ok(res) = ::std::ffi::CStr::from_ptr(resource_manager_str).to_str() {
+            let name: &str = "Xft.dpi:\t";
+            for pair in res.split("\n") {
+                if pair.starts_with(&name) {
+                    let res = &pair[name.len()..];
+                    return f32::from_str(&res).ok();
+                }
+            }
+        }
+        None
+    }
+
+    unsafe fn get_dpi(
+        xlib: &xlib::Xlib,
+        xrandr: &Xrandr_2_2_0,
+        resources: *mut XRRScreenResources,
+        crtc: *mut XRRCrtcInfo,
+        display: *mut xlib::Display
+    ) -> f32 {
+        let output_info = (xrandr.XRRGetOutputInfo)(display, resources, *(*crtc).outputs.offset(0));
+        if output_info.is_null() {
+            // When calling `XRRGetOutputInfo` on a virtual monitor (versus a physical display)
+            // it's possible for it to return null.
+            // https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=816596
+            //let _ = self.check_errors(); // discard `BadRROutput` error
+            return 1.0;
+        }
+
+        if let Some(dpi) = Self::get_xft_dpi(xlib, display) {
+            dpi / 96.
+        } else {
+            Self::calc_dpi_factor(
+                ((*crtc).width as u32, (*crtc).height as u32),
+                (
+                    (*output_info).mm_width as u64,
+                    (*output_info).mm_height as u64,
+                ),
+            )
+        }
+    }
+
+    unsafe fn get_monitor_info(
+        xlib: &xlib::Xlib,
+        xrandr: Xrandr_2_2_0,
+        display: *mut xlib::Display,
+    ) -> Vec<MonitorInfo> {
+        let mut major = 0;
+        let mut minor = 0;
+
+        (xrandr.XRRQueryVersion)(display, &mut major, &mut minor);
+
+        println!("major minor {} {}", major, minor);
+
+        let root = (xlib.XDefaultRootWindow)(display);
+        let resources = if (major == 1 && minor >= 3) || major > 1 {
+            (xrandr.XRRGetScreenResourcesCurrent)(display, root)
+        } else {
+            // WARNING: this function is supposedly very slow, on the order of hundreds of ms.
+            // Upon failure, `resources` will be null.
+            (xrandr.XRRGetScreenResources)(display, root)
+        };
+
+        if resources.is_null() {
+            panic!("[minifb] `XRRGetScreenResources` returned NULL. That should only happen if the root window doesn't exist.");
+        }
+
+        let mut available = Vec::with_capacity((*resources).ncrtc as usize);
+
+        for crtc_index in 0..(*resources).ncrtc {
+            let crtc_id = *((*resources).crtcs.offset(crtc_index as isize));
+            let crtc = (xrandr.XRRGetCrtcInfo)(display, resources, crtc_id);
+            let size = ((*crtc).width as u32, (*crtc).height as u32);
+            let position = ((*crtc).x as i32, (*crtc).y as i32);
+
+            let is_active = size.0 > 0 && size.1 > 0 && (*crtc).noutput > 0;
+            if is_active {
+                available.push(MonitorInfo {
+                    position,
+                    size,
+                    dpi_scale: Self::get_dpi(&xlib, &xrandr, resources, crtc, display),
+                });
+            }
+
+            (xrandr.XRRFreeCrtcInfo)(crtc);
+        }
+
+        dbg!(&available);
+
+        (xrandr.XRRFreeScreenResources)(resources);
+
+        available
     }
 
     fn check_formats(&mut self) -> Result<()> {
@@ -732,6 +854,10 @@ impl Window {
         self.active
     }
 
+    pub fn dpi_scale(&mut self) -> f32 {
+        1.0
+    }
+
     fn get_scale_factor(
         width: usize,
         height: usize,
@@ -794,8 +920,6 @@ impl Window {
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
         None
     }
-
-    ////////////////////////////////////
 
     unsafe fn raw_blit_buffer(
         &mut self,
