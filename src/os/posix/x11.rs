@@ -1018,9 +1018,7 @@ impl Window {
         let keysym = xkb::Keysym(sym as u32);
         let code_point = keysym.utf32();
         // Taken from GLFW
-        if code_point == 0 {
-            return;
-        } else if code_point < 32 || (code_point > 126 && code_point < 160) {
+        if code_point < 32 || (code_point > 126 && code_point < 160) {
             return;
         }
 

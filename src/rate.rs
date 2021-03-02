@@ -1,4 +1,5 @@
-use std::time::{Duration, Instant};
+extern crate instant;
+use instant::{Duration, Instant};
 
 pub struct UpdateRate {
     target_rate: Option<Duration>,
