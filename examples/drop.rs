@@ -1,4 +1,4 @@
-use minifb::{Key, ScaleMode, Window, WindowOptions};
+use minifb::{Window, WindowOptions};
 use std::thread;
 use std::time::{Duration, Instant};
 
