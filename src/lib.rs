@@ -1,6 +1,7 @@
-//! minifb is a cross platform library written in [Rust](https://www.rust-lang.org) that makes to
-//! open windows (usually native to the running operating system) and can optionally show a 32-bit
-//! buffer. minifb also support keyboard, mouse input and menus on selected operating systems.
+//! minifb is a cross platform library written in [Rust](https://www.rust-lang.org) that makes it
+//! easy to open windows (usually native to the running operating system) and can optionally show
+//! a 32-bit buffer. minifb also support keyboard, mouse input and menus on selected operating
+//! systems.
 //!
 #![deny(missing_debug_implementations)]
 
