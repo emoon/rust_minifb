@@ -30,6 +30,9 @@ impl KeyHandler {
     #[inline]
     pub fn set_key_state(&mut self, key: Key, state: bool) {
         self.keys[key as usize] = state;
+        if let Some(cb) = &mut self.key_callback {
+            cb.set_key_state(key, state);
+        }
     }
 
     pub fn get_keys(&self) -> Option<Vec<Key>> {
