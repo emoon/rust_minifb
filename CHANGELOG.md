@@ -2,9 +2,17 @@
 
 This project follows semantic versioning.
 
+### v0.19.3 (2021-03-23)
+
+- [fixed] Fixed typos in description (Thanks hiqua!)
+- [fixed] update wayland to 0.28 and small cleanup (Thanks xMAC94x!)
+- [fixed] Bump xkbcommon-sys to 0.7.5
+- [fixed] wayland missing cursor (Thanks dc740!)
+- [fixed] windows: use c_void from winapi (Thanks xobs!)
+
 ### v0.19.2 (2021-01-18)
 
-TODO:
+TODO
 
 ### v0.19 (2020-09-22)
 
