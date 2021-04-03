@@ -497,25 +497,6 @@ impl Window {
                 }
             }
 
-            let new_width = width * scale_factor as usize;
-            let new_height = height * scale_factor as usize;
-
-            let mut rect = windef::RECT {
-                left: 0,
-                right: new_width as ntdef::LONG,
-                top: 0,
-                bottom: new_height as ntdef::LONG,
-            };
-
-            winuser::AdjustWindowRect(
-                &mut rect,
-                winuser::WS_POPUP | winuser::WS_SYSMENU | winuser::WS_CAPTION,
-                0,
-            );
-
-            rect.right -= rect.left;
-            rect.bottom -= rect.top;
-
             let window_name = to_wstring(name);
 
             let mut flags = 0;
@@ -544,6 +525,21 @@ impl Window {
             if opts.none {
                 flags = winuser::WS_VISIBLE | winuser::WS_POPUP;
             }
+
+            let new_width = width * scale_factor as usize;
+            let new_height = height * scale_factor as usize;
+
+            let mut rect = windef::RECT {
+                left: 0,
+                right: new_width as ntdef::LONG,
+                top: 0,
+                bottom: new_height as ntdef::LONG,
+            };
+
+            winuser::AdjustWindowRect(&mut rect, flags, 0);
+
+            rect.right -= rect.left;
+            rect.bottom -= rect.top;
 
             let handle = winuser::CreateWindowExW(
                 0,
