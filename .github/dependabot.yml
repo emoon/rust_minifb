@@ -1,0 +1,18 @@
+version: 2
+updates:
+- package-ecosystem: cargo
+  directory: "/"
+  schedule:
+    interval: daily
+    time: "04:00"
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: wayland-client
+    versions:
+    - 0.28.0
+  - dependency-name: wayland-protocols
+    versions:
+    - 0.28.0
+  - dependency-name: wayland-cursor
+    versions:
+    - 0.28.0
