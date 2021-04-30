@@ -5,6 +5,9 @@
 //!
 #![deny(missing_debug_implementations)]
 
+#[cfg(not(target_os = "redox"))]
+extern crate raw_window_handle;
+
 use std::fmt;
 use std::os::raw;
 
@@ -92,7 +95,9 @@ pub trait InputCallback {
 mod error;
 pub use self::error::Error;
 pub type Result<T> = std::result::Result<T, Error>;
-pub use raw_window_handle::HasRawWindowHandle;
+
+#[cfg(not(target_os = "redox"))]
+pub use raw_window_handle::HasRawWindowHandle as HasRawWindowHandle;
 
 mod key;
 pub use key::Key;
@@ -129,6 +134,7 @@ impl fmt::Debug for Window {
     }
 }
 
+#[cfg(not(target_os = "redox"))]
 unsafe impl raw_window_handle::HasRawWindowHandle for Window {
     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
         self.0.raw_window_handle()

@@ -1,10 +1,13 @@
 #![cfg(target_os = "redox")]
 
-use crate::os::redox::orbclient::Renderer;
+extern crate orbclient;
+use orbclient::Renderer;
+// extern crate raw_window_handle;
 
 use crate::buffer_helper;
 use crate::error::Error;
 use crate::key_handler::KeyHandler;
+use crate::rate::UpdateRate;
 use crate::mouse_handler;
 use crate::InputCallback;
 use crate::Result;
@@ -28,9 +31,21 @@ pub struct Window {
     window: orbclient::Window,
     window_scale: usize,
     key_handler: KeyHandler,
+    update_rate: UpdateRate,
     menu_counter: MenuHandle,
     menus: Vec<UnixMenu>,
 }
+
+// workaround, todo add redox / orbital support to raw-window-handle
+// unsafe impl raw_window_handle::HasRawWindowHandle for Window {
+//     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
+//         let handle = raw_window_handle::web::WebHandle {
+//             id: 0,
+//             ..raw_window_handle::web::WebHandle::empty()
+//         };
+//         raw_window_handle::RawWindowHandle::Web(handle)
+//     }
+// }
 
 impl Window {
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
@@ -85,6 +100,7 @@ impl Window {
                 window,
                 window_scale,
                 key_handler: KeyHandler::new(),
+                update_rate: UpdateRate::new(),
                 menu_counter: MenuHandle(0),
                 menus: Vec::new(),
             }),
@@ -96,24 +112,39 @@ impl Window {
         self.window.set_title(title)
     }
 
+    #[inline]
     pub fn get_window_handle(&self) -> *mut raw::c_void {
         0 as *mut raw::c_void
     }
 
-    pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
+    #[inline]
+    pub fn set_background_color(&mut self, bg_color: u32) {
+       self.window.rect(0, 0, self.buffer_width as u32, self.buffer_height as u32, orbclient::Color { data: bg_color });
+    }
+
+    pub fn update_with_buffer_stride(
+        &mut self,
+        buffer: &[u32],
+        buf_width: usize,
+        buf_height: usize,
+        buf_stride: usize,
+    ) -> Result<()> {
+        self.buffer_width = buf_width;
+        self.buffer_height = buf_height;
         self.process_events();
         self.key_handler.update();
 
         let check_res = buffer_helper::check_buffer_size(
             self.buffer_width,
             self.buffer_height,
-            self.window_scale,
+            buf_stride,
             buffer,
         );
         if check_res.is_err() {
             return check_res;
         }
 
+        self.window.set_size(self.buffer_width as u32, self.buffer_height as u32);
         self.render_buffer(buffer);
         self.window.sync();
 
@@ -192,6 +223,16 @@ impl Window {
         self.key_handler.get_keys()
     }
 
+    #[inline]
+    pub fn set_rate(&mut self, rate: Option<std::time::Duration>) {
+        self.update_rate.set_rate(rate);
+    }
+
+    #[inline]
+    pub fn update_rate(&mut self) {
+        self.update_rate.update();
+    }
+
     pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
         self.key_handler.get_keys_pressed(repeat)
     }
@@ -220,7 +261,7 @@ impl Window {
         self.key_handler.is_key_released(key)
     }
 
-    pub fn set_input_callback(&mut self, callback: Box<InputCallback>) {
+    pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>) {
         self.key_handler.set_input_callback(callback)
     }
 
