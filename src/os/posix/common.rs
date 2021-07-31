@@ -36,7 +36,7 @@ impl Menu {
         handle
     }
 
-    pub fn add_menu_item(&mut self, item: &MenuItem) -> MenuItemHandle {
+    pub fn add_menu_item(&mut self, item: &MenuItem<'_>) -> MenuItemHandle {
         let item_handle = self.next_item_handle();
         self.internal.items.push(UnixMenuItem {
             sub_menu: None,
@@ -51,8 +51,6 @@ impl Menu {
     }
 
     pub fn remove_item(&mut self, handle: &MenuItemHandle) {
-        self.internal
-            .items
-            .retain(|ref item| item.handle.0 != handle.0);
+        self.internal.items.retain(|item| item.handle.0 != handle.0);
     }
 }

@@ -108,7 +108,7 @@ impl KeyHandler {
 
     #[inline]
     pub fn is_key_down(&self, key: Key) -> bool {
-        return self.keys[key as usize];
+        self.keys[key as usize]
     }
 
     #[inline]
@@ -139,22 +139,22 @@ impl KeyHandler {
             }
         }
 
-        return false;
+        false
     }
 
     #[inline]
     pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
-        return Self::key_pressed(self, key as usize, repeat);
+        Self::key_pressed(self, key as usize, repeat)
     }
 
     #[inline]
     pub fn is_key_released(&self, key: Key) -> bool {
         let idx = key as usize;
-        return self.is_key_index_released(idx);
+        self.is_key_index_released(idx)
     }
 
     #[inline]
     fn is_key_index_released(&self, idx: usize) -> bool {
-        return self.keys_prev[idx] && !self.keys[idx];
+        self.keys_prev[idx] && !self.keys[idx]
     }
 }
