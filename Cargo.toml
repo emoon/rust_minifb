@@ -20,7 +20,7 @@ exclude = [
 maintenance = {status = "actively-developed"}
 
 [dev-dependencies]
-png = "0.16"
+png = "0.17"
 
 [build-dependencies]
 cc = "1.0"
