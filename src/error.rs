@@ -8,7 +8,7 @@ pub enum Error {
     MenusNotSupported,
     /// Menu already exists
     MenuExists(String),
-    /// Menu already exists
+    /// Failed to create window
     WindowCreate(String),
     /// Unable to Update
     UpdateFailed(String),
