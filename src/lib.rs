@@ -559,18 +559,16 @@ impl Window {
     /// ```no_run
     /// # use minifb::*;
     /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
-    /// window.get_keys().map(|keys| {
-    ///     for t in keys {
+    /// window.get_keys().iter().for_each(|key|
     ///         match t {
     ///             Key::W => println!("holding w"),
     ///             Key::T => println!("holding t"),
     ///             _ => (),
     ///         }
-    ///     }
-    /// });
+    ///     );
     /// ```
     #[inline]
-    pub fn get_keys(&self) -> Option<Vec<Key>> {
+    pub fn get_keys(&self) -> Vec<Key> {
         self.0.get_keys()
     }
 
@@ -583,18 +581,16 @@ impl Window {
     /// ```no_run
     /// # use minifb::*;
     /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
-    /// window.get_keys_pressed(KeyRepeat::No).map(|keys| {
-    ///     for t in keys {
+    /// window.get_keys_pressed(KeyRepeat::No).iter().for_each(|key| 
     ///         match t {
     ///             Key::W => println!("pressed w"),
     ///             Key::T => println!("pressed t"),
     ///             _ => (),
     ///         }
-    ///     }
-    /// });
+    ///     );
     /// ```
     #[inline]
-    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
         self.0.get_keys_pressed(repeat)
     }
 
@@ -606,18 +602,16 @@ impl Window {
     /// ```no_run
     /// # use minifb::*;
     /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
-    /// window.get_keys_released().map(|keys| {
-    ///     for t in keys {
-    ///         match t {
+    /// window.get_keys_released().iter().for_each(|key|
+    ///         match key {
     ///             Key::W => println!("released w"),
     ///             Key::T => println!("released t"),
     ///             _ => (),
     ///         }
-    ///     }
-    /// });
+    ///     );
     /// ```
     #[inline]
-    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+    pub fn get_keys_released(&self) -> Vec<Key> {
         self.0.get_keys_released()
     }
 
