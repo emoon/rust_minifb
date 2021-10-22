@@ -560,7 +560,7 @@ impl Window {
     /// # use minifb::*;
     /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     /// window.get_keys().iter().for_each(|key|
-    ///         match t {
+    ///         match key {
     ///             Key::W => println!("holding w"),
     ///             Key::T => println!("holding t"),
     ///             _ => (),
@@ -582,7 +582,7 @@ impl Window {
     /// # use minifb::*;
     /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     /// window.get_keys_pressed(KeyRepeat::No).iter().for_each(|key| 
-    ///         match t {
+    ///         match key {
     ///             Key::W => println!("pressed w"),
     ///             Key::T => println!("pressed t"),
     ///             _ => (),
