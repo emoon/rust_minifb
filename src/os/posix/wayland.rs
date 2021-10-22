@@ -588,15 +588,15 @@ impl Window {
         (self.width as usize, self.height as usize)
     }
 
-    pub fn get_keys(&self) -> Option<Vec<Key>> {
+    pub fn get_keys(&self) -> Vec<Key> {
         self.key_handler.get_keys()
     }
 
-    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
         self.key_handler.get_keys_pressed(repeat)
     }
 
-    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+    pub fn get_keys_released(&self) -> Vec<Key> {
         self.key_handler.get_keys_released()
     }
 

@@ -1,7 +1,6 @@
 #![cfg(target_os = "macos")]
 
-use crate::error::Error;
-use crate::key_handler::KeyHandler;
+use crate::error::Error; use crate::key_handler::KeyHandler;
 use crate::rate::UpdateRate;
 use crate::Result;
 use crate::{Key, KeyRepeat, MouseButton, MouseMode, Scale, WindowOptions};
@@ -479,17 +478,17 @@ impl Window {
     }
 
     #[inline]
-    pub fn get_keys(&self) -> Option<Vec<Key>> {
+    pub fn get_keys(&self) -> Vec<Key> {
         self.key_handler.get_keys()
     }
 
     #[inline]
-    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
         self.key_handler.get_keys_pressed(repeat)
     }
 
     #[inline]
-    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+    pub fn get_keys_released(&self) -> Vec<Key> {
         self.key_handler.get_keys_released()
     }
 
