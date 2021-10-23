@@ -32,7 +32,7 @@ impl KeyHandler {
         self.keys[key as usize] = state;
     }
 
-    pub fn get_keys(&self) -> Option<Vec<Key>> {
+    pub fn get_keys(&self) -> Vec<Key> {
         let mut index: u16 = 0;
         let mut keys: Vec<Key> = Vec::new();
 
@@ -46,7 +46,7 @@ impl KeyHandler {
             index += 1;
         }
 
-        Some(keys)
+        keys
     }
 
     pub fn update(&mut self) {
@@ -73,7 +73,7 @@ impl KeyHandler {
         self.key_callback = Some(callback);
     }
 
-    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
         let mut index: u16 = 0;
         let mut keys: Vec<Key> = Vec::new();
 
@@ -89,10 +89,10 @@ impl KeyHandler {
             index += 1;
         }
 
-        Some(keys)
+        keys
     }
 
-    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+    pub fn get_keys_released(&self) -> Vec<Key> {
         let mut keys: Vec<Key> = Vec::new();
 
         for (idx, is_down) in self.keys.iter().enumerate() {
@@ -103,7 +103,7 @@ impl KeyHandler {
             }
         }
 
-        Some(keys)
+        keys
     }
 
     #[inline]
