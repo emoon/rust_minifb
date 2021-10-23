@@ -1,6 +1,7 @@
 #![cfg(target_os = "macos")]
 
-use crate::error::Error; use crate::key_handler::KeyHandler;
+use crate::error::Error;
+use crate::key_handler::KeyHandler;
 use crate::rate::UpdateRate;
 use crate::Result;
 use crate::{Key, KeyRepeat, MouseButton, MouseMode, Scale, WindowOptions};
