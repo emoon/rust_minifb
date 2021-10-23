@@ -100,13 +100,11 @@ fn main() {
             println!("Menu id {} pressed", menu_id);
         });
 
-        window.get_keys().map(|keys| {
-            for t in keys {
-                match t {
-                    Key::W => println!("holding w!"),
-                    Key::T => println!("holding t!"),
-                    _ => (),
-                }
+        window.get_keys().iter().for_each(|key| {
+            match key {
+                Key::W => println!("holding w!"),
+                Key::T => println!("holding t!"),
+                _ => (),
             }
         });
 
