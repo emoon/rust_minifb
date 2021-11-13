@@ -12,16 +12,17 @@ use crate::Result;
 use crate::{CursorStyle, MenuHandle, UnixMenu};
 
 use std::convert::TryFrom;
-use std::ffi::CString;
+use std::ffi::{CString, c_void};
 use std::mem;
 use std::os::raw;
-use std::os::raw::{c_char, c_long, c_uchar, c_uint, c_ulong};
+use std::os::raw::{c_char, c_long, c_uchar, c_uint, c_ulong, c_int};
 use std::ptr;
 
 use crate::buffer_helper;
 use crate::mouse_handler;
 
 use super::common::Menu;
+use x11_dl::xlib::{XNInputStyle, XIMPreeditNothing, XIMStatusNothing, XNClientWindow, XNFocusWindow, XrmDatabase, KeyPressMask, KeyRelease, KeyReleaseMask, XKeyEvent, Status, XIC, XIM, Display, XErrorEvent};
 
 // NOTE: the x11-dl crate does not define Button6 or Button7
 const Button6: c_uint = xlib::Button5 + 1;
@@ -286,6 +287,9 @@ pub struct Window {
     d: DisplayInfo,
 
     handle: xlib::Window,
+    xim: XIM,
+    xic: XIC,
+
     ximage: *mut xlib::XImage,
     draw_buffer: Vec<u32>,
 
@@ -384,6 +388,25 @@ impl Window {
                 &mut attributes,
             );
 
+            let empty_string = CString::new("").unwrap();
+            (d.lib.XSetLocaleModifiers)(empty_string.as_ptr());
+
+            (d.lib.XSetErrorHandler)(Some(x11_error_handler));
+            let xim = (d.lib.XOpenIM)(d.display, 0 as XrmDatabase, 0 as *mut c_char, 0 as *mut c_char);
+            if(xim as usize) == 0{
+                panic!("Failed to setup X IM via XOpenIM.");
+            }
+
+            let xn_input_style = CString::new(XNInputStyle).unwrap();
+            let xn_client_window = CString::new(XNClientWindow).unwrap();
+            let xic = (d.lib.XCreateIC)(xim, xn_input_style.as_ptr(), XIMPreeditNothing | XIMStatusNothing, xn_client_window.as_ptr(), handle as c_ulong, XNFocusWindow.as_ptr(), handle as c_ulong, std::ptr::null_mut::<c_void>());
+            if (xic as usize) == 0{
+               panic!("Failed to setup X IC via XCreateIC.")
+            }
+
+            (d.lib.XSetICFocus)(xic);
+            (d.lib.XSelectInput)(d.display, handle, KeyPressMask | KeyReleaseMask);
+
             d.gc = (d.lib.XCreateGC)(d.display, handle, 0, ptr::null_mut());
 
             if handle == 0 {
@@ -461,6 +484,8 @@ impl Window {
             Ok(Window {
                 d,
                 handle,
+                xim,
+                xic,
                 ximage,
                 draw_buffer,
                 width: width as u32,
@@ -1024,8 +1049,25 @@ impl Window {
             return;
         }
 
+        let char = unsafe { self.code_point_to_char(&mut ev.key, code_point) };
         if let Some(ref mut callback) = self.key_handler.key_callback {
-            callback.add_char(code_point);
+            callback.add_char(char);
+        }
+    }
+
+    unsafe fn code_point_to_char(&mut self, event: &mut XKeyEvent, code_point: u32) -> u32{
+        const BUFFER_SIZE: usize = 32;
+
+        unsafe {
+            let mut buff: Box<[u8]> = vec![0; BUFFER_SIZE].into_boxed_slice(); //TODO: extra heap allocation
+            let mut keysym: c_ulong = 0;
+            let mut status: Status = 0;
+            (self.d.lib.Xutf8LookupString)(self.xic, event as *mut XKeyEvent, buff.as_mut_ptr() as *mut c_char, (BUFFER_SIZE-1) as c_int, (&mut keysym) as *mut c_ulong, (&mut status) as *mut c_int);
+
+            let str = String::from_utf8_lossy(buff.as_ref());
+            println!("got string: {}", str);
+
+            code_point
         }
     }
 
@@ -1202,4 +1244,10 @@ impl Drop for Window {
             (self.d.lib.XDestroyWindow)(self.d.display, self.handle);
         }
     }
+}
+
+#[no_mangle]
+unsafe extern "C" fn x11_error_handler(_: *mut Display, _: *mut XErrorEvent) -> c_int{
+    println!("An error has taken place");
+    0
 }
