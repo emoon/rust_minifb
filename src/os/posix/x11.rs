@@ -22,7 +22,7 @@ use crate::buffer_helper;
 use crate::mouse_handler;
 
 use super::common::Menu;
-use x11_dl::xlib::{XNInputStyle, XIMPreeditNothing, XIMStatusNothing, XNClientWindow, XNFocusWindow, XrmDatabase, KeyPressMask, KeyRelease, KeyReleaseMask, XKeyEvent, Status, XIC, XIM, Display, XErrorEvent, XEvent, ControlMask, KeySym};
+use x11_dl::xlib::{XNInputStyle, XIMPreeditNothing, XIMStatusNothing, XNClientWindow, XNFocusWindow, XrmDatabase, KeyPressMask, KeyReleaseMask, XKeyEvent, Status, XIC, XIM, XEvent, KeySym};
 
 // NOTE: the x11-dl crate does not define Button6 or Button7
 const Button6: c_uint = xlib::Button5 + 1;
@@ -964,7 +964,7 @@ impl Window {
 
             xlib::KeyPress => {
                 self.process_key(ev, true /* is_down */);
-                unsafe { self.emit_code_point_chars_to_callback(&mut ev.key) };
+                self.emit_code_point_chars_to_callback(&mut ev.key);
             }
 
             xlib::KeyRelease => {
@@ -1045,7 +1045,7 @@ impl Window {
         self.update_key_state(sym, is_down);
     }
 
-    unsafe fn emit_code_point_chars_to_callback(&mut self, event: &mut XKeyEvent) {
+    fn emit_code_point_chars_to_callback(&mut self, event: &mut XKeyEvent) {
         const BUFFER_SIZE: usize = 32;
 
         if let Some(callback) = &mut self.key_handler.key_callback{
@@ -1237,6 +1237,8 @@ impl Drop for Window {
             //                  probably pointless ]
             // XSaveContext(s_display, info->window, s_context, (XPointer)0);
 
+            (self.d.lib.XDestroyIC)(self.xic);
+            (self.d.lib.XCloseIM)(self.xim);
             (self.d.lib.XDestroyWindow)(self.d.display, self.handle);
         }
     }
