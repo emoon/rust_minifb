@@ -22,7 +22,7 @@ use crate::buffer_helper;
 use crate::mouse_handler;
 
 use super::common::Menu;
-use x11_dl::xlib::{XNInputStyle, XIMPreeditNothing, XIMStatusNothing, XNClientWindow, XNFocusWindow, XrmDatabase, KeyPressMask, KeyRelease, KeyReleaseMask, XKeyEvent, Status, XIC, XIM, Display, XErrorEvent};
+use x11_dl::xlib::{XNInputStyle, XIMPreeditNothing, XIMStatusNothing, XNClientWindow, XNFocusWindow, XrmDatabase, KeyPressMask, KeyRelease, KeyReleaseMask, XKeyEvent, Status, XIC, XIM, Display, XErrorEvent, XEvent, ControlMask, KeySym};
 
 // NOTE: the x11-dl crate does not define Button6 or Button7
 const Button6: c_uint = xlib::Button5 + 1;
@@ -932,6 +932,12 @@ impl Window {
 
             (self.d.lib.XNextEvent)(self.d.display, &mut event);
 
+            //skip any events that need to get eaten by X to do compose key, e.g. if the user types compose key + a + ' then all of these events need to get eaten and processed in xlib
+            //XFilterEvent will do the processing for these cases, and returns whether or not it handled an event
+            if (self.d.lib.XFilterEvent)(&mut event as *mut XEvent, 0) != 0{
+                continue;
+            }
+
             // Don't process any more messages if we hit a termination event
             if self.raw_process_one_event(event) == ProcessEventResult::Termination {
                 return;
@@ -939,7 +945,7 @@ impl Window {
         }
     }
 
-    unsafe fn raw_process_one_event(&mut self, ev: xlib::XEvent) -> ProcessEventResult {
+    unsafe fn raw_process_one_event(&mut self, mut ev: xlib::XEvent) -> ProcessEventResult {
         // FIXME: we cannot handle multiple windows here!
         if ev.any.window != self.handle {
             return ProcessEventResult::Ok;
@@ -958,6 +964,7 @@ impl Window {
 
             xlib::KeyPress => {
                 self.process_key(ev, true /* is_down */);
+                unsafe { self.emit_code_point_chars_to_callback(&mut ev.key) };
             }
 
             xlib::KeyRelease => {
@@ -1036,40 +1043,26 @@ impl Window {
         }
 
         self.update_key_state(sym, is_down);
-
-        // unicode callback...
-
-        if !is_down {
-            return;
-        }
-
-        let keysym = xkb::Keysym(sym as u32);
-        let code_point = keysym.utf32();
-        // Taken from GLFW
-        /*if code_point == 0 {
-            return;
-        } else if code_point < 32 || (code_point > 126 && code_point < 160) {
-            return;
-        }*/
-
-        unsafe { self.emit_code_point_charsr_to_callback(&mut ev.key, code_point) };
     }
 
-    unsafe fn emit_code_point_charsr_to_callback(&mut self, event: &mut XKeyEvent, code_point: u32) {
+    unsafe fn emit_code_point_chars_to_callback(&mut self, event: &mut XKeyEvent) {
         const BUFFER_SIZE: usize = 32;
 
         if let Some(callback) = &mut self.key_handler.key_callback{
             let mut buff: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE];
             let str = unsafe {
-                let mut keysym: c_ulong = 0;
+                let mut keysym: KeySym = std::mem::zeroed();
                 let mut status: Status = 0;
-                let length_in_bytes = (self.d.lib.Xutf8LookupString)(self.xic, event as *mut XKeyEvent, buff.as_mut_ptr() as *mut c_char, (BUFFER_SIZE-1) as c_int, (&mut keysym) as *mut c_ulong, (&mut status) as *mut c_int);
-
-                String::from_utf8_lossy(&buff[0..(length_in_bytes as usize)])
+                let length_in_bytes = (self.d.lib.Xutf8LookupString)(self.xic, event as *mut XKeyEvent, buff.as_mut_ptr() as *mut c_char, (BUFFER_SIZE-1) as c_int, (&mut keysym) as *mut KeySym, (&mut status) as *mut Status);
+                &buff[0..(length_in_bytes as usize+1)]
             };
 
-            for c in str.chars(){
-                callback.add_char(c as u32);
+            if let Ok(cstr) = CStr::from_bytes_with_nul(str){
+                if let Ok(str) = cstr.to_str(){
+                    for c in str.chars(){
+                        callback.add_char(c as u32);
+                    }
+                }
             }
         }
     }
