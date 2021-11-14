@@ -393,7 +393,6 @@ impl Window {
                 &mut attributes,
             );
 
-            //let empty_string = CString::new("").unwrap();
             let empty_string = b"\0";
             (d.lib.XSetLocaleModifiers)(empty_string.as_ptr() as *const i8);
 
