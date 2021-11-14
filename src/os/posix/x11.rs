@@ -12,17 +12,20 @@ use crate::Result;
 use crate::{CursorStyle, MenuHandle, UnixMenu};
 
 use std::convert::TryFrom;
-use std::ffi::{CString, c_void, CStr};
+use std::ffi::{c_void, CStr, CString};
 use std::mem;
 use std::os::raw;
-use std::os::raw::{c_char, c_long, c_uchar, c_uint, c_ulong, c_int};
+use std::os::raw::{c_char, c_int, c_long, c_uchar, c_uint, c_ulong};
 use std::ptr;
 
 use crate::buffer_helper;
 use crate::mouse_handler;
 
 use super::common::Menu;
-use x11_dl::xlib::{XNInputStyle, XIMPreeditNothing, XIMStatusNothing, XNClientWindow, XNFocusWindow, XrmDatabase, KeyPressMask, KeyReleaseMask, XKeyEvent, Status, XIC, XIM, XEvent, KeySym};
+use x11_dl::xlib::{
+    KeyPressMask, KeyReleaseMask, KeySym, Status, XEvent, XIMPreeditNothing, XIMStatusNothing,
+    XKeyEvent, XNClientWindow, XNFocusWindow, XNInputStyle, XrmDatabase, XIC, XIM,
+};
 
 // NOTE: the x11-dl crate does not define Button6 or Button7
 const Button6: c_uint = xlib::Button5 + 1;
@@ -394,17 +397,35 @@ impl Window {
             let empty_string = b"\0";
             (d.lib.XSetLocaleModifiers)(empty_string.as_ptr() as *const i8);
 
-            let xim = (d.lib.XOpenIM)(d.display, 0 as XrmDatabase, 0 as *mut c_char, 0 as *mut c_char);
-            if(xim as usize) == 0{
-                return Err(Error::WindowCreate("Failed to setup X IM via XOpenIM.".to_owned()));
+            let xim = (d.lib.XOpenIM)(
+                d.display,
+                0 as XrmDatabase,
+                0 as *mut c_char,
+                0 as *mut c_char,
+            );
+            if (xim as usize) == 0 {
+                return Err(Error::WindowCreate(
+                    "Failed to setup X IM via XOpenIM.".to_owned(),
+                ));
             }
 
             let xn_input_style = CString::new(XNInputStyle).unwrap();
             let xn_client_window = CString::new(XNClientWindow).unwrap();
             let xn_focus_window = CString::new(XNFocusWindow).unwrap();
-            let xic = (d.lib.XCreateIC)(xim, xn_input_style.as_ptr(), XIMPreeditNothing | XIMStatusNothing, xn_client_window.as_ptr(), handle as c_ulong, xn_focus_window.as_ptr(), handle as c_ulong, std::ptr::null_mut::<c_void>());
-            if (xic as usize) == 0{
-                return Err(Error::WindowCreate("Failed to setup X IC via XCreateIC.".to_owned()));
+            let xic = (d.lib.XCreateIC)(
+                xim,
+                xn_input_style.as_ptr(),
+                XIMPreeditNothing | XIMStatusNothing,
+                xn_client_window.as_ptr(),
+                handle as c_ulong,
+                xn_focus_window.as_ptr(),
+                handle as c_ulong,
+                std::ptr::null_mut::<c_void>(),
+            );
+            if (xic as usize) == 0 {
+                return Err(Error::WindowCreate(
+                    "Failed to setup X IC via XCreateIC.".to_owned(),
+                ));
             }
 
             (d.lib.XSetICFocus)(xic);
@@ -934,7 +955,7 @@ impl Window {
 
             //skip any events that need to get eaten by X to do compose key, e.g. if the user types compose key + a + ' then all of these events need to get eaten and processed in xlib
             //XFilterEvent will do the processing for these cases, and returns whether or not it handled an event
-            if (self.d.lib.XFilterEvent)(&mut event as *mut XEvent, 0) != 0{
+            if (self.d.lib.XFilterEvent)(&mut event as *mut XEvent, 0) != 0 {
                 continue;
             }
 
@@ -1048,18 +1069,25 @@ impl Window {
     fn emit_code_point_chars_to_callback(&mut self, event: &mut XKeyEvent) {
         const BUFFER_SIZE: usize = 32;
 
-        if let Some(callback) = &mut self.key_handler.key_callback{
+        if let Some(callback) = &mut self.key_handler.key_callback {
             let mut buff: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE];
             let str = unsafe {
                 let mut keysym: KeySym = std::mem::zeroed();
                 let mut status: Status = 0;
-                let length_in_bytes = (self.d.lib.Xutf8LookupString)(self.xic, event as *mut XKeyEvent, buff.as_mut_ptr() as *mut c_char, (BUFFER_SIZE-1) as c_int, (&mut keysym) as *mut KeySym, (&mut status) as *mut Status);
-                &buff[0..(length_in_bytes as usize+1)]
+                let length_in_bytes = (self.d.lib.Xutf8LookupString)(
+                    self.xic,
+                    event as *mut XKeyEvent,
+                    buff.as_mut_ptr() as *mut c_char,
+                    (BUFFER_SIZE - 1) as c_int,
+                    (&mut keysym) as *mut KeySym,
+                    (&mut status) as *mut Status,
+                );
+                &buff[0..(length_in_bytes as usize + 1)]
             };
 
-            if let Ok(cstr) = CStr::from_bytes_with_nul(str){
-                if let Ok(str) = cstr.to_str(){
-                    for c in str.chars(){
+            if let Ok(cstr) = CStr::from_bytes_with_nul(str) {
+                if let Ok(str) = cstr.to_str() {
+                    for c in str.chars() {
                         callback.add_char(c as u32);
                     }
                 }
