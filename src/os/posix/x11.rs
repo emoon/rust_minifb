@@ -12,7 +12,7 @@ use crate::Result;
 use crate::{CursorStyle, MenuHandle, UnixMenu};
 
 use std::convert::TryFrom;
-use std::ffi::{CString, c_void};
+use std::ffi::{CString, c_void, CStr};
 use std::mem;
 use std::os::raw;
 use std::os::raw::{c_char, c_long, c_uchar, c_uint, c_ulong, c_int};
@@ -114,6 +114,8 @@ impl DisplayInfo {
 
     fn setup(transparency: bool) -> Result<DisplayInfo> {
         unsafe {
+            libc::setlocale(libc::LC_ALL, "\0".as_ptr() as *const c_char); //needed to make compose key work
+
             let lib = xlib::Xlib::open()
                 .map_err(|e| Error::WindowCreate(format!("failed to load Xlib: {:?}", e)))?;
 
@@ -388,20 +390,21 @@ impl Window {
                 &mut attributes,
             );
 
-            let empty_string = CString::new("").unwrap();
-            (d.lib.XSetLocaleModifiers)(empty_string.as_ptr());
+            //let empty_string = CString::new("").unwrap();
+            let empty_string = b"\0";
+            (d.lib.XSetLocaleModifiers)(empty_string.as_ptr() as *const i8);
 
-            (d.lib.XSetErrorHandler)(Some(x11_error_handler));
             let xim = (d.lib.XOpenIM)(d.display, 0 as XrmDatabase, 0 as *mut c_char, 0 as *mut c_char);
             if(xim as usize) == 0{
-                panic!("Failed to setup X IM via XOpenIM.");
+                return Err(Error::WindowCreate("Failed to setup X IM via XOpenIM.".to_owned()));
             }
 
             let xn_input_style = CString::new(XNInputStyle).unwrap();
             let xn_client_window = CString::new(XNClientWindow).unwrap();
-            let xic = (d.lib.XCreateIC)(xim, xn_input_style.as_ptr(), XIMPreeditNothing | XIMStatusNothing, xn_client_window.as_ptr(), handle as c_ulong, XNFocusWindow.as_ptr(), handle as c_ulong, std::ptr::null_mut::<c_void>());
+            let xn_focus_window = CString::new(XNFocusWindow).unwrap();
+            let xic = (d.lib.XCreateIC)(xim, xn_input_style.as_ptr(), XIMPreeditNothing | XIMStatusNothing, xn_client_window.as_ptr(), handle as c_ulong, xn_focus_window.as_ptr(), handle as c_ulong, std::ptr::null_mut::<c_void>());
             if (xic as usize) == 0{
-               panic!("Failed to setup X IC via XCreateIC.")
+                return Err(Error::WindowCreate("Failed to setup X IC via XCreateIC.".to_owned()));
             }
 
             (d.lib.XSetICFocus)(xic);
@@ -1043,31 +1046,31 @@ impl Window {
         let keysym = xkb::Keysym(sym as u32);
         let code_point = keysym.utf32();
         // Taken from GLFW
-        if code_point == 0 {
+        /*if code_point == 0 {
             return;
         } else if code_point < 32 || (code_point > 126 && code_point < 160) {
             return;
-        }
+        }*/
 
-        let char = unsafe { self.code_point_to_char(&mut ev.key, code_point) };
-        if let Some(ref mut callback) = self.key_handler.key_callback {
-            callback.add_char(char);
-        }
+        unsafe { self.emit_code_point_charsr_to_callback(&mut ev.key, code_point) };
     }
 
-    unsafe fn code_point_to_char(&mut self, event: &mut XKeyEvent, code_point: u32) -> u32{
+    unsafe fn emit_code_point_charsr_to_callback(&mut self, event: &mut XKeyEvent, code_point: u32) {
         const BUFFER_SIZE: usize = 32;
 
-        unsafe {
-            let mut buff: Box<[u8]> = vec![0; BUFFER_SIZE].into_boxed_slice(); //TODO: extra heap allocation
-            let mut keysym: c_ulong = 0;
-            let mut status: Status = 0;
-            (self.d.lib.Xutf8LookupString)(self.xic, event as *mut XKeyEvent, buff.as_mut_ptr() as *mut c_char, (BUFFER_SIZE-1) as c_int, (&mut keysym) as *mut c_ulong, (&mut status) as *mut c_int);
+        if let Some(callback) = &mut self.key_handler.key_callback{
+            let mut buff: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE];
+            let str = unsafe {
+                let mut keysym: c_ulong = 0;
+                let mut status: Status = 0;
+                let length_in_bytes = (self.d.lib.Xutf8LookupString)(self.xic, event as *mut XKeyEvent, buff.as_mut_ptr() as *mut c_char, (BUFFER_SIZE-1) as c_int, (&mut keysym) as *mut c_ulong, (&mut status) as *mut c_int);
 
-            let str = String::from_utf8_lossy(buff.as_ref());
-            println!("got string: {}", str);
+                String::from_utf8_lossy(&buff[0..(length_in_bytes as usize)])
+            };
 
-            code_point
+            for c in str.chars(){
+                callback.add_char(c as u32);
+            }
         }
     }
 
@@ -1244,10 +1247,4 @@ impl Drop for Window {
             (self.d.lib.XDestroyWindow)(self.d.display, self.handle);
         }
     }
-}
-
-#[no_mangle]
-unsafe extern "C" fn x11_error_handler(_: *mut Display, _: *mut XErrorEvent) -> c_int{
-    println!("An error has taken place");
-    0
 }

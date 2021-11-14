@@ -33,7 +33,7 @@ fn main() {
         WindowOptions::default(),
     )
     .unwrap_or_else(|e| {
-        panic!("{}", e);
+        panic!("{:?}", e);
     });
 
     let keys_data = KeyVec::new(RefCell::new(Vec::new()));
@@ -55,7 +55,7 @@ fn main() {
         let mut keys = keys_data.borrow_mut();
 
         for t in keys.iter() {
-            println!("keys {}", t);
+            println!("Code point: {},   Character: {:?}", *t, char::from_u32(*t));
         }
 
         keys.clear();
