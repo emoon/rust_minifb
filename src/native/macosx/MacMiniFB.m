@@ -480,8 +480,8 @@ static int update_events()
 static int generic_update(OSXWindow* win)
 {
 	if (win->shared_data) {
-		win_shared_data->scroll_x = 0.0f;
-		win_shared_data->scroll_y = 0.0f;
+		win->shared_data->scroll_x = 0.0f;
+		win->shared_data->scroll_y = 0.0f;
 	}
 
 	int state = update_events();
