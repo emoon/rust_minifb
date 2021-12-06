@@ -1072,12 +1072,14 @@ impl Window {
                     v.set_len(len as usize);
                     file.read_exact(&mut v)?;
 
-                    let ctx = xkbcommon_sys::xkb_context_new(0);
+                    let ctx = xkbcommon_sys::xkb_context_new(
+                        xkbcommon_sys::xkb_context_flags::XKB_CONTEXT_NO_FLAGS,
+                    );
                     let kb_map_ptr = xkbcommon_sys::xkb_keymap_new_from_string(
                         ctx,
                         v.as_ptr() as *const _ as *const std::os::raw::c_char,
                         xkbcommon_sys::xkb_keymap_format::XKB_KEYMAP_FORMAT_TEXT_V1,
-                        0,
+                        xkbcommon_sys::xkb_keymap_compile_flags::XKB_KEYMAP_COMPILE_NO_FLAGS,
                     );
 
                     // Wrap keymap
