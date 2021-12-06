@@ -6,9 +6,9 @@ fn main() {
     // via `Transformations`. The default output transformation is `Transformations::EXPAND
     // | Transformations::STRIP_ALPHA`.
     let decoder = png::Decoder::new(File::open("resources/uv.png").unwrap());
-    let (info, mut reader) = decoder.read_info().unwrap();
+    let mut reader = decoder.read_info().unwrap();
     // Allocate the output buffer.
-    let mut buf = vec![0; info.buffer_size()];
+    let mut buf = vec![0; reader.output_buffer_size()];
     // Read the next frame. Currently this function should only called once.
     // The default options
     reader.next_frame(&mut buf).unwrap();
@@ -21,8 +21,8 @@ fn main() {
 
     let mut window = Window::new(
         "Noise Test - Press ESC to exit",
-        info.width as usize,
-        info.height as usize,
+        reader.info().width as usize,
+        reader.info().height as usize,
         WindowOptions {
             resize: true,
             scale_mode: ScaleMode::Center,
@@ -33,7 +33,11 @@ fn main() {
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         window
-            .update_with_buffer(&u32_buffer, info.width as usize, info.height as usize)
+            .update_with_buffer(
+                &u32_buffer,
+                reader.info().width as usize,
+                reader.info().height as usize,
+            )
             .unwrap();
     }
 }
