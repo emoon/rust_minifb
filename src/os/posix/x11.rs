@@ -323,11 +323,9 @@ pub struct Window {
 
 unsafe impl raw_window_handle::HasRawWindowHandle for Window {
     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-        let handle = raw_window_handle::unix::XlibHandle {
-            window: self.handle,
-            display: self.d.display as *mut core::ffi::c_void,
-            ..raw_window_handle::unix::XlibHandle::empty()
-        };
+        let mut handle = raw_window_handle::XlibHandle::empty();
+        handle.window = self.handle;
+        handle.display = self.d.display as *mut core::ffi::c_void;
         raw_window_handle::RawWindowHandle::Xlib(handle)
     }
 }
