@@ -22,6 +22,7 @@ pub use common::Menu;
 use std::os::raw;
 
 // Differentiate between Wayland and X11 at run-time
+#[allow(clippy::large_enum_variant)]
 pub enum Window {
     #[cfg(feature = "x11")]
     X11(x11::Window),
@@ -131,7 +132,6 @@ impl Window {
 
     pub fn topmost(&self, _topmost: bool) {
         // We will just do nothing until it is implemented so that nothing breaks
-        ()
     }
 
     pub fn get_size(&self) -> (usize, usize) {

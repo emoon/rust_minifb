@@ -42,7 +42,7 @@ fn main() {
             }
         }
 
-        window.get_mouse_pos(MouseMode::Discard).map(|(x, y)| {
+        if let Some((x, y)) = window.get_mouse_pos(MouseMode::Discard) {
             let screen_pos = ((y as usize) * (width / 2)) + x as usize;
 
             if window.get_mouse_down(MouseButton::Left) {
@@ -52,11 +52,11 @@ fn main() {
             if window.get_mouse_down(MouseButton::Right) {
                 buffer[screen_pos] = 0;
             }
-        });
+        }
 
-        window.get_scroll_wheel().map(|scroll| {
+        if let Some(scroll) = window.get_scroll_wheel() {
             println!("Scrolling {} - {}", scroll.0, scroll.1);
-        });
+        }
 
         // We unwrap here as we want this code to exit if it fails
         window

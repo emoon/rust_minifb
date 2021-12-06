@@ -66,9 +66,9 @@ fn main() {
 
     let menu_handle = window.add_menu(&menu);
 
-    window.get_posix_menus().map(|menus| {
+    if let Some(menus) = window.get_posix_menus() {
         println!("Menus {:?}", menus);
-    });
+    }
 
     let mut color_mul = 1;
 
@@ -79,7 +79,7 @@ fn main() {
             }
         }
 
-        window.is_menu_pressed().map(|menu_id| {
+        if let Some(menu_id) = window.is_menu_pressed() {
             match menu_id {
                 COLOR_0_ID => {
                     color_mul = 0xfe0000;
@@ -98,7 +98,7 @@ fn main() {
             }
 
             println!("Menu id {} pressed", menu_id);
-        });
+        }
 
         window.get_keys().iter().for_each(|key| match key {
             Key::W => println!("holding w!"),
