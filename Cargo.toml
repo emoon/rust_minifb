@@ -43,9 +43,9 @@ x11 = ["x11-dl", "xkb", "libc"]
 wayland = ["wayland-client", "wayland-protocols", "wayland-cursor", "tempfile", "xkb", "xkbcommon-sys"]
 
 [target.'cfg(not(any(target_os = "macos", target_os = "redox", windows)))'.dependencies]
-wayland-client = {version = "0.28", optional = true}
-wayland-protocols = { version = "0.28", features = ["client", "unstable_protocols"], optional = true }
-wayland-cursor = {version = "0.28", optional = true}
+wayland-client = {version = "0.29", optional = true}
+wayland-protocols = { version = "0.29", features = ["client", "unstable_protocols"], optional = true }
+wayland-cursor = {version = "0.29", optional = true}
 tempfile = {version = "3.2", optional = true}
 xkb = {version = "0.2.1", optional = true}
 xkbcommon-sys = {version = "0.7.5", optional = true}
