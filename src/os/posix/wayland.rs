@@ -260,7 +260,7 @@ impl DisplayInfo {
             )
         };
         tempfile
-            .write_all(&slice[..])
+            .write_all(slice)
             .map_err(|e| Error::WindowCreate(format!("Io Error: {:?}", e)))?;
         tempfile
             .flush()
@@ -311,7 +311,7 @@ impl DisplayInfo {
             .map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
         // Give the buffer to the surface and commit
-        surface.attach(Some(&buffer), 0, 0);
+        surface.attach(Some(buffer), 0, 0);
         surface.damage(0, 0, i32::max_value(), i32::max_value());
         surface.commit();
 
@@ -386,7 +386,7 @@ impl DisplayInfo {
             )
         };
 
-        fd.write_all(&slice[..])?;
+        fd.write_all(slice)?;
         fd.flush()?;
 
         // Acknowledge the last configure event
@@ -701,7 +701,7 @@ impl Window {
     }
 
     pub fn remove_menu(&mut self, handle: MenuHandle) {
-        self.menus.retain(|ref menu| menu.handle != handle);
+        self.menus.retain(|menu| menu.handle != handle);
     }
 
     pub fn is_menu_pressed(&mut self) -> Option<usize> {

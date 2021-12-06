@@ -176,7 +176,7 @@ impl DisplayInfo {
                 _context: context,
                 cursor_lib,
                 // the following are determined later...
-                cursors: [0 as xlib::Cursor; 8],
+                cursors: [0; 8],
                 keyb_ext: false,
                 wm_delete_window: 0,
             })
@@ -397,8 +397,8 @@ impl Window {
             let xim = (d.lib.XOpenIM)(
                 d.display,
                 0 as XrmDatabase,
-                0 as *mut c_char,
-                0 as *mut c_char,
+                ptr::null_mut::<c_char>(),
+                ptr::null_mut::<c_char>(),
             );
             if (xim as usize) == 0 {
                 return Err(Error::WindowCreate(
@@ -569,7 +569,6 @@ impl Window {
         match CString::new(title) {
             Err(_) => {
                 println!("Unable to convert {} to c_string", title);
-                return;
             }
 
             Ok(t) => unsafe {
@@ -830,7 +829,7 @@ impl Window {
     }
 
     pub fn remove_menu(&mut self, handle: MenuHandle) {
-        self.menus.retain(|ref menu| menu.handle != handle);
+        self.menus.retain(|menu| menu.handle != handle);
     }
 
     pub fn is_menu_pressed(&mut self) -> Option<usize> {

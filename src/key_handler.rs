@@ -33,17 +33,14 @@ impl KeyHandler {
     }
 
     pub fn get_keys(&self) -> Vec<Key> {
-        let mut index: u16 = 0;
         let mut keys: Vec<Key> = Vec::new();
 
-        for i in self.keys.iter() {
+        for (index, i) in self.keys.iter().enumerate() {
             if *i {
                 unsafe {
                     keys.push(mem::transmute(index as u8));
                 }
             }
-
-            index += 1;
         }
 
         keys
@@ -74,10 +71,9 @@ impl KeyHandler {
     }
 
     pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
-        let mut index: u16 = 0;
         let mut keys: Vec<Key> = Vec::new();
 
-        for i in self.keys.iter() {
+        for (index, i) in self.keys.iter().enumerate() {
             if *i {
                 unsafe {
                     if Self::key_pressed(self, index as usize, repeat) {
@@ -85,8 +81,6 @@ impl KeyHandler {
                     }
                 }
             }
-
-            index += 1;
         }
 
         keys
@@ -108,7 +102,7 @@ impl KeyHandler {
 
     #[inline]
     pub fn is_key_down(&self, key: Key) -> bool {
-        return self.keys[key as usize];
+        self.keys[key as usize]
     }
 
     #[inline]
@@ -139,22 +133,22 @@ impl KeyHandler {
             }
         }
 
-        return false;
+        false
     }
 
     #[inline]
     pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
-        return Self::key_pressed(self, key as usize, repeat);
+        Self::key_pressed(self, key as usize, repeat)
     }
 
     #[inline]
     pub fn is_key_released(&self, key: Key) -> bool {
         let idx = key as usize;
-        return self.is_key_index_released(idx);
+        self.is_key_index_released(idx)
     }
 
     #[inline]
     fn is_key_index_released(&self, idx: usize) -> bool {
-        return self.keys_prev[idx] && !self.keys[idx];
+        self.keys_prev[idx] && !self.keys[idx]
     }
 }
