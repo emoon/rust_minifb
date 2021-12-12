@@ -221,7 +221,7 @@ uint32_t upper_power_of_two(uint32_t v) {
 
 		// Set the pixel dimensions of the texture
 		texture_desc.width = new_width;
-		texture_desc.height = new_width;
+		texture_desc.height = new_height;
 
 		// Allocate the now texture
 
@@ -252,7 +252,7 @@ uint32_t upper_power_of_two(uint32_t v) {
 
 		draw_state->texture = texture;
 		draw_state->texture_width = new_width;
-		draw_state->texture_height = new_width;
+		draw_state->texture_height = new_height;
 	}
 
     // Calculate the number of bytes per row of our image.
