@@ -87,10 +87,17 @@ pub enum CursorStyle {
     ResizeAll,
 }
 
-/// This trait can be implemented and set with ```set_input_callback``` to reieve a callback
-/// whene there is inputs incoming. Currently only support unicode chars.
+/// This trait can be implemented and set with ```set_input_callback``` to receive a callback
+/// when there is inputs.
 pub trait InputCallback {
+    /// Called when text is added to the window, or a key is pressed. This passes
+    /// in a unicode character, and therefore does not report control characters.
     fn add_char(&mut self, uni_char: u32);
+
+    /// Called whenever a key is pressed or released. This reports the state of the
+    /// key in the `state` argument, as well as the translated key in the `key` argument.
+    /// This includes control characters such as `Key::LeftShift`.
+    fn set_key_state(&mut self, _key: Key, _state: bool) {}
 }
 
 mod error;
@@ -563,18 +570,16 @@ impl Window {
     /// ```no_run
     /// # use minifb::*;
     /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
-    /// window.get_keys().map(|keys| {
-    ///     for t in keys {
-    ///         match t {
+    /// window.get_keys().iter().for_each(|key|
+    ///         match key {
     ///             Key::W => println!("holding w"),
     ///             Key::T => println!("holding t"),
     ///             _ => (),
     ///         }
-    ///     }
-    /// });
+    ///     );
     /// ```
     #[inline]
-    pub fn get_keys(&self) -> Option<Vec<Key>> {
+    pub fn get_keys(&self) -> Vec<Key> {
         self.0.get_keys()
     }
 
@@ -587,18 +592,16 @@ impl Window {
     /// ```no_run
     /// # use minifb::*;
     /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
-    /// window.get_keys_pressed(KeyRepeat::No).map(|keys| {
-    ///     for t in keys {
-    ///         match t {
+    /// window.get_keys_pressed(KeyRepeat::No).iter().for_each(|key|
+    ///         match key {
     ///             Key::W => println!("pressed w"),
     ///             Key::T => println!("pressed t"),
     ///             _ => (),
     ///         }
-    ///     }
-    /// });
+    ///     );
     /// ```
     #[inline]
-    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
         self.0.get_keys_pressed(repeat)
     }
 
@@ -610,18 +613,16 @@ impl Window {
     /// ```no_run
     /// # use minifb::*;
     /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
-    /// window.get_keys_released().map(|keys| {
-    ///     for t in keys {
-    ///         match t {
+    /// window.get_keys_released().iter().for_each(|key|
+    ///         match key {
     ///             Key::W => println!("released w"),
     ///             Key::T => println!("released t"),
     ///             _ => (),
     ///         }
-    ///     }
-    /// });
+    ///     );
     /// ```
     #[inline]
-    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+    pub fn get_keys_released(&self) -> Vec<Key> {
         self.0.get_keys_released()
     }
 

@@ -2,6 +2,11 @@
 
 This project follows semantic versioning.
 
+### v0.20 (2021-11-28)
+
+- [API BREAKAGE] Changing return types of get_keys from Option<Vec<Key>> to Vec<Key> (Thanks Zij-IT!)
+- [fixed] get_scroll_wheel() would get "stuck" on macOS. (Thanks NikoUY for bug report!)
+
 ### v0.19.3 (2021-03-23)
 
 - [fixed] Fixed typos in description (Thanks hiqua!)

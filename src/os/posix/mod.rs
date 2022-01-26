@@ -22,6 +22,7 @@ pub use common::Menu;
 use std::os::raw;
 
 // Differentiate between Wayland and X11 at run-time
+#[allow(clippy::large_enum_variant)]
 pub enum Window {
     #[cfg(feature = "x11")]
     X11(x11::Window),
@@ -206,7 +207,7 @@ impl Window {
         }
     }
 
-    pub fn get_keys(&self) -> Option<Vec<Key>> {
+    pub fn get_keys(&self) -> Vec<Key> {
         match *self {
             #[cfg(feature = "x11")]
             Window::X11(ref w) => w.get_keys(),
@@ -215,7 +216,7 @@ impl Window {
         }
     }
 
-    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
         match *self {
             #[cfg(feature = "x11")]
             Window::X11(ref w) => w.get_keys_pressed(repeat),
@@ -224,7 +225,7 @@ impl Window {
         }
     }
 
-    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+    pub fn get_keys_released(&self) -> Vec<Key> {
         match *self {
             #[cfg(feature = "x11")]
             Window::X11(ref w) => w.get_keys_released(),

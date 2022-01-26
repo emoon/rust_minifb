@@ -299,7 +299,7 @@ void mfb_topmost(void* window, bool topmost)
 	if(topmost)
 	{
 		win.level = NSFloatingWindowLevel; // set level to floating
-	} else 
+	} else
 	{
 		win.level = 0; // set to default/normal
 	}
@@ -479,6 +479,11 @@ static int update_events()
 
 static int generic_update(OSXWindow* win)
 {
+	if (win->shared_data) {
+		win->shared_data->scroll_x = 0.0f;
+		win->shared_data->scroll_y = 0.0f;
+	}
+
 	int state = update_events();
 
     if (win->shared_data) {

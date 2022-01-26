@@ -36,7 +36,7 @@ fn main() {
     window.set_background_color(0, 0, 20);
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
-        for i in 0..buffer.len() {
+        for (i, pixel) in buffer.iter_mut().enumerate() {
             let mut real = map((i % WIDTH) as f64, 0., WIDTH as f64, x_min, x_max);
             let mut imag = map((i / HEIGHT) as f64, 0., HEIGHT as f64, y_min, y_max);
 
@@ -55,7 +55,7 @@ fn main() {
                 n += 1;
             }
 
-            buffer[i] = fill(n);
+            *pixel = fill(n);
         }
 
         angle += 0.1;
@@ -71,8 +71,8 @@ fn map(val: f64, start1: f64, stop1: f64, start2: f64, stop2: f64) -> f64 {
 
 fn fill(n: u32) -> u32 {
     if FRACTAL_DEPTH == n {
-        return 0x00;
+        0x00
     } else {
-        return n * 32 % 255;
+        n * 32 % 255
     }
 }

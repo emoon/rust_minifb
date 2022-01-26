@@ -46,24 +46,16 @@ fn main() {
             *i = (noise << 16) | (noise << 8) | noise;
         }
 
-        window.get_keys().map(|keys| {
-            for t in keys {
-                match t {
-                    Key::W => println!("holding w!"),
-                    Key::T => println!("holding t!"),
-                    _ => (),
-                }
-            }
+        window.get_keys().iter().for_each(|key| match key {
+            Key::W => println!("holding w!"),
+            Key::T => println!("holding t!"),
+            _ => (),
         });
 
-        window.get_keys_released().map(|keys| {
-            for t in keys {
-                match t {
-                    Key::W => println!("released w!"),
-                    Key::T => println!("released t!"),
-                    _ => (),
-                }
-            }
+        window.get_keys_released().iter().for_each(|key| match key {
+            Key::W => println!("released w!"),
+            Key::T => println!("released t!"),
+            _ => (),
         });
 
         window

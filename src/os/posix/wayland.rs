@@ -30,7 +30,7 @@ use xkb::keymap::Keymap;
 use std::cell::RefCell;
 use std::ffi::c_void;
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::mem;
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 use std::rc::Rc;
@@ -588,15 +588,15 @@ impl Window {
         (self.width as usize, self.height as usize)
     }
 
-    pub fn get_keys(&self) -> Option<Vec<Key>> {
+    pub fn get_keys(&self) -> Vec<Key> {
         self.key_handler.get_keys()
     }
 
-    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
         self.key_handler.get_keys_pressed(repeat)
     }
 
-    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+    pub fn get_keys_released(&self) -> Vec<Key> {
         self.key_handler.get_keys_released()
     }
 
@@ -709,12 +709,34 @@ impl Window {
         unimplemented!()
     }
 
-    pub fn update(&mut self) {
+    fn try_dispatch_events(&mut self) {
+        // as seen in https://docs.rs/wayland-client/0.28/wayland_client/struct.EventQueue.html
+        if let Err(e) = self.display.event_queue.display().flush() {
+            if e.kind() != io::ErrorKind::WouldBlock {
+                eprintln!("Error while trying to flush the wayland socket: {:?}", e);
+            }
+        }
+
+        if let Some(guard) = self.display.event_queue.prepare_read() {
+            if let Err(e) = guard.read_events() {
+                if e.kind() != io::ErrorKind::WouldBlock {
+                    eprintln!(
+                        "Error while trying to read from the wayland socket: {:?}",
+                        e
+                    );
+                }
+            }
+        }
+
         self.display
             .event_queue
-            .dispatch(&mut (), |_, _, _| {})
+            .dispatch_pending(&mut (), |_, _, _| {})
             .map_err(|e| Error::WindowCreate(format!("Event dispatch failed: {:?}", e)))
             .unwrap();
+    }
+
+    pub fn update(&mut self) {
+        self.try_dispatch_events();
 
         if let Some(resize) = (*self.toplevel_info.0.borrow_mut()).take() {
             // Don't try to resize to 0x0
@@ -1173,7 +1195,7 @@ impl Window {
 
 unsafe impl raw_window_handle::HasRawWindowHandle for Window {
     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-        let mut handle = raw_window_handle::unix::WaylandHandle::empty();
+        let mut handle = raw_window_handle::WaylandHandle::empty();
         handle.surface = self.display.surface.as_ref().c_ptr() as *mut _ as *mut c_void;
         handle.display = self
             .display

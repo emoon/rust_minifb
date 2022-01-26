@@ -30,23 +30,23 @@ impl KeyHandler {
     #[inline]
     pub fn set_key_state(&mut self, key: Key, state: bool) {
         self.keys[key as usize] = state;
+        if let Some(cb) = &mut self.key_callback {
+            cb.set_key_state(key, state);
+        }
     }
 
-    pub fn get_keys(&self) -> Option<Vec<Key>> {
-        let mut index: u16 = 0;
+    pub fn get_keys(&self) -> Vec<Key> {
         let mut keys: Vec<Key> = Vec::new();
 
-        for i in self.keys.iter() {
+        for (index, i) in self.keys.iter().enumerate() {
             if *i {
                 unsafe {
                     keys.push(mem::transmute(index as u8));
                 }
             }
-
-            index += 1;
         }
 
-        Some(keys)
+        keys
     }
 
     pub fn update(&mut self) {
@@ -73,11 +73,10 @@ impl KeyHandler {
         self.key_callback = Some(callback);
     }
 
-    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
-        let mut index: u16 = 0;
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
         let mut keys: Vec<Key> = Vec::new();
 
-        for i in self.keys.iter() {
+        for (index, i) in self.keys.iter().enumerate() {
             if *i {
                 unsafe {
                     if Self::key_pressed(self, index as usize, repeat) {
@@ -85,14 +84,12 @@ impl KeyHandler {
                     }
                 }
             }
-
-            index += 1;
         }
 
-        Some(keys)
+        keys
     }
 
-    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+    pub fn get_keys_released(&self) -> Vec<Key> {
         let mut keys: Vec<Key> = Vec::new();
 
         for (idx, is_down) in self.keys.iter().enumerate() {
@@ -103,7 +100,7 @@ impl KeyHandler {
             }
         }
 
-        Some(keys)
+        keys
     }
 
     #[inline]

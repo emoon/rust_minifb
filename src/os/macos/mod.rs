@@ -261,12 +261,10 @@ unsafe extern "C" fn char_callback(window: *mut c_void, code_point: u32) {
 
 unsafe impl raw_window_handle::HasRawWindowHandle for Window {
     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-        let handle = raw_window_handle::macos::MacOSHandle {
-            ns_window: self.window_handle as *mut _,
-            ns_view: self.view_handle as *mut _,
-            ..raw_window_handle::macos::MacOSHandle::empty()
-        };
-        raw_window_handle::RawWindowHandle::MacOS(handle)
+        let mut handle = raw_window_handle::AppKitHandle::empty();
+        handle.ns_window = self.window_handle as *mut _;
+        handle.ns_view = self.view_handle as *mut _;
+        raw_window_handle::RawWindowHandle::AppKit(handle)
     }
 }
 
@@ -479,17 +477,17 @@ impl Window {
     }
 
     #[inline]
-    pub fn get_keys(&self) -> Option<Vec<Key>> {
+    pub fn get_keys(&self) -> Vec<Key> {
         self.key_handler.get_keys()
     }
 
     #[inline]
-    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
         self.key_handler.get_keys_pressed(repeat)
     }
 
     #[inline]
-    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+    pub fn get_keys_released(&self) -> Vec<Key> {
         self.key_handler.get_keys_released()
     }
 

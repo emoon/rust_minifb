@@ -454,12 +454,11 @@ pub struct Window {
 
 unsafe impl raw_window_handle::HasRawWindowHandle for Window {
     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-        let handle = raw_window_handle::windows::WindowsHandle {
-            hwnd: self.window.unwrap() as *mut raw::c_void,
-            hinstance: unsafe { libloaderapi::GetModuleHandleA(ptr::null()) } as *mut raw::c_void,
-            ..raw_window_handle::windows::WindowsHandle::empty()
-        };
-        raw_window_handle::RawWindowHandle::Windows(handle)
+        let mut handle = raw_window_handle::Win32Handle::empty();
+        handle.hwnd = self.window.unwrap() as *mut raw::c_void;
+        handle.hinstance =
+            unsafe { libloaderapi::GetModuleHandleA(ptr::null()) } as *mut raw::c_void;
+        raw_window_handle::RawWindowHandle::Win32(handle)
     }
 }
 
@@ -719,17 +718,17 @@ impl Window {
     }
 
     #[inline]
-    pub fn get_keys(&self) -> Option<Vec<Key>> {
+    pub fn get_keys(&self) -> Vec<Key> {
         self.key_handler.get_keys()
     }
 
     #[inline]
-    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
         self.key_handler.get_keys_pressed(repeat)
     }
 
     #[inline]
-    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+    pub fn get_keys_released(&self) -> Vec<Key> {
         self.key_handler.get_keys_released()
     }
 

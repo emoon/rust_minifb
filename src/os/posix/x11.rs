@@ -12,16 +12,20 @@ use crate::Result;
 use crate::{CursorStyle, MenuHandle, UnixMenu};
 
 use std::convert::TryFrom;
-use std::ffi::CString;
+use std::ffi::{c_void, CStr, CString};
 use std::mem;
 use std::os::raw;
-use std::os::raw::{c_char, c_long, c_uchar, c_uint, c_ulong};
+use std::os::raw::{c_char, c_int, c_long, c_uchar, c_uint, c_ulong};
 use std::ptr;
 
 use crate::buffer_helper;
 use crate::mouse_handler;
 
 use super::common::Menu;
+use x11_dl::xlib::{
+    KeyPressMask, KeyReleaseMask, KeySym, Status, XEvent, XIMPreeditNothing, XIMStatusNothing,
+    XKeyEvent, XNClientWindow, XNFocusWindow, XNInputStyle, XrmDatabase, XIC, XIM,
+};
 
 // NOTE: the x11-dl crate does not define Button6 or Button7
 const Button6: c_uint = xlib::Button5 + 1;
@@ -113,6 +117,8 @@ impl DisplayInfo {
 
     fn setup(transparency: bool) -> Result<DisplayInfo> {
         unsafe {
+            libc::setlocale(libc::LC_ALL, "\0".as_ptr() as *const c_char); //needed to make compose key work
+
             let lib = xlib::Xlib::open()
                 .map_err(|e| Error::WindowCreate(format!("failed to load Xlib: {:?}", e)))?;
 
@@ -286,6 +292,9 @@ pub struct Window {
     d: DisplayInfo,
 
     handle: xlib::Window,
+    xim: XIM,
+    xic: XIC,
+
     ximage: *mut xlib::XImage,
     draw_buffer: Vec<u32>,
 
@@ -314,11 +323,9 @@ pub struct Window {
 
 unsafe impl raw_window_handle::HasRawWindowHandle for Window {
     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-        let handle = raw_window_handle::unix::XlibHandle {
-            window: self.handle,
-            display: self.d.display as *mut core::ffi::c_void,
-            ..raw_window_handle::unix::XlibHandle::empty()
-        };
+        let mut handle = raw_window_handle::XlibHandle::empty();
+        handle.window = self.handle;
+        handle.display = self.d.display as *mut core::ffi::c_void;
         raw_window_handle::RawWindowHandle::Xlib(handle)
     }
 }
@@ -383,6 +390,43 @@ impl Window {
                 xlib::CWColormap | xlib::CWBackingStore | xlib::CWBackPixel | xlib::CWBorderPixel,
                 &mut attributes,
             );
+
+            let empty_string = b"\0";
+            (d.lib.XSetLocaleModifiers)(empty_string.as_ptr() as *const i8);
+
+            let xim = (d.lib.XOpenIM)(
+                d.display,
+                0 as XrmDatabase,
+                ptr::null_mut::<c_char>(),
+                ptr::null_mut::<c_char>(),
+            );
+            if (xim as usize) == 0 {
+                return Err(Error::WindowCreate(
+                    "Failed to setup X IM via XOpenIM.".to_owned(),
+                ));
+            }
+
+            let xn_input_style = CString::new(XNInputStyle).unwrap();
+            let xn_client_window = CString::new(XNClientWindow).unwrap();
+            let xn_focus_window = CString::new(XNFocusWindow).unwrap();
+            let xic = (d.lib.XCreateIC)(
+                xim,
+                xn_input_style.as_ptr(),
+                XIMPreeditNothing | XIMStatusNothing,
+                xn_client_window.as_ptr(),
+                handle as c_ulong,
+                xn_focus_window.as_ptr(),
+                handle as c_ulong,
+                std::ptr::null_mut::<c_void>(),
+            );
+            if (xic as usize) == 0 {
+                return Err(Error::WindowCreate(
+                    "Failed to setup X IC via XCreateIC.".to_owned(),
+                ));
+            }
+
+            (d.lib.XSetICFocus)(xic);
+            (d.lib.XSelectInput)(d.display, handle, KeyPressMask | KeyReleaseMask);
 
             d.gc = (d.lib.XCreateGC)(d.display, handle, 0, ptr::null_mut());
 
@@ -461,6 +505,8 @@ impl Window {
             Ok(Window {
                 d,
                 handle,
+                xim,
+                xic,
                 ximage,
                 draw_buffer,
                 width: width as u32,
@@ -523,7 +569,6 @@ impl Window {
         match CString::new(title) {
             Err(_) => {
                 println!("Unable to convert {} to c_string", title);
-                return;
             }
 
             Ok(t) => unsafe {
@@ -674,17 +719,17 @@ impl Window {
     }
 
     #[inline]
-    pub fn get_keys(&self) -> Option<Vec<Key>> {
+    pub fn get_keys(&self) -> Vec<Key> {
         self.key_handler.get_keys()
     }
 
     #[inline]
-    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
         self.key_handler.get_keys_pressed(repeat)
     }
 
     #[inline]
-    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+    pub fn get_keys_released(&self) -> Vec<Key> {
         self.key_handler.get_keys_released()
     }
 
@@ -904,6 +949,12 @@ impl Window {
 
             (self.d.lib.XNextEvent)(self.d.display, &mut event);
 
+            //skip any events that need to get eaten by X to do compose key, e.g. if the user types compose key + a + ' then all of these events need to get eaten and processed in xlib
+            //XFilterEvent will do the processing for these cases, and returns whether or not it handled an event
+            if (self.d.lib.XFilterEvent)(&mut event as *mut XEvent, 0) != 0 {
+                continue;
+            }
+
             // Don't process any more messages if we hit a termination event
             if self.raw_process_one_event(event) == ProcessEventResult::Termination {
                 return;
@@ -911,7 +962,7 @@ impl Window {
         }
     }
 
-    unsafe fn raw_process_one_event(&mut self, ev: xlib::XEvent) -> ProcessEventResult {
+    unsafe fn raw_process_one_event(&mut self, mut ev: xlib::XEvent) -> ProcessEventResult {
         // FIXME: we cannot handle multiple windows here!
         if ev.any.window != self.handle {
             return ProcessEventResult::Ok;
@@ -930,6 +981,7 @@ impl Window {
 
             xlib::KeyPress => {
                 self.process_key(ev, true /* is_down */);
+                self.emit_code_point_chars_to_callback(&mut ev.key);
             }
 
             xlib::KeyRelease => {
@@ -1008,24 +1060,34 @@ impl Window {
         }
 
         self.update_key_state(sym, is_down);
+    }
 
-        // unicode callback...
+    fn emit_code_point_chars_to_callback(&mut self, event: &mut XKeyEvent) {
+        const BUFFER_SIZE: usize = 32;
 
-        if !is_down {
-            return;
-        }
+        if let Some(callback) = &mut self.key_handler.key_callback {
+            let mut buff: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE];
+            let str = unsafe {
+                let mut keysym: KeySym = std::mem::zeroed();
+                let mut status: Status = 0;
+                let length_in_bytes = (self.d.lib.Xutf8LookupString)(
+                    self.xic,
+                    event as *mut XKeyEvent,
+                    buff.as_mut_ptr() as *mut c_char,
+                    (BUFFER_SIZE - 1) as c_int,
+                    (&mut keysym) as *mut KeySym,
+                    (&mut status) as *mut Status,
+                );
+                &buff[0..(length_in_bytes as usize + 1)]
+            };
 
-        let keysym = xkb::Keysym(sym as u32);
-        let code_point = keysym.utf32();
-        // Taken from GLFW
-        if code_point == 0 {
-            return;
-        } else if code_point < 32 || (code_point > 126 && code_point < 160) {
-            return;
-        }
-
-        if let Some(ref mut callback) = self.key_handler.key_callback {
-            callback.add_char(code_point);
+            if let Ok(cstr) = CStr::from_bytes_with_nul(str) {
+                if let Ok(str) = cstr.to_str() {
+                    for c in str.chars() {
+                        callback.add_char(c as u32);
+                    }
+                }
+            }
         }
     }
 
@@ -1199,6 +1261,8 @@ impl Drop for Window {
             //                  probably pointless ]
             // XSaveContext(s_display, info->window, s_context, (XPointer)0);
 
+            (self.d.lib.XDestroyIC)(self.xic);
+            (self.d.lib.XCloseIM)(self.xim);
             (self.d.lib.XDestroyWindow)(self.d.display, self.handle);
         }
     }
