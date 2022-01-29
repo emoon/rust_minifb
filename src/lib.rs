@@ -7,6 +7,7 @@
 
 use std::fmt;
 use std::os::raw;
+use std::path::Path;
 
 /// Scale will scale the frame buffer and the window that is being sent in when calling the update
 /// function. This is useful if you for example want to display a 320 x 256 window on a screen with
@@ -252,6 +253,34 @@ impl Window {
     ///
     pub fn set_title(&mut self, title: &str) {
         self.0.set_title(title)
+    }
+
+    ///
+    /// Sets the icon of the window after creation.
+    ///
+    /// The file path has to be relative to the current working directory.
+    ///
+    /// **Windows:** Has to be a `.ico` file. To also set the icon of the `.exe` file, see the `rc.exe` tool
+    /// 
+    /// **Linux:** 
+    /// 
+    /// **MacOS:**
+    /// 
+    /// **RedoxOS:** *not implemented*
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    ///
+    /// window.set_icon("src/icon.ico");
+    /// ```
+    ///
+    pub fn set_icon<P>(&mut self, path: P)
+    where
+        P: AsRef<Path>,
+    {
+        self.0.set_icon(path)
     }
 
     ///
