@@ -18,16 +18,18 @@ use std::ffi::OsStr;
 use std::mem;
 use std::os::raw;
 use std::os::windows::ffi::OsStrExt;
+use std::path::Path;
 use std::ptr;
 
 use winapi::shared::basetsd;
-use winapi::shared::minwindef;
+use winapi::shared::minwindef::{self, LPARAM, WPARAM};
 use winapi::shared::ntdef;
 use winapi::shared::windef;
 use winapi::um::errhandlingapi;
+use winapi::um::fileapi::GetFullPathNameW;
 use winapi::um::libloaderapi;
 use winapi::um::wingdi;
-use winapi::um::winuser;
+use winapi::um::winuser::{self, ICON_BIG, IMAGE_ICON, LR_LOADFROMFILE, WM_SETICON, ICON_SMALL, LR_DEFAULTSIZE};
 
 // Wrap this so we can have a proper numbef of bmiColors to write in
 #[repr(C)]
@@ -622,6 +624,61 @@ impl Window {
         unsafe {
             let title_name = to_wstring(title);
             winuser::SetWindowTextW(self.window.unwrap(), title_name.as_ptr());
+        }
+    }
+
+    #[inline]
+    pub fn set_icon<P>(&mut self, path: P)
+    where
+        P: AsRef<Path>,
+    {
+        unsafe {
+            let file_string = to_wstring(path.as_ref().to_str().unwrap());
+            let s_pointer = file_string.as_ptr();
+
+            let mut buffer: Vec<u16> = Vec::new();
+
+            // call once to get the size of the buffer
+            let return_value =
+                GetFullPathNameW(s_pointer, 0, buffer.as_mut_ptr(), std::ptr::null_mut());
+
+            // adjust size of the buffer
+            buffer.reserve(return_value as usize);
+
+            let _ = GetFullPathNameW(
+                s_pointer,
+                return_value,
+                buffer.as_mut_ptr(),
+                std::ptr::null_mut(),
+            );
+
+            let path = buffer.as_ptr();
+
+            // cx and cy are 0 so Windows uses the size of the resource
+            let icon = winapi::um::winuser::LoadImageW(
+                std::ptr::null_mut(),
+                path,
+                IMAGE_ICON,
+                0,
+                0,
+                LR_DEFAULTSIZE | LR_LOADFROMFILE,
+            );
+
+            if let Some(handle) = self.window {
+                winapi::um::winuser::SendMessageW(
+                    handle,
+                    WM_SETICON,
+                    ICON_SMALL as WPARAM,
+                    icon as LPARAM,
+                );
+
+                winapi::um::winuser::SendMessageW(
+                    handle,
+                    WM_SETICON,
+                    ICON_BIG as WPARAM,
+                    icon as LPARAM,
+                );
+            }
         }
     }
 
