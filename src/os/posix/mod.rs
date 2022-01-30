@@ -71,7 +71,7 @@ impl Window {
             #[cfg(feature = "x11")]
             Window::X11(ref mut w) => w.set_icon(argb_buffer),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref mut _w) => unimplemented!(""),
+            Window::Wayland(ref mut _w) => unimplemented!("Cannot set icons at runtime on Wayland, create a .desktop file!"),
         }
     }
 
