@@ -278,6 +278,7 @@ impl Window {
     /// # use std::str::FromStr;
     /// let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     ///
+    /// #[cfg(target_os = "windows")]
     /// window.set_icon(Icon::from_str("src/icon.ico").unwrap());
     /// ```
     ///
