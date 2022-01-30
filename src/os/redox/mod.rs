@@ -15,6 +15,7 @@ use crate::{Scale, WindowOptions};
 
 use std::cmp;
 use std::os::raw;
+use orbclient::Renderer;
 
 pub struct Window {
     is_open: bool,
@@ -94,6 +95,10 @@ impl Window {
 
     pub fn set_title(&mut self, title: &str) {
         self.window.set_title(title)
+    }
+
+    pub fn set_icon(&mut self) {
+        unimplemented!("Currenty not implemented on RedoxOS")
     }
 
     pub fn get_window_handle(&self) -> *mut raw::c_void {

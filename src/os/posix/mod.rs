@@ -20,7 +20,6 @@ use crate::{InputCallback, Key, KeyRepeat, MouseButton, MouseMode, WindowOptions
 pub use common::Menu;
 
 use std::os::raw;
-use std::path::Path;
 
 // Differentiate between Wayland and X11 at run-time
 #[allow(clippy::large_enum_variant)]
@@ -67,10 +66,10 @@ impl Window {
         }
     }
 
-    pub fn set_icon<P>(&mut self, path: P) where P: AsRef<Path> {
+    pub fn set_icon_buffer(&mut self, argb_buffer: &[u64]) {
         match *self {
             #[cfg(feature = "x11")]
-            Window::X11(ref mut w) => w.set_icon(path),
+            Window::X11(ref mut w) => w.set_icon(argb_buffer),
             #[cfg(feature = "wayland")]
             Window::Wayland(ref mut _w) => unimplemented!(""),
         }

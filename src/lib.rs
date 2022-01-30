@@ -7,6 +7,7 @@
 
 use std::fmt;
 use std::os::raw;
+#[cfg(target_os = "windows")]
 use std::path::Path;
 
 /// Scale will scale the frame buffer and the window that is being sent in when calling the update
@@ -255,6 +256,7 @@ impl Window {
         self.0.set_title(title)
     }
 
+    #[cfg(not(target_os = "linux"))]
     ///
     /// Sets the icon of the window after creation.
     ///
@@ -263,6 +265,8 @@ impl Window {
     /// **Windows:** Has to be a `.ico` file. To also set the icon of the `.exe` file, see the `rc.exe` tool
     /// 
     /// **Linux:** 
+    /// - X11: Needs a `u64` buffer with ARGB data
+    /// - Wayland: *not implemented* (use a `.desktop` file)
     /// 
     /// **MacOS:**
     /// 
@@ -281,6 +285,35 @@ impl Window {
         P: AsRef<Path>,
     {
         self.0.set_icon(path)
+    }
+
+    #[cfg(target_os = "linux")]
+    ///
+    /// Sets the icon of the window after creation.
+    ///
+    /// The file path has to be relative to the current working directory.
+    ///
+    /// **Windows:** Has to be a `.ico` file. To also set the icon of the `.exe` file, see the `rc.exe` tool
+    /// 
+    /// **Linux:** 
+    /// - X11: Needs a `u64` buffer with ARGB data
+    /// - Wayland: *not implemented* (use a `.desktop` file)
+    /// 
+    /// **MacOS:**
+    /// 
+    /// **RedoxOS:** *not implemented*
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    /// let buffer: [u64; 3] = [1, 2, 3];
+    ///
+    /// window.set_icon(&buffer);
+    /// ```
+    ///
+    pub fn set_icon(&mut self, argb_buffer: &[u64]) {
+        self.0.set_icon_buffer(argb_buffer)
     }
 
     ///
