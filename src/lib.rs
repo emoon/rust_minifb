@@ -7,8 +7,6 @@
 
 use std::fmt;
 use std::os::raw;
-#[cfg(target_os = "windows")]
-use std::path::Path;
 
 /// Scale will scale the frame buffer and the window that is being sent in when calling the update
 /// function. This is useful if you for example want to display a 320 x 256 window on a screen with
@@ -101,6 +99,7 @@ pub trait InputCallback {
 mod error;
 pub use self::error::Error;
 pub type Result<T> = std::result::Result<T, Error>;
+pub use icon::Icon;
 pub use raw_window_handle::HasRawWindowHandle;
 
 mod key;
@@ -111,6 +110,7 @@ mod mouse_handler;
 mod os;
 mod rate;
 mod window_flags;
+mod icon;
 
 #[cfg(target_os = "macos")]
 use self::os::macos as imp;
@@ -256,7 +256,6 @@ impl Window {
         self.0.set_title(title)
     }
 
-    #[cfg(not(target_os = "linux"))]
     ///
     /// Sets the icon of the window after creation.
     ///
@@ -280,40 +279,8 @@ impl Window {
     /// window.set_icon("src/icon.ico");
     /// ```
     ///
-    pub fn set_icon<P>(&mut self, path: P)
-    where
-        P: AsRef<Path>,
-    {
-        self.0.set_icon(path)
-    }
-
-    #[cfg(target_os = "linux")]
-    ///
-    /// Sets the icon of the window after creation.
-    ///
-    /// The file path has to be relative to the current working directory.
-    ///
-    /// **Windows:** Has to be a `.ico` file. To also set the icon of the `.exe` file, see the `rc.exe` tool
-    /// 
-    /// **Linux:** 
-    /// - X11: Needs a `u64` buffer with ARGB data
-    /// - Wayland: *not implemented* (use a `.desktop` file)
-    /// 
-    /// **MacOS:**
-    /// 
-    /// **RedoxOS:** *not implemented*
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
-    /// let buffer: [u64; 3] = [1, 2, 3];
-    ///
-    /// window.set_icon(&buffer);
-    /// ```
-    ///
-    pub fn set_icon(&mut self, argb_buffer: &[u64]) {
-        self.0.set_icon_buffer(argb_buffer)
+    pub fn set_icon(&mut self, icon: Icon) {
+        self.0.set_icon(icon)
     }
 
     ///

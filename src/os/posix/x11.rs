@@ -20,6 +20,7 @@ use std::ptr;
 
 use crate::buffer_helper;
 use crate::mouse_handler;
+use crate::icon::Icon;
 
 use super::common::Menu;
 use x11_dl::xlib::{KeyPressMask, KeyReleaseMask, KeySym, Status, XEvent, XIMPreeditNothing, XIMStatusNothing, XKeyEvent, XNClientWindow, XNFocusWindow, XNInputStyle, XrmDatabase, XIC, XIM};
@@ -604,22 +605,24 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_icon(&mut self, argb_buffer: &[u64]) {
+    pub fn set_icon(&mut self, icon: Icon) {
         // XChangeProperty
         let net_string = CString::new("_NET_WM_ICON").unwrap();
         let cardinal = CString::new("CARDINAL").unwrap();
 
         unsafe {
-            let _ = (self.d.lib.XChangeProperty)(
-                self.d.display,
-                self.handle,
-                (self.d.lib.XInternAtom)(self.d.display, net_string.as_ptr(), xlib::False),
-                (self.d.lib.XInternAtom)(self.d.display, cardinal.as_ptr(), xlib::False),
-                32,
-                xlib::PropModeReplace,
-                argb_buffer.as_ptr() as *const u8,
-                argb_buffer.len() as c_int,
-            );
+            if let Icon::Buffer(ptr, len) = icon {
+                let _ = (self.d.lib.XChangeProperty)(
+                    self.d.display,
+                    self.handle,
+                    (self.d.lib.XInternAtom)(self.d.display, net_string.as_ptr(), xlib::False),
+                    (self.d.lib.XInternAtom)(self.d.display, cardinal.as_ptr(), xlib::False),
+                    32,
+                    xlib::PropModeReplace,
+                    ptr as *const u8,
+                    len as c_int,
+                );
+            }
         }
     }
 

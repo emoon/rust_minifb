@@ -17,6 +17,7 @@ mod x11;
 use crate::Result;
 use crate::{CursorStyle, MenuHandle, UnixMenu};
 use crate::{InputCallback, Key, KeyRepeat, MouseButton, MouseMode, WindowOptions};
+use crate::icon::Icon;
 pub use common::Menu;
 
 use std::os::raw;
@@ -66,10 +67,10 @@ impl Window {
         }
     }
 
-    pub fn set_icon_buffer(&mut self, argb_buffer: &[u64]) {
+    pub fn set_icon(&mut self, icon: Icon) {
         match *self {
             #[cfg(feature = "x11")]
-            Window::X11(ref mut w) => w.set_icon(argb_buffer),
+            Window::X11(ref mut w) => w.set_icon(icon),
             #[cfg(feature = "wayland")]
             Window::Wayland(ref mut _w) => unimplemented!("Cannot set icons at runtime on Wayland, create a .desktop file!"),
         }
