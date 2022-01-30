@@ -29,7 +29,9 @@ use winapi::um::errhandlingapi;
 use winapi::um::fileapi::GetFullPathNameW;
 use winapi::um::libloaderapi;
 use winapi::um::wingdi;
-use winapi::um::winuser::{self, ICON_BIG, IMAGE_ICON, LR_LOADFROMFILE, WM_SETICON, ICON_SMALL, LR_DEFAULTSIZE};
+use winapi::um::winuser::{
+    self, ICON_BIG, ICON_SMALL, IMAGE_ICON, LR_DEFAULTSIZE, LR_LOADFROMFILE, WM_SETICON,
+};
 
 // Wrap this so we can have a proper numbef of bmiColors to write in
 #[repr(C)]
@@ -632,23 +634,23 @@ impl Window {
         unsafe {
             if let Icon::Path(s_pointer) = icon {
                 let mut buffer: Vec<u16> = Vec::new();
-    
+
                 // call once to get the size of the buffer
                 let return_value =
                     GetFullPathNameW(s_pointer, 0, buffer.as_mut_ptr(), std::ptr::null_mut());
-    
+
                 // adjust size of the buffer
                 buffer.reserve(return_value as usize);
-    
+
                 let _ = GetFullPathNameW(
                     s_pointer,
                     return_value,
                     buffer.as_mut_ptr(),
                     std::ptr::null_mut(),
                 );
-    
+
                 let path = buffer.as_ptr();
-    
+
                 // cx and cy are 0 so Windows uses the size of the resource
                 let icon = winapi::um::winuser::LoadImageW(
                     std::ptr::null_mut(),
@@ -658,7 +660,7 @@ impl Window {
                     0,
                     LR_DEFAULTSIZE | LR_LOADFROMFILE,
                 );
-    
+
                 if let Some(handle) = self.window {
                     winapi::um::winuser::SendMessageW(
                         handle,
@@ -666,7 +668,7 @@ impl Window {
                         ICON_SMALL as WPARAM,
                         icon as LPARAM,
                     );
-    
+
                     winapi::um::winuser::SendMessageW(
                         handle,
                         WM_SETICON,

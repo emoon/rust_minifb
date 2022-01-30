@@ -7,11 +7,11 @@ use crate::Result;
 use crate::{Key, KeyRepeat, MouseButton, MouseMode, Scale, WindowOptions};
 // use MenuItem;
 use crate::buffer_helper;
+use crate::icon::Icon;
 use crate::mouse_handler;
 use crate::window_flags;
 use crate::InputCallback;
 use crate::{CursorStyle, MenuHandle, MenuItem, MenuItemHandle};
-use crate::icon::Icon;
 // use menu::Menu;
 
 use std::ffi::CString;

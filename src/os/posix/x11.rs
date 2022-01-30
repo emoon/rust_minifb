@@ -19,11 +19,14 @@ use std::os::raw::{c_char, c_int, c_long, c_uchar, c_uint, c_ulong};
 use std::ptr;
 
 use crate::buffer_helper;
-use crate::mouse_handler;
 use crate::icon::Icon;
+use crate::mouse_handler;
 
 use super::common::Menu;
-use x11_dl::xlib::{KeyPressMask, KeyReleaseMask, KeySym, Status, XEvent, XIMPreeditNothing, XIMStatusNothing, XKeyEvent, XNClientWindow, XNFocusWindow, XNInputStyle, XrmDatabase, XIC, XIM};
+use x11_dl::xlib::{
+    KeyPressMask, KeyReleaseMask, KeySym, Status, XEvent, XIMPreeditNothing, XIMStatusNothing,
+    XKeyEvent, XNClientWindow, XNFocusWindow, XNInputStyle, XrmDatabase, XIC, XIM,
+};
 
 // NOTE: the x11-dl crate does not define Button6 or Button7
 const Button6: c_uint = xlib::Button5 + 1;

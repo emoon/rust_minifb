@@ -105,12 +105,12 @@ pub use raw_window_handle::HasRawWindowHandle;
 mod key;
 pub use key::Key;
 mod buffer_helper;
+mod icon;
 mod key_handler;
 mod mouse_handler;
 mod os;
 mod rate;
 mod window_flags;
-mod icon;
 
 #[cfg(target_os = "macos")]
 use self::os::macos as imp;
@@ -262,18 +262,20 @@ impl Window {
     /// The file path has to be relative to the current working directory.
     ///
     /// **Windows:** Has to be a `.ico` file. To also set the icon of the `.exe` file, see the `rc.exe` tool
-    /// 
-    /// **Linux:** 
+    ///
+    /// **Linux:**
     /// - X11: Needs a `u64` buffer with ARGB data
     /// - Wayland: *not implemented* (use a `.desktop` file)
-    /// 
+    ///
     /// **MacOS:**
-    /// 
+    ///
     /// **RedoxOS:** *not implemented*
     ///
     /// # Examples
     ///
     /// ```no_run
+    /// # use minifb::*;
+    /// # use std::str::FromStr;
     /// let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     ///
     /// window.set_icon(Icon::from_str("src/icon.ico").unwrap());

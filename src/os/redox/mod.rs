@@ -4,6 +4,7 @@ use crate::os::redox::orbclient::Renderer;
 
 use crate::buffer_helper;
 use crate::error::Error;
+use crate::icon::Icon;
 use crate::key_handler::KeyHandler;
 use crate::mouse_handler;
 use crate::InputCallback;
@@ -12,11 +13,10 @@ use crate::{CursorStyle, MouseButton, MouseMode};
 use crate::{Key, KeyRepeat};
 use crate::{MenuHandle, MenuItem, MenuItemHandle, UnixMenu, UnixMenuItem};
 use crate::{Scale, WindowOptions};
-use crate::icon::Icon;
 
+use orbclient::Renderer;
 use std::cmp;
 use std::os::raw;
-use orbclient::Renderer;
 
 pub struct Window {
     is_open: bool,

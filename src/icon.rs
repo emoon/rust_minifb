@@ -1,18 +1,18 @@
-#[cfg(target_os = "windows")]
-use std::{str::FromStr, ffi::OsStr, os::windows::prelude::OsStrExt};
 #[cfg(target_os = "linux")]
 use std::convert::TryFrom;
+#[cfg(target_os = "windows")]
+use std::{ffi::OsStr, os::windows::prelude::OsStrExt, str::FromStr};
 
 ///
 /// Represents a window icon
-/// 
+///
 /// Different under Windows, Linux and MacOS
-/// 
+///
 /// **Windows**: Icon can be created from a relative path string
-/// 
+///
 /// **Linux / X11:** Icon can be created from an ARGB buffer
-/// 
-/// 
+///
+///
 #[derive(Clone, Copy, Debug)]
 pub enum Icon {
     Path(*const u16),
@@ -32,7 +32,7 @@ impl FromStr for Icon {
             .encode_wide()
             .chain(Some(0).into_iter())
             .collect();
-        
+
         Ok(Icon::Path(v.as_ptr()))
     }
 }
