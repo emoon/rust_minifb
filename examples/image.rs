@@ -1,6 +1,4 @@
-use std::str::FromStr;
-
-use minifb::{Icon, Key, ScaleMode, Window, WindowOptions};
+use minifb::{Key, ScaleMode, Window, WindowOptions};
 
 fn main() {
     use std::fs::File;
@@ -32,8 +30,6 @@ fn main() {
         },
     )
     .expect("Unable to open Window");
-
-    window.set_icon(Icon::from_str("after256.ico").unwrap());
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         window
