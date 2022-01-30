@@ -12,6 +12,7 @@ use crate::{CursorStyle, MouseButton, MouseMode};
 use crate::{Key, KeyRepeat};
 use crate::{MenuHandle, MenuItem, MenuItemHandle, UnixMenu, UnixMenuItem};
 use crate::{Scale, WindowOptions};
+use crate::icon::Icon;
 
 use std::cmp;
 use std::os::raw;
@@ -97,7 +98,7 @@ impl Window {
         self.window.set_title(title)
     }
 
-    pub fn set_icon(&mut self) {
+    pub fn set_icon(&mut self, _icon: Icon) {
         unimplemented!("Currenty not implemented on RedoxOS")
     }
 

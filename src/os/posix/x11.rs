@@ -607,16 +607,16 @@ impl Window {
     #[inline]
     pub fn set_icon(&mut self, icon: Icon) {
         // XChangeProperty
-        let net_string = CString::new("_NET_WM_ICON").unwrap();
-        let cardinal = CString::new("CARDINAL").unwrap();
+        let net_string_ptr = b"_NET_WM_ICON\0".as_ptr() as *const i8;
+        let cardinal_ptr = b"CARDINAL\0".as_ptr() as *const i8;
 
         unsafe {
             if let Icon::Buffer(ptr, len) = icon {
                 let _ = (self.d.lib.XChangeProperty)(
                     self.d.display,
                     self.handle,
-                    (self.d.lib.XInternAtom)(self.d.display, net_string.as_ptr(), xlib::False),
-                    (self.d.lib.XInternAtom)(self.d.display, cardinal.as_ptr(), xlib::False),
+                    (self.d.lib.XInternAtom)(self.d.display, net_string_ptr, xlib::False),
+                    (self.d.lib.XInternAtom)(self.d.display, cardinal_ptr, xlib::False),
                     32,
                     xlib::PropModeReplace,
                     ptr as *const u8,
