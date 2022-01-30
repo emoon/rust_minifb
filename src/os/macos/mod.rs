@@ -7,6 +7,7 @@ use crate::Result;
 use crate::{Key, KeyRepeat, MouseButton, MouseMode, Scale, WindowOptions};
 // use MenuItem;
 use crate::buffer_helper;
+use crate::icon::Icon;
 use crate::mouse_handler;
 use crate::window_flags;
 use crate::InputCallback;
@@ -323,6 +324,11 @@ impl Window {
             let t = CString::new(title).unwrap();
             mfb_set_title(self.window_handle, t.as_ptr());
         }
+    }
+
+    #[inline]
+    pub fn set_icon(&mut self, _icon: Icon) {
+        unimplemented!("Currently not implemented on MacOS!")
     }
 
     #[inline]

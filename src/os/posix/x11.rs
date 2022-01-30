@@ -19,6 +19,7 @@ use std::os::raw::{c_char, c_int, c_long, c_uchar, c_uint, c_ulong};
 use std::ptr;
 
 use crate::buffer_helper;
+use crate::icon::Icon;
 use crate::mouse_handler;
 
 use super::common::Menu;
@@ -603,6 +604,28 @@ impl Window {
         unsafe {
             self.raw_get_mouse_pos();
             self.raw_process_events();
+        }
+    }
+
+    #[inline]
+    pub fn set_icon(&mut self, icon: Icon) {
+        // XChangeProperty
+        let net_string_ptr = b"_NET_WM_ICON\0".as_ptr() as *const i8;
+        let cardinal_ptr = b"CARDINAL\0".as_ptr() as *const i8;
+
+        unsafe {
+            if let Icon::Buffer(ptr, len) = icon {
+                let _ = (self.d.lib.XChangeProperty)(
+                    self.d.display,
+                    self.handle,
+                    (self.d.lib.XInternAtom)(self.d.display, net_string_ptr, xlib::False),
+                    (self.d.lib.XInternAtom)(self.d.display, cardinal_ptr, xlib::False),
+                    32,
+                    xlib::PropModeReplace,
+                    ptr as *const u8,
+                    len as c_int,
+                );
+            }
         }
     }
 

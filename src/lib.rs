@@ -99,11 +99,13 @@ pub trait InputCallback {
 mod error;
 pub use self::error::Error;
 pub type Result<T> = std::result::Result<T, Error>;
+pub use icon::Icon;
 pub use raw_window_handle::HasRawWindowHandle;
 
 mod key;
 pub use key::Key;
 mod buffer_helper;
+mod icon;
 mod key_handler;
 mod mouse_handler;
 mod os;
@@ -252,6 +254,36 @@ impl Window {
     ///
     pub fn set_title(&mut self, title: &str) {
         self.0.set_title(title)
+    }
+
+    ///
+    /// Sets the icon of the window after creation.
+    ///
+    /// The file path has to be relative to the current working directory.
+    ///
+    /// **Windows:** Has to be a `.ico` file. To also set the icon of the `.exe` file, see the `rc.exe` tool
+    ///
+    /// **Linux:**
+    /// - X11: Needs a `u64` buffer with ARGB data
+    /// - Wayland: *not implemented* (use a `.desktop` file)
+    ///
+    /// **MacOS:**
+    ///
+    /// **RedoxOS:** *not implemented*
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use minifb::*;
+    /// # use std::str::FromStr;
+    /// let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    ///
+    /// #[cfg(target_os = "windows")]
+    /// window.set_icon(Icon::from_str("src/icon.ico").unwrap());
+    /// ```
+    ///
+    pub fn set_icon(&mut self, icon: Icon) {
+        self.0.set_icon(icon)
     }
 
     ///
