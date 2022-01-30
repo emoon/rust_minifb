@@ -276,7 +276,7 @@ impl Window {
     /// ```no_run
     /// let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     ///
-    /// window.set_icon("src/icon.ico");
+    /// window.set_icon(Icon::from_str("src/icon.ico").unwrap());
     /// ```
     ///
     pub fn set_icon(&mut self, icon: Icon) {
