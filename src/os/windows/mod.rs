@@ -256,7 +256,7 @@ unsafe extern "system" fn wnd_proc(
 
         winuser::WM_PAINT => {
             // if we have nothing to draw here we return the default function
-            if wnd.draw_params.buffer == std::ptr::null() {
+            if wnd.draw_params.buffer.is_null() {
                 return winuser::DefWindowProcW(window, msg, wparam, lparam);
             }
 
@@ -400,7 +400,7 @@ unsafe extern "system" fn wnd_proc(
         _ => (),
     }
 
-    return winuser::DefWindowProcW(window, msg, wparam, lparam);
+    winuser::DefWindowProcW(window, msg, wparam, lparam)
 }
 
 fn to_wstring(str: &str) -> Vec<u16> {
@@ -568,7 +568,7 @@ impl Window {
 
             winuser::ShowWindow(handle, winuser::SW_NORMAL);
 
-            return Some(handle);
+            Some(handle)
         }
     }
 
@@ -705,7 +705,7 @@ impl Window {
         unsafe {
             winuser::SetWindowPos(
                 self.window.unwrap(),
-                if topmost == true {
+                if topmost {
                     winuser::HWND_TOPMOST
                 } else {
                     winuser::HWND_TOP
@@ -819,7 +819,7 @@ impl Window {
 
     #[inline]
     pub fn is_open(&self) -> bool {
-        return self.is_open;
+        self.is_open
     }
 
     fn generic_update(&mut self, window: windef::HWND) {
@@ -846,25 +846,22 @@ impl Window {
             while winuser::PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, winuser::PM_REMOVE)
                 != 0
             {
+                let acc_condition = winuser::TranslateAcceleratorW(
+                    msg.hwnd,
+                    mem::transmute(self.accel_table),
+                    &mut msg,
+                ) == 0;
+
                 // Make this code a bit nicer
-                if self.accel_table == ptr::null_mut() {
-                    winuser::TranslateMessage(&mut msg);
-                    winuser::DispatchMessageW(&mut msg);
-                } else {
-                    if winuser::TranslateAcceleratorW(
-                        msg.hwnd,
-                        mem::transmute(self.accel_table),
-                        &mut msg,
-                    ) == 0
-                    {
-                        winuser::TranslateMessage(&mut msg);
-                        winuser::DispatchMessageW(&mut msg);
-                    }
+                if self.accel_table.is_null() || acc_condition {
+                    winuser::TranslateMessage(&msg);
+                    winuser::DispatchMessageW(&msg);
                 }
             }
         }
     }
 
+    #[allow(clippy::identity_op)]
     pub fn set_background_color(&mut self, color: u32) {
         unsafe {
             wingdi::DeleteObject(self.clear_brush as *mut winapi::ctypes::c_void);
@@ -921,11 +918,7 @@ impl Window {
         match self.window {
             Some(hwnd) => {
                 let active = unsafe { winapi::um::winuser::GetActiveWindow() };
-                if !active.is_null() && active == hwnd {
-                    true
-                } else {
-                    false
-                }
+                !active.is_null() && active == hwnd
             }
             None => false,
         }
@@ -960,7 +953,7 @@ impl Window {
             }
         };
 
-        return factor;
+        factor
     }
 
     //
@@ -988,11 +981,11 @@ impl Window {
 
         for menu in self.menus.iter() {
             for item in menu.accel_table.iter() {
-                temp_accel_table.push(item.clone());
+                temp_accel_table.push(*item);
             }
         }
 
-        if self.accel_table != ptr::null_mut() {
+        if !self.accel_table.is_null() {
             winuser::DestroyAcceleratorTable(self.accel_table);
         }
 
@@ -1007,7 +1000,7 @@ impl Window {
             let window = self.window.unwrap();
             let mut main_menu = winuser::GetMenu(window);
 
-            if main_menu == ptr::null_mut() {
+            if main_menu.is_null() {
                 main_menu = winuser::CreateMenu();
                 winuser::SetMenu(window, main_menu);
                 Self::adjust_window_size_for_menu(window);
@@ -1208,7 +1201,7 @@ impl Menu {
     fn format_name(menu_item: &MenuItem, key_name: &'static str) -> String {
         let mut name = menu_item.label.clone();
 
-        name.push_str("\t");
+        name.push('\t');
 
         if (menu_item.modifier & MENU_KEY_WIN) == MENU_KEY_WIN {
             name.push_str("Win-");
