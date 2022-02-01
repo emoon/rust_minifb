@@ -24,7 +24,7 @@ impl FromStr for Icon {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.len() == 0 {
+        if s.is_empty() {
             return Err("Path to icon cannot be empty!");
         }
 
@@ -42,7 +42,7 @@ impl TryFrom<&[u64]> for Icon {
     type Error = &'static str;
 
     fn try_from(value: &[u64]) -> Result<Self, Self::Error> {
-        if value.len() == 0 {
+        if value.is_empty() {
             return Err("ARGB buffer cannot be empty!");
         }
 
