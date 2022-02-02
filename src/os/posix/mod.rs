@@ -130,6 +130,15 @@ impl Window {
         }
     }
 
+    pub fn get_position(&self) -> (isize, isize) {
+        match *self {
+            #[cfg(feature = "x11")]
+            Window::X11(ref w) => w.get_position(),
+            #[cfg(feature = "wayland")]
+            Window::Wayland(ref w) => w.get_position(),
+        }
+    }
+
     pub fn topmost(&self, _topmost: bool) {
         // We will just do nothing until it is implemented so that nothing breaks
     }

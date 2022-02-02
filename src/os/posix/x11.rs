@@ -658,6 +658,17 @@ impl Window {
     }
 
     #[inline]
+    pub fn get_position(&self) -> (isize, isize) {
+        let (mut x, mut y) = (0, 0);
+
+        unsafe {
+            todo!("get_position");
+        }
+
+        (x as isize, y as isize)
+    }
+
+    #[inline]
     pub fn get_size(&self) -> (usize, usize) {
         (self.width as usize, self.height as usize)
     }

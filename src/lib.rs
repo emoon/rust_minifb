@@ -359,6 +359,24 @@ impl Window {
     }
 
     ///
+    /// Gets the position of the window. This is useful if you want
+    /// to store the position of the window across sessions
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    /// // Retrieves the current window position
+    /// let (x,y) = window.get_position();
+    /// ```
+    ///
+    #[inline]
+    pub fn get_position(&self) -> (isize, isize) {
+        self.0.get_position()
+    }
+
+    ///
     /// Makes the window the topmost window and makes it stay always on top. This is useful if you
     /// want the window to float above all over windows
     ///
