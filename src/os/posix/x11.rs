@@ -24,7 +24,8 @@ use crate::mouse_handler;
 use super::common::Menu;
 use x11_dl::xlib::{
     KeyPressMask, KeyReleaseMask, KeySym, Status, XEvent, XIMPreeditNothing, XIMStatusNothing,
-    XKeyEvent, XNClientWindow, XNFocusWindow, XNInputStyle, XrmDatabase, XIC, XIM,
+    XKeyEvent, XNClientWindow, XNFocusWindow, XNInputStyle, XWindowAttributes, XrmDatabase, XIC,
+    XIM,
 };
 
 // NOTE: the x11-dl crate does not define Button6 or Button7
@@ -659,13 +660,33 @@ impl Window {
 
     #[inline]
     pub fn get_position(&self) -> (isize, isize) {
-        let (mut x, mut y) = (0, 0);
+        let (x, y);
+        let (mut nx, mut ny) = (0, 0);
+
+        // Create dummy window for child_return value
+        let mut dummy_window: mem::MaybeUninit<Window> = mem::MaybeUninit::uninit();
+        let mut attributes: mem::MaybeUninit<XWindowAttributes> = mem::MaybeUninit::uninit();
 
         unsafe {
-            todo!("get_position");
+            let root = (self.d.lib.XDefaultRootWindow)(self.d.display);
+
+            (self.d.lib.XGetWindowAttributes)(self.d.display, self.handle, attributes.as_mut_ptr());
+            x = attributes.assume_init().x;
+            y = attributes.assume_init().y;
+
+            (self.d.lib.XTranslateCoordinates)(
+                self.d.display,
+                self.handle,
+                root,
+                x,
+                y,
+                &mut nx,
+                &mut ny,
+                dummy_window.as_mut_ptr() as *mut u64,
+            );
         }
 
-        (x as isize, y as isize)
+        (nx as isize, ny as isize)
     }
 
     #[inline]
