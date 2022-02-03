@@ -647,6 +647,16 @@ impl Window {
             .set_geometry((x as i32, y as i32), (self.width, self.height));
     }
 
+    pub fn get_position(&self) -> (isize, isize) {
+        let (mut x, mut y) = (0, 0);
+
+        unsafe {
+            //            todo!("get_position");
+        }
+
+        (x as isize, y as isize)
+    }
+
     pub fn set_rate(&mut self, rate: Option<Duration>) {
         self.update_rate.set_rate(rate);
     }

@@ -175,6 +175,7 @@ extern "C" {
         buf_stride: u32,
     );
     fn mfb_set_position(window: *mut c_void, x: i32, y: i32);
+    fn mfb_get_position(window: *const c_void, x: *mut i32, y: *mut i32);
     fn mfb_set_key_callback(
         window: *mut c_void,
         target: *mut c_void,
@@ -412,6 +413,15 @@ impl Window {
     #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
         unsafe { mfb_set_position(self.window_handle, x as i32, y as i32) }
+    }
+
+    #[inline]
+    pub fn get_position(&self) -> (isize, isize) {
+        let (mut x, mut y) = (0, 0);
+        unsafe {
+            mfb_get_position(self.window_handle, &mut x, &mut y);
+        }
+        (x as isize, y as isize)
     }
 
     #[inline]

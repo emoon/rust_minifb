@@ -559,6 +559,23 @@ void mfb_set_position(void* window, int x, int y)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+void mfb_get_position(const void* window, int *px, int *py)
+{
+	OSXWindow* win = (OSXWindow*)window;
+	const NSRect rectW = [win frame];
+	if( px != NULL ) {
+		*px = rectW.origin.x;
+	}
+	if( py != NULL ) {
+		const NSRect msf = [[NSScreen mainScreen] frame];
+		const float height = msf.size.height;
+		const float h = rectW.size.height;
+		*py = height - ( rectW.origin.y + h ); // origin is from bottom
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 int mfb_should_close(void* window)
 {
 	OSXWindow* win = (OSXWindow*)window;
