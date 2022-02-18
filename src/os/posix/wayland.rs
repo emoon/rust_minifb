@@ -648,11 +648,8 @@ impl Window {
     }
 
     pub fn get_position(&self) -> (isize, isize) {
-        let (mut x, mut y) = (0, 0);
-
-        unsafe {
-            //            todo!("get_position");
-        }
+        let (x, y) = (0, 0);
+        // todo!("get_position");
 
         (x as isize, y as isize)
     }
