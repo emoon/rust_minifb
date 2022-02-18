@@ -1,7 +1,7 @@
 [package]
 name = "minifb"
 version = "0.20.0"
-license = "MIT/Apache-2.0"
+license = "MIT OR Apache-2.0"
 authors = ["Daniel Collin <daniel@collin.com>"]
 description = "Cross-platform window setup with optional bitmap rendering"
 keywords = ["windowing", "window", "framebuffer"]
@@ -46,7 +46,7 @@ wayland = ["wayland-client", "wayland-protocols", "wayland-cursor", "tempfile", 
 wayland-client = {version = "0.29", optional = true}
 wayland-protocols = { version = "0.29", features = ["client", "unstable_protocols"], optional = true }
 wayland-cursor = {version = "0.29", optional = true}
-tempfile = {version = "3.2", optional = true}
+tempfile = {version = "3.3", optional = true}
 xkb = {version = "0.2.1", optional = true}
 xkbcommon-sys = {version = "0.7.5", optional = true}
 x11-dl = {version = "2.19.1", optional = true}
