@@ -30,9 +30,9 @@ use xkb::keymap::Keymap;
 use std::cell::RefCell;
 use std::ffi::c_void;
 use std::fs::File;
-use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::io::{self, Seek, SeekFrom, Write};
 use std::mem;
-use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+use std::os::unix::io::{AsRawFd, RawFd};
 use std::rc::Rc;
 use std::slice;
 use std::sync::mpsc;
@@ -1073,19 +1073,28 @@ impl Window {
         match keymap {
             KeymapFormat::XkbV1 => {
                 unsafe {
-                    // Read fd content into Vec
-                    let mut file = File::from_raw_fd(fd);
-                    let mut v = Vec::with_capacity(len as usize);
-                    v.set_len(len as usize);
-                    file.read_exact(&mut v)?;
+                    // The file descriptor must be memory-mapped (with MAP_PRIVATE).
+                    let addr = libc::mmap(
+                        std::ptr::null_mut(),
+                        len as usize,
+                        libc::PROT_READ,
+                        libc::MAP_PRIVATE,
+                        fd,
+                        0,
+                    );
+                    if addr == libc::MAP_FAILED {
+                        return Err(std::io::Error::last_os_error());
+                    }
 
                     let ctx = xkbcommon_sys::xkb_context_new(0);
                     let kb_map_ptr = xkbcommon_sys::xkb_keymap_new_from_string(
                         ctx,
-                        v.as_ptr() as *const _ as *const std::os::raw::c_char,
+                        addr as *const i8,
                         xkbcommon_sys::xkb_keymap_format::XKB_KEYMAP_FORMAT_TEXT_V1,
                         0,
                     );
+
+                    libc::munmap(addr, len as usize);
 
                     // Wrap keymap
                     Ok(Keymap::from_ptr(kb_map_ptr as *mut _ as *mut c_void))
