@@ -457,11 +457,11 @@ impl WaylandInput {
         &self.pointer
     }
 
-    fn iter_keyboard_events(&self) -> mpsc::TryIter<wl_keyboard::Event> {
+    fn iter_keyboard_events(&self) -> mpsc::TryIter<'_, wl_keyboard::Event> {
         self.kb_events.try_iter()
     }
 
-    fn iter_pointer_events(&self) -> mpsc::TryIter<wl_pointer::Event> {
+    fn iter_pointer_events(&self) -> mpsc::TryIter<'_, wl_pointer::Event> {
         self.pt_events.try_iter()
     }
 }

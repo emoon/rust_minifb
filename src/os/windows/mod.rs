@@ -1217,7 +1217,7 @@ impl Menu {
         }
     }
 
-    fn format_name(menu_item: &MenuItem, key_name: &'static str) -> String {
+    fn format_name(menu_item: &MenuItem<'_>, key_name: &'static str) -> String {
         let mut name = menu_item.label.clone();
 
         name.push('\t');
@@ -1256,7 +1256,7 @@ impl Menu {
         1
     }
 
-    fn get_virt_key(menu_item: &MenuItem, key: raw::c_int) -> u32 {
+    fn get_virt_key(menu_item: &MenuItem<'_>, key: raw::c_int) -> u32 {
         let mut virt = Self::is_key_virtual_range(key);
 
         if (menu_item.modifier & MENU_KEY_ALT) == MENU_KEY_ALT {
@@ -1274,7 +1274,7 @@ impl Menu {
         virt
     }
 
-    fn add_accel(&mut self, vk: raw::c_int, menu_item: &MenuItem) {
+    fn add_accel(&mut self, vk: raw::c_int, menu_item: &MenuItem<'_>) {
         let vk_accel = Self::map_key_to_vk_accel(menu_item.key);
         let virt = Self::get_virt_key(menu_item, vk);
         let accel = winuser::ACCEL {
@@ -1286,7 +1286,7 @@ impl Menu {
         self.accel_table.push(accel);
     }
 
-    pub fn add_menu_item(&mut self, menu_item: &MenuItem) -> MenuItemHandle {
+    pub fn add_menu_item(&mut self, menu_item: &MenuItem<'_>) -> MenuItemHandle {
         let vk_accel = Self::map_key_to_vk_accel(menu_item.key);
 
         unsafe {

@@ -3,7 +3,11 @@
 //! a 32-bit buffer. minifb also support keyboard, mouse input and menus on selected operating
 //! systems.
 //!
-#![deny(missing_debug_implementations)]
+#![deny(
+    missing_debug_implementations,
+    missing_copy_implementations,
+    rust_2018_idioms
+)]
 
 use std::fmt;
 use std::os::raw;
@@ -133,7 +137,7 @@ use self::os::windows as imp;
 pub struct Window(imp::Window);
 
 impl fmt::Debug for Window {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Window").field(&format_args!("..")).finish()
     }
 }
@@ -901,7 +905,7 @@ pub struct MenuHandle(pub u64);
 pub struct Menu(imp::Menu);
 
 impl fmt::Debug for Menu {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Menu").field(&format_args!("..")).finish()
     }
 }
@@ -934,7 +938,7 @@ impl Menu {
 
     #[inline]
     /// Adds an item to the menu
-    pub fn add_menu_item(&mut self, item: &MenuItem) -> MenuItemHandle {
+    pub fn add_menu_item(&mut self, item: &MenuItem<'_>) -> MenuItemHandle {
         self.0.add_menu_item(item)
     }
 
@@ -948,7 +952,7 @@ impl Menu {
     /// menu.add_item("test", 1).shortcut(Key::A, 0).build()
     /// # ;
     /// ```
-    pub fn add_item(&mut self, name: &str, id: usize) -> MenuItem {
+    pub fn add_item(&mut self, name: &str, id: usize) -> MenuItem<'_> {
         MenuItem {
             id,
             label: name.to_owned(),
@@ -1006,7 +1010,7 @@ impl<'a> Clone for MenuItem<'a> {
 
 impl<'a> MenuItem<'a> {
     /// Creates a new menu item
-    pub fn new(name: &str, id: usize) -> MenuItem {
+    pub fn new(name: &str, id: usize) -> MenuItem<'_> {
         MenuItem {
             id,
             label: name.to_owned(),

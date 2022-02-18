@@ -26,7 +26,7 @@ impl fmt::Display for Error {
 }
 
 impl fmt::Debug for Error {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Error::MenusNotSupported => write!(fmt, "{}", self),
             Error::MenuExists(ref e) => write!(fmt, "{}, {:?}", self, e),

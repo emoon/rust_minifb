@@ -178,7 +178,7 @@ impl DisplayInfo {
                 _context: context,
                 cursor_lib,
                 // the following are determined later...
-                cursors: [0; 8],
+                cursors: [0_u64; 8],
                 keyb_ext: false,
                 wm_delete_window: 0,
             })

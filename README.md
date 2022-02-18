@@ -2,7 +2,7 @@
 [![Crates.io](https://img.shields.io/crates/v/minifb.svg)](https://crates.io/crates/minifb)
 [![Documentation](https://docs.rs/minifb/badge.svg)](https://docs.rs/minifb)
 
-minifb is a cross platform library written in [Rust](https://www.rust-lang.org) and that makes it easy to setup a window and to (optional) display a 32-bit pixel buffer.  It also makes it easy to get input from keyboard and mouse. Notice that minifb is primary designed for prototyping and may not include all the features found in full window handling libraries.
+minifb is a cross-platform library written in [Rust](https://www.rust-lang.org) and that makes it easy to set up a window and to (optional) display a 32-bit pixel buffer.  It also makes it easy to get input from keyboard and mouse. Notice that minifb is primary designed for prototyping and may not include all the features found in full window handling libraries.
 An example is the best way to show how it works:
 
 [Changelog](https://github.com/emoon/rust_minifb/blob/master/CHANGELOG.md)
@@ -58,7 +58,7 @@ fn main() {
 
 Status
 ------
-Currently macOS, Linux and Windows (64-bit and 32-bit) are the current supported platforms. X11 (Linux/FreeBSD/etc) support has been tested on Ubuntu (x64). Linux Wayland support is also available. Bug report(s) for other OSes/CPUs are welcome!
+Currently, macOS, Linux and Windows (64-bit and 32-bit) are the current supported platforms. X11 (Linux/FreeBSD/etc.) support has been tested on Ubuntu (x64). Linux Wayland support is also available. Bug report(s) for other OSes/CPUs are welcome!
 Notice: That after 0.13 Redox hasn't been updated and some work is required to get that working again. PR are welcome.
 
 Build instructions
