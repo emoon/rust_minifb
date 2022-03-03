@@ -51,7 +51,7 @@ pub enum MouseButton {
     Right,
 }
 
-/// The diffrent modes that can be used to decide how mouse coordinates should be handled
+/// The different modes that can be used to decide how mouse coordinates should be handled
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum MouseMode {
     /// Return mouse coords from outside of the window (may be negative)
