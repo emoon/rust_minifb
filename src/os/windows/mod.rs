@@ -218,7 +218,11 @@ unsafe extern "system" fn wnd_proc(
         winuser::WM_LBUTTONUP => wnd.mouse.state[0] = false,
 
         winuser::WM_MOUSEMOVE => {
-            let button_checks = [winuser::MK_LBUTTON, winuser::MK_MBUTTON, winuser::MK_RBUTTON];
+            let button_checks = [
+                winuser::MK_LBUTTON,
+                winuser::MK_MBUTTON,
+                winuser::MK_RBUTTON,
+            ];
 
             for i in 0..3 {
                 if (wparam & button_checks[i]) == button_checks[i] {
