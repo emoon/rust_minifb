@@ -34,7 +34,8 @@ features = [
     "winuser",
     "wingdi",
     "libloaderapi",
-    "errhandlingapi"
+    "errhandlingapi",
+    "fileapi"
 ]
 
 [features]
