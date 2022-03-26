@@ -133,6 +133,9 @@ impl DisplayInfo {
                 return Err(Error::WindowCreate("XOpenDisplay failed".to_owned()));
             }
 
+            let mut supported = 0;
+            (lib.XkbSetDetectableAutoRepeat)(display, 1, &mut supported);
+
             let screen;
             let visual;
             let depth;
@@ -1040,6 +1043,29 @@ impl Window {
             }
 
             xlib::KeyRelease => {
+                /* After XkbSetDetectableAutoRepeat it looks like we don't
+                   have to try to fix the x11 repeat issue this way, but code left as reference in one commit)
+                let mut is_retriggered = false;
+                let t = (self.d.lib.XEventsQueued)(self.d.display, 1 /*QueuedAfterReading*/);
+
+                if t != 0 {
+                    let mut nev: xlib::XEvent = mem::zeroed();
+                    (self.d.lib.XPeekEvent)(self.d.display, &mut nev);
+
+                    if nev.type_ == xlib::KeyPress
+                        && nev.key.time == ev.key.time
+                        && nev.key.keycode == ev.key.keycode
+                    {
+                        is_retriggered = true;
+                        (self.d.lib.XNextEvent)(self.d.display, &mut ev);
+                    }
+                }
+
+                if is_retriggered {
+                    println!("retrigged");
+                }
+                 */
+
                 self.process_key(ev, false /* is_down */);
             }
 
