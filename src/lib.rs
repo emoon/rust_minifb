@@ -345,6 +345,9 @@ impl Window {
     ///
     /// Updates the window (this is required to call in order to get keyboard/mouse input, etc)
     ///
+    /// Notice that when using this function then `update_with_buffer` should not be called for the same window.
+    /// Only one of the functions should be used.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -365,9 +368,6 @@ impl Window {
     /// Checks if the window is still open. A window can be closed by the user (by for example
     /// pressing the close button on the window) It's up to the user to make sure that this is
     /// being checked and take action depending on the state.
-    ///
-    /// Notice that when using this function then `update_with_buffer` should not be called for the same window.
-    /// Only one of the functions should be used.
     ///
     ///
     /// # Examples
