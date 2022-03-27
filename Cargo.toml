@@ -1,6 +1,6 @@
 [package]
 name = "minifb"
-version = "0.20.0"
+version = "0.21.0"
 license = "MIT OR Apache-2.0"
 authors = ["Daniel Collin <daniel@collin.com>"]
 description = "Cross-platform window setup with optional bitmap rendering"
@@ -12,12 +12,10 @@ build = "build.rs"
 edition = "2018"
 readme = "README.md"
 
-exclude = [
-  "resources/"
-]
+exclude = ["resources/"]
 
 [badges]
-maintenance = {status = "actively-developed"}
+maintenance = { status = "actively-developed" }
 
 [dev-dependencies]
 png = "0.17"
@@ -30,28 +28,32 @@ raw-window-handle = "0.4"
 
 [target.'cfg(windows)'.dependencies.winapi]
 version = "0.3"
-features = [
-    "winuser",
-    "wingdi",
-    "libloaderapi",
-    "errhandlingapi",
-    "fileapi"
-]
+features = ["winuser", "wingdi", "libloaderapi", "errhandlingapi", "fileapi"]
 
 [features]
 default = ["wayland", "x11"]
 x11 = ["x11-dl", "xkb", "libc"]
-wayland = ["wayland-client", "wayland-protocols", "wayland-cursor", "tempfile", "xkb", "xkbcommon-sys"]
+wayland = [
+  "wayland-client",
+  "wayland-protocols",
+  "wayland-cursor",
+  "tempfile",
+  "xkb",
+  "xkbcommon-sys",
+]
 
 [target.'cfg(not(any(target_os = "macos", target_os = "redox", windows)))'.dependencies]
-wayland-client = {version = "0.29", optional = true}
-wayland-protocols = { version = "0.29", features = ["client", "unstable_protocols"], optional = true }
-wayland-cursor = {version = "0.29", optional = true}
-tempfile = {version = "3.3", optional = true}
-xkb = {version = "0.2.1", optional = true}
-xkbcommon-sys = {version = "0.7.5", optional = true}
-x11-dl = {version = "2.19.1", optional = true}
-libc = {version = "0.2.107", optional = true}
+wayland-client = { version = "0.29", optional = true }
+wayland-protocols = { version = "0.29", features = [
+  "client",
+  "unstable_protocols",
+], optional = true }
+wayland-cursor = { version = "0.29", optional = true }
+tempfile = { version = "3.3", optional = true }
+xkb = { version = "0.2.1", optional = true }
+xkbcommon-sys = { version = "0.7.5", optional = true }
+x11-dl = { version = "2.19.1", optional = true }
+libc = { version = "0.2.107", optional = true }
 
 [target.x86_64-unknown-redox.dependencies]
 orbclient = "0.3.20"
