@@ -2,6 +2,19 @@
 
 This project follows semantic versioning.
 
+### v0.21 (2022-03-27)
+
+- [fixed] Holding down a key on x11 would no repeat correctly 
+- [fixed] Windows dependency cleanups (Thanks Arnab Animesh Das!) 
+- [fixed] Fixed mouse button being "stuck" when moved out side of window, released and then moved by in on Windows (Thanks Arnab Animesh Das for bug report!) 
+- [fixed] Memory-map the keymap FD on Wayland to fix EOF error (Thanks Greg Depoire--Ferrer!)
+- [added] getter for window position (Thanks Andreas Neukoetter!)
+- [fixed] Fix clippy lints under windows (Thanks Kevin K!)
+- [added] Add `set_icon()` method to set a window icon at runtime (Thanks Kevin K!)
+- [added] inputcallback: add a callback for key events and key_handler: add a callback for key events (Thanks xobs and vemoo!)
+- [fixed] macOS: Fix segmentation fault when resizing window. (Thanks KaDiWa!)
+- [fixed] Various x11 and wayland fixes, version updates (Thanks vemoo!)
+
 ### v0.20 (2021-11-28)
 
 - [API BREAKAGE] Changing return types of get_keys from Option<Vec<Key>> to Vec<Key> (Thanks Zij-IT!)
