@@ -13,7 +13,7 @@ Usage
 ```toml
 # Cargo.toml
 [dependencies]
-minifb = "0.20"
+minifb = "0.21"
 ```
 
 Example
