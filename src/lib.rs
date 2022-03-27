@@ -306,7 +306,8 @@ impl Window {
     /// The upper 8-bits are ignored, the next 8-bits are for the red channel, the next 8-bits
     /// afterwards for the green channel, and the lower 8-bits for the blue channel.
     ///
-    /// Notice that the buffer needs to be at least the size of the created window.
+    /// Notice that the buffer needs to be at least the size of the created window. Also only one of
+    /// `update_with_buffer` or `update` should be called for updating a single window.
     ///
     /// # Examples
     ///
@@ -364,6 +365,10 @@ impl Window {
     /// Checks if the window is still open. A window can be closed by the user (by for example
     /// pressing the close button on the window) It's up to the user to make sure that this is
     /// being checked and take action depending on the state.
+    ///
+    /// Notice that when using this function then `update_with_buffer` should not be called for the same window.
+    /// Only one of the functions should be used.
+    ///
     ///
     /// # Examples
     ///
