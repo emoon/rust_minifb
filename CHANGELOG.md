@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.22 (2022-03-27)
+
+- [fixed] Updated docs to make it a bit more clear that only one of `update_with_buffer` or `update` should be used for updating a window. 
+
 ### v0.21 (2022-03-27)
 
 - [fixed] Holding down a key on x11 would no repeat correctly 
