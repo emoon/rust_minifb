@@ -41,6 +41,12 @@ wayland = [
   "xkb",
   "xkbcommon-sys",
 ]
+web = [
+    "wasm-bindgen",
+    "web-sys",
+    "instant/wasm-bindgen",
+    "instant/inaccurate"
+]
 
 [target.'cfg(not(any(target_os = "macos", target_os = "redox", windows)))'.dependencies]
 wayland-client = { version = "0.29", optional = true }
@@ -55,5 +61,34 @@ xkbcommon-sys = { version = "0.7.5", optional = true }
 x11-dl = { version = "2.19.1", optional = true }
 libc = { version = "0.2.107", optional = true }
 
+
+
 [target.x86_64-unknown-redox.dependencies]
 orbclient = "0.3.20"
+
+
+# The `wasm-bindgen` crate provides the bare minimum functionality needed
+# to interact with JavaScript.
+[target.'cfg(target_arch = "wasm32")'.dependencies.wasm-bindgen]
+version = "0.2.79"
+optional = true
+features = ["serde-serialize"]
+
+# The `web-sys` crate allows you to interact with the various browser APIs,
+# like the DOM.
+[target.'cfg(target_arch = "wasm32")'.dependencies.web-sys]
+version = "0.3.56"
+optional = true
+features = [
+"console", "Window", "Document", "Navigator", "Element", "Node", "ImageData", "HtmlCanvasElement", "HtmlImageElement", "CanvasRenderingContext2d",
+"Headers", "Request", "RequestInit", "RequestMode", "Response", "Blob", "Url", "Gamepad", "GamepadButton", "GamepadEvent", 'MouseEvent', 'KeyboardEvent',
+]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+instant = { version = "0.1.12", features = [ "wasm-bindgen", "inaccurate" ] }
+js-sys = "0.3.56"
+wasm-bindgen-futures = "0.4.29"
+serde = { version = "1.0.136", features = ["derive"] }
+serde_derive = "1.0.123"
+futures = "0.3.12"
+

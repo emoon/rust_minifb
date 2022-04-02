@@ -124,6 +124,8 @@ use self::os::macos as imp;
 use self::os::posix as imp;
 #[cfg(target_os = "redox")]
 use self::os::redox as imp;
+#[cfg(target_arch = "wasm32")]
+use self::os::wasm as imp;
 #[cfg(target_os = "windows")]
 use self::os::windows as imp;
 ///
@@ -804,7 +806,7 @@ impl Window {
     /// Get POSIX menus. Will only return menus on POSIX-like OSes like Linux or BSD
     /// otherwise ```None```
     ///
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    #[cfg(any(target_os = "macos", target_os = "windows", target_arch = "wasm32"))]
     pub fn get_posix_menus(&self) -> Option<&Vec<UnixMenu>> {
         None
     }
