@@ -26,6 +26,7 @@ use wayland_protocols::xdg_shell::client::xdg_surface::XdgSurface;
 use wayland_protocols::xdg_shell::client::xdg_toplevel::XdgToplevel;
 use wayland_protocols::xdg_shell::client::xdg_wm_base::XdgWmBase;
 use xkb::keymap::Keymap;
+use xkb::state::State;
 
 use std::cell::RefCell;
 use std::ffi::c_void;
@@ -489,6 +490,7 @@ pub struct Window {
     key_handler: KeyHandler,
     // Option because MaybeUninit's get_ref() is nightly-only
     keymap: Option<Keymap>,
+    keymap_state: Option<State>,
     update_rate: UpdateRate,
     menu_counter: MenuHandle,
     menus: Vec<UnixMenu>,
@@ -553,6 +555,7 @@ impl Window {
 
             key_handler: KeyHandler::new(),
             keymap: None,
+            keymap_state: None,
             update_rate: UpdateRate::new(),
             menu_counter: MenuHandle(0),
             menus: Vec::new(),
@@ -761,7 +764,9 @@ impl Window {
 
             match event {
                 Event::Keymap { format, fd, size } => {
-                    self.keymap = Some(Self::handle_keymap(format, fd, size).unwrap());
+                    let keymap = Self::handle_keymap(format, fd, size).unwrap();
+                    self.keymap_state = Some(keymap.state());
+                    self.keymap = Some(keymap);
                 }
                 Event::Enter { .. } => {
                     self.active = true;
@@ -770,26 +775,13 @@ impl Window {
                     self.active = false;
                 }
                 Event::Key { key, state, .. } => {
-                    if let Some(ref keymap) = self.keymap {
+                    if let Some(ref keymap_state) = self.keymap_state {
                         Self::handle_key(
-                            keymap,
+                            keymap_state,
                             key + KEY_XKB_OFFSET,
                             state,
                             &mut self.key_handler,
                         );
-                    }
-
-                    if state == wl_keyboard::KeyState::Pressed {
-                        let keysym = xkb::Keysym(key);
-                        let code_point = keysym.utf32();
-                        if code_point != 0 {
-                            // Taken from GLFW
-                            if !(code_point < 32 || (code_point > 126 && code_point < 160)) {
-                                if let Some(ref mut callback) = self.key_handler.key_callback {
-                                    callback.add_char(code_point);
-                                }
-                            }
-                        }
                     }
                 }
                 Event::Modifiers {
@@ -799,8 +791,7 @@ impl Window {
                     group,
                     ..
                 } => {
-                    if let Some(ref keymap) = self.keymap {
-                        let mut state = keymap.state();
+                    if let Some(ref mut state) = self.keymap_state {
                         let mut update = state.update();
                         update.mask(mods_depressed, mods_latched, mods_locked, 0, 0, group);
                     }
@@ -937,17 +928,26 @@ impl Window {
     }
 
     fn handle_key(
-        keymap: &Keymap,
+        keymap_state: &State,
         key: u32,
         state: wl_keyboard::KeyState,
         key_handler: &mut KeyHandler,
     ) {
         let is_down = state == wl_keyboard::KeyState::Pressed;
-        let state = keymap.state();
-        let key_xkb = state.key(key);
+        let key_xkb = keymap_state.key(key);
 
         if let Some(keysym) = key_xkb.sym() {
             use xkb::key;
+
+            if state == wl_keyboard::KeyState::Pressed {
+                // Taken from GLFW
+                let code_point = keysym.utf32();
+                if !(code_point < 32 || (code_point > 126 && code_point < 160)) {
+                    if let Some(ref mut callback) = key_handler.key_callback {
+                        callback.add_char(code_point);
+                    }
+                }
+            }
 
             let key_i = match keysym {
                 key::_0 => Key::Key0,
