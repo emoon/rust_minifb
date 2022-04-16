@@ -1089,7 +1089,7 @@ impl Window {
                     let ctx = xkbcommon_sys::xkb_context_new(0);
                     let kb_map_ptr = xkbcommon_sys::xkb_keymap_new_from_string(
                         ctx,
-                        addr as *const i8,
+                        addr as _,
                         xkbcommon_sys::xkb_keymap_format::XKB_KEYMAP_FORMAT_TEXT_V1,
                         0,
                     );

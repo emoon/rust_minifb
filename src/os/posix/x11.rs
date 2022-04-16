@@ -397,7 +397,7 @@ impl Window {
             );
 
             let empty_string = b"\0";
-            (d.lib.XSetLocaleModifiers)(empty_string.as_ptr() as *const i8);
+            (d.lib.XSetLocaleModifiers)(empty_string.as_ptr() as _);
 
             let xim = (d.lib.XOpenIM)(
                 d.display,
@@ -614,8 +614,8 @@ impl Window {
     #[inline]
     pub fn set_icon(&mut self, icon: Icon) {
         // XChangeProperty
-        let net_string_ptr = b"_NET_WM_ICON\0".as_ptr() as *const i8;
-        let cardinal_ptr = b"CARDINAL\0".as_ptr() as *const i8;
+        let net_string_ptr = b"_NET_WM_ICON\0".as_ptr() as _;
+        let cardinal_ptr = b"CARDINAL\0".as_ptr() as _;
 
         unsafe {
             if let Icon::Buffer(ptr, len) = icon {
