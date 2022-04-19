@@ -5,6 +5,11 @@
 //!
 #![deny(missing_debug_implementations)]
 
+#[cfg(not(any(target_os = "macos", target_os = "redox", windows)))]
+#[cfg(feature = "wayland")]
+#[macro_use]
+extern crate dlib;
+
 use std::fmt;
 use std::os::raw;
 

@@ -13,6 +13,10 @@ mod common;
 mod wayland;
 #[cfg(feature = "x11")]
 mod x11;
+#[cfg(feature = "wayland")]
+mod xkb_ffi;
+#[cfg(feature = "wayland")]
+mod xkb_keysyms;
 
 use crate::icon::Icon;
 use crate::Result;
