@@ -2,6 +2,12 @@
 
 This project follows semantic versioning.
 
+### v0.23 (2022-04-19)
+
+- [fixed] wayland: Fix key character callback & Reduce wayland dependencies (Thanks vmedea!) 
+- [fixed] Use coercion on types failing compilation on 64 bit raspbian bullseye (Thanks wtfuzz!)
+- [added] WASM support. Thanks dc740 and tversteeg! See https://github.com/dc740/minifb-async-examples for example. 
+
 ### v0.22 (2022-03-27)
 
 - [fixed] Updated docs to make it a bit more clear that only one of `update_with_buffer` or `update` should be used for updating a window. 
