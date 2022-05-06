@@ -440,6 +440,22 @@ impl Window {
             }
 
             (d.lib.XStoreName)(d.display, handle, name.as_ptr());
+            if let Ok(name_len) = c_int::try_from(name.to_bytes().len()) {
+                let net_wm_name = d.intern_atom("_NET_WM_NAME", false);
+                let utf8_string = d.intern_atom("UTF8_STRING", false);
+                (d.lib.XChangeProperty)(
+                    d.display,
+                    handle,
+                    net_wm_name,
+                    utf8_string,
+                    8,
+                    xlib::PropModeReplace,
+                    name.as_ptr() as *const c_uchar,
+                    name_len,
+                );
+            } else {
+                return Err(Error::WindowCreate("Window name too long".to_owned()));
+            }
 
             (d.lib.XSelectInput)(
                 d.display,
