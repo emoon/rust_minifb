@@ -24,7 +24,7 @@ png = "0.17"
 cc = "1.0"
 
 [dependencies]
-raw-window-handle = "0.4"
+raw-window-handle = "0.5"
 
 [target.'cfg(windows)'.dependencies.winapi]
 version = "0.3"
