@@ -567,8 +567,9 @@ void mfb_get_position(const void* window, int *px, int *py)
 		*px = rectW.origin.x;
 	}
 	if( py != NULL ) {
-		const NSRect msf = [[NSScreen mainScreen] frame];
-		const float height = msf.size.height;
+		const NSScreen *screen = [win screen];
+		const NSRect wsf = [screen frame];
+		const float height = wsf.size.height;
 		const float h = rectW.size.height;
 		*py = height - ( rectW.origin.y + h ); // origin is from bottom
 	}
