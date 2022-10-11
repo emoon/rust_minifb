@@ -151,8 +151,6 @@ fn char_down(window: &mut Window, code_point: u32) {
     }
 }
 
-
-
 #[cfg(target_arch = "x86_64")]
 unsafe fn set_window_long(window: windef::HWND, data: basetsd::LONG_PTR) -> basetsd::LONG_PTR {
     winuser::SetWindowLongPtrW(window, winuser::GWLP_USERDATA, data)
