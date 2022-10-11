@@ -170,6 +170,25 @@ unsafe fn set_window_long(window: windef::HWND, data: ntdef::LONG) -> ntdef::LON
 unsafe fn get_window_long(window: windef::HWND) -> ntdef::LONG {
     winuser::GetWindowLongW(window, winuser::GWLP_USERDATA)
 }
+#[cfg(target_arch = "aarch64")]
+unsafe fn set_window_long(window: windef::HWND, data: basetsd::LONG_PTR) -> basetsd::LONG_PTR {
+    winuser::SetWindowLongPtrW(window, winuser::GWLP_USERDATA, data)
+}
+
+#[cfg(target_arch = "aarch64")]
+unsafe fn get_window_long(window: windef::HWND) -> basetsd::LONG_PTR {
+    winuser::GetWindowLongPtrW(window, winuser::GWLP_USERDATA)
+}
+
+#[cfg(target_arch = "arm")]
+unsafe fn set_window_long(window: windef::HWND, data: basetsd::LONG_PTR) -> basetsd::LONG_PTR {
+    winuser::SetWindowLongPtrW(window, winuser::GWLP_USERDATA, data)
+}
+
+#[cfg(target_arch = "arm")]
+unsafe fn get_window_long(window: windef::HWND) -> basetsd::LONG_PTR {
+    winuser::GetWindowLongPtrW(window, winuser::GWLP_USERDATA)
+}
 
 unsafe extern "system" fn wnd_proc(
     window: windef::HWND,
