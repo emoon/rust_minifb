@@ -112,7 +112,7 @@ impl StatusText {
 
     pub fn draw(&self, screen: &mut [u32], pos: (usize, usize), text: &str) {
         let mut x = pos.0;
-        let mut y = pos.1;
+        let y = pos.1;
         for c in text.chars() {
             let mut index = c as usize - ' ' as usize;
             if index > MICROKNIGHT_LAYOUT.len() as usize {
