@@ -5,7 +5,7 @@ const HEIGHT: usize = 360;
 
 fn main() {
     let mut window = Window::new(
-        "Noise Test - Press ESC to exit",
+        "Plasma + Text Example",
         WIDTH,
         HEIGHT,
         WindowOptions {
