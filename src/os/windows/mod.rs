@@ -1087,7 +1087,11 @@ impl Window {
         for i in 0..self.menus.len() {
             if self.menus[i].menu_handle == handle.0 as windef::HMENU {
                 unsafe {
-                    let _t = winuser::RemoveMenu(main_menu, i as minwindef::UINT, 0);
+                    let _t = winuser::RemoveMenu(
+                        main_menu,
+                        i as minwindef::UINT,
+                        winuser::MF_BYPOSITION,
+                    );
                     winuser::DrawMenuBar(self.window.unwrap());
                 }
                 self.menus.swap_remove(i);
