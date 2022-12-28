@@ -46,7 +46,7 @@ wayland = [
 web = ["wasm-bindgen", "web-sys", "instant/wasm-bindgen", "instant/inaccurate"]
 
 [target.'cfg(not(any(target_os = "macos", target_os = "redox", windows)))'.dependencies]
-wayland-client = { version = "0.29", optional = true }
+wayland-client = { version = "0.30", optional = true }
 wayland-protocols = { version = "0.29", features = [
   "client",
   "unstable_protocols",
