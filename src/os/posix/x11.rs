@@ -724,7 +724,7 @@ impl Window {
                 y,
                 &mut nx,
                 &mut ny,
-                dummy_window.as_mut_ptr() as *mut u64,
+                dummy_window.as_mut_ptr() as *mut c_ulong,
             );
         }
 
