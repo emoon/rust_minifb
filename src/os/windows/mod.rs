@@ -207,6 +207,12 @@ unsafe extern "system" fn wnd_proc(
     let mut wnd: &mut Window = mem::transmute(user_data);
 
     match msg {
+        winuser::WM_SYSCOMMAND => {
+            if wparam == winuser::SC_KEYMENU {
+                return 0;
+            }
+        }
+
         winuser::WM_MOUSEWHEEL => {
             let scroll = ((((wparam as u32) >> 16) & 0xffff) as i16) as f32 * 0.1;
             wnd.mouse.scroll = scroll;
@@ -220,6 +226,11 @@ unsafe extern "system" fn wnd_proc(
         }
 
         winuser::WM_KEYDOWN => {
+            update_key_state(wnd, (lparam as u32) >> 16, true);
+            return 0;
+        }
+
+        winuser::WM_SYSKEYDOWN => {
             update_key_state(wnd, (lparam as u32) >> 16, true);
             return 0;
         }
@@ -265,6 +276,11 @@ unsafe extern "system" fn wnd_proc(
         }
 
         winuser::WM_KEYUP => {
+            update_key_state(wnd, (lparam as u32) >> 16, false);
+            return 0;
+        }
+
+        winuser::WM_SYSKEYUP => {
             update_key_state(wnd, (lparam as u32) >> 16, false);
             return 0;
         }
