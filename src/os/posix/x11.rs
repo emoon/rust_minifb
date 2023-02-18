@@ -124,6 +124,10 @@ impl DisplayInfo {
             let lib = xlib::Xlib::open()
                 .map_err(|e| Error::WindowCreate(format!("failed to load Xlib: {:?}", e)))?;
 
+            if (lib.XInitThreads)() == 0 {
+                panic!("failed to init X11 threads");
+            }
+
             let cursor_lib = xcursor::Xcursor::open()
                 .map_err(|e| Error::WindowCreate(format!("failed to load XCursor: {:?}", e)))?;
 
