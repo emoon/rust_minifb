@@ -2,6 +2,16 @@
 
 This project follows semantic versioning.
 
+### v0.24 (2023-02-18)
+
+- [fixed] Windows: Unable to use F10 key 
+- [fixed] set byposition flag when removing menus (Thanks piksel!)
+- [fixed] fixed compilation for x11 32-bit mode (Thanks HBehrens!) 
+- [fixed] X11 window names not supporting UTF-8 (Thanks edarogh!)
+- [fixed] `get_window_position` for multiscreen setup on macOS (Thanks AnderasOM!)
+- [fixed] Using minifb on multiple threads under x11 works and doesn't crash (Thanks to konnorandrews for suggestion!)  
+- [Added] ARM and AARCH64 Windows Support (Thanks smb123w64gb!)
+
 ### v0.23 (2022-04-19)
 
 - [fixed] wayland: Fix key character callback & Reduce wayland dependencies (Thanks vmedea!) 
