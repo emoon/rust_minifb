@@ -20,8 +20,6 @@ Example
 -------
 
 ```rust
-extern crate minifb;
-
 use minifb::{Key, Window, WindowOptions};
 
 const WIDTH: usize = 640;
