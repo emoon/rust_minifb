@@ -11,12 +11,13 @@ use crate::Result;
 use crate::{CursorStyle, MenuHandle, UnixMenu};
 
 use std::{
-    str::FromStr,
+    convert::TryFrom,
     ffi::{c_void, CStr, CString},
-    convert::TryFrom, mem, os::raw, ptr,
-    os::raw::{
-        c_char, c_int, c_long, c_uchar, c_uint, c_ulong
-    },
+    mem,
+    os::raw,
+    os::raw::{c_char, c_int, c_long, c_uchar, c_uint, c_ulong},
+    ptr,
+    str::FromStr,
 };
 
 use crate::buffer_helper;
@@ -146,8 +147,8 @@ impl DisplayInfo {
                 return Err(Error::WindowCreate("XOpenDisplay failed".to_owned()));
             }
 
-	        let xrandr = Xrandr_2_2_0::open()
-            	.map_err(|e| Error::WindowCreate(format!("failed to load XRandr: {:?}", e)))?;
+            let xrandr = Xrandr_2_2_0::open()
+                .map_err(|e| Error::WindowCreate(format!("failed to load XRandr: {:?}", e)))?;
 
             let mut supported = 0;
             (lib.XkbSetDetectableAutoRepeat)(display, 1, &mut supported);
@@ -155,7 +156,7 @@ impl DisplayInfo {
             let screen;
             let visual;
             let depth;
-	    	    
+
             let monitors = Self::get_monitor_info(&lib, xrandr, display);
 
             dbg!(&monitors);
@@ -204,10 +205,10 @@ impl DisplayInfo {
                 cursors: [0; 8],
                 keyb_ext: false,
                 wm_delete_window: 0,
-		        monitors
+                monitors,
             })
         }
-	}
+    }
     fn calc_dpi_factor(
         (width_px, height_px): (u32, u32),
         (width_mm, height_mm): (u64, u64),
@@ -217,7 +218,9 @@ impl DisplayInfo {
             println!("XRandR reported that the display's 0mm in size, which is certifiably insane. Please report this problem");
             1.0
         } else {
-            let ppmm = ((width_px as f32 * height_px as f32) / (width_mm as f32 * height_mm as f32)).sqrt();
+            let ppmm = ((width_px as f32 * height_px as f32)
+                / (width_mm as f32 * height_mm as f32))
+                .sqrt();
             // Quantize 1/12 step size
             ((ppmm * (12.0 * 25.4 / 96.0)).round() / 12.0).max(1.0)
         }
@@ -246,7 +249,7 @@ impl DisplayInfo {
         xrandr: &Xrandr_2_2_0,
         resources: *mut XRRScreenResources,
         crtc: *mut XRRCrtcInfo,
-        display: *mut xlib::Display
+        display: *mut xlib::Display,
     ) -> f32 {
         let output_info = (xrandr.XRRGetOutputInfo)(display, resources, *(*crtc).outputs.offset(0));
         if output_info.is_null() {
@@ -312,7 +315,9 @@ impl DisplayInfo {
                 available.push(MonitorInfo {
                     position,
                     size,
-                    dpi_scale: Self::round_dpi(Self::get_dpi(&xlib, &xrandr, resources, crtc, display)),
+                    dpi_scale: Self::round_dpi(Self::get_dpi(
+                        &xlib, &xrandr, resources, crtc, display,
+                    )),
                 });
             }
 

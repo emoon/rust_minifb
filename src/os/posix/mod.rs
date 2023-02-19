@@ -369,9 +369,7 @@ impl Window {
     pub fn dpi_scale(&mut self) -> f32 {
         match *self {
             #[cfg(feature = "x11")]
-            Window::X11(ref mut w) => {
-                w.dpi_scale()
-            }
+            Window::X11(ref mut w) => w.dpi_scale(),
             #[cfg(feature = "wayland")]
             Window::Wayland(ref mut _w) => {
                 // TODO: fix me
