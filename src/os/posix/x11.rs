@@ -19,7 +19,6 @@ use std::{
     },
 };
 
-
 use crate::buffer_helper;
 use crate::icon::Icon;
 use crate::mouse_handler;

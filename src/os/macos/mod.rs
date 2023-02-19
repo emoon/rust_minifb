@@ -767,7 +767,7 @@ impl Menu {
         }
     }
 
-    pub fn dpi_scale(&self) -> f32
+    pub fn dpi_scale(&self) -> f32 {
         unsafe {
             mfb_dpi_scale(self.window_handle)
         }
