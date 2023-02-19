@@ -28,6 +28,7 @@ use super::common::Menu;
 use x11_dl::xlib::{
     KeyPressMask, KeyReleaseMask, KeySym, Status, XEvent, XIMPreeditNothing, XIMStatusNothing,
     XKeyEvent, XNClientWindow, XNFocusWindow, XNInputStyle, XWindowAttributes, XrmDatabase, XIC,
+    XrmValue,
     XIM,
 };
 
@@ -228,10 +229,46 @@ impl DisplayInfo {
 
     unsafe fn get_xft_dpi(xlib: &xlib::Xlib, display: *mut xlib::Display) -> Option<f32> {
         (xlib.XrmInitialize)();
+
+        // Semi-ported from GLFW
         let resource_manager_str = (xlib.XResourceManagerString)(display);
         if resource_manager_str.is_null() {
             return None;
         }
+
+        let db = (xlib.XrmGetStringDatabase)(resource_manager_str);
+        if db.is_null() {
+            return None;
+        }
+        
+        let mut value: mem::MaybeUninit<XrmValue> = mem::MaybeUninit::uninit();
+        let mut t = ptr::null_mut();
+
+        dbg!();
+
+        if (xlib.XrmGetResource)(db, "Xft.dpi\0".as_ptr() as _, "Xft.Dpi\0".as_ptr() as _, &mut t, value.as_mut_ptr()) == 0 {
+            dbg!(t);
+
+            if t.is_null() {
+                return None;
+            }
+
+            if let Ok(cstr) = CStr::from_ptr(t).to_str() {
+                dbg!(cstr);
+                if cstr == "String" {
+                    let addr = value.assume_init().addr;
+                    if let Ok(value) = CStr::from_ptr(addr).to_str() {
+                        let t = f32::from_str(value).ok();
+                        dbg!(t);
+                        return t;
+                    }
+                }
+            } 
+        }
+
+        (xlib.XrmDestroyDatabase)(db);
+
+        /*
         if let Ok(res) = ::std::ffi::CStr::from_ptr(resource_manager_str).to_str() {
             let name: &str = "Xft.dpi:\t";
             dbg!(res);
@@ -241,7 +278,8 @@ impl DisplayInfo {
                 }
             }
         }
-        None
+        */
+        Some(96.0)
     }
 
     unsafe fn get_dpi(
@@ -263,6 +301,11 @@ impl DisplayInfo {
         if let Some(dpi) = Self::get_xft_dpi(xlib, display) {
             dpi / 96.
         } else {
+            1.0
+        }
+
+        /*
+        else {
             Self::calc_dpi_factor(
                 ((*crtc).width as u32, (*crtc).height as u32),
                 (
@@ -271,6 +314,7 @@ impl DisplayInfo {
                 ),
             )
         }
+        */
     }
 
     fn round_dpi(v: f32) -> f32 {
@@ -316,15 +360,13 @@ impl DisplayInfo {
                     position,
                     size,
                     dpi_scale: Self::round_dpi(Self::get_dpi(
-                        &xlib, &xrandr, resources, crtc, display,
+                        xlib, &xrandr, resources, crtc, display,
                     )),
                 });
             }
 
             (xrandr.XRRFreeCrtcInfo)(crtc);
         }
-
-        dbg!(&available);
 
         (xrandr.XRRFreeScreenResources)(resources);
 
