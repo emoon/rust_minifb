@@ -4,6 +4,7 @@ use crate::os::redox::orbclient::Renderer;
 
 use crate::buffer_helper;
 use crate::error::Error;
+use crate::icon::Icon;
 use crate::key_handler::KeyHandler;
 use crate::mouse_handler;
 use crate::InputCallback;
@@ -13,6 +14,7 @@ use crate::{Key, KeyRepeat};
 use crate::{MenuHandle, MenuItem, MenuItemHandle, UnixMenu, UnixMenuItem};
 use crate::{Scale, WindowOptions};
 
+use orbclient::Renderer;
 use std::cmp;
 use std::os::raw;
 
@@ -94,6 +96,10 @@ impl Window {
 
     pub fn set_title(&mut self, title: &str) {
         self.window.set_title(title)
+    }
+
+    pub fn set_icon(&mut self, _icon: Icon) {
+        unimplemented!("Currenty not implemented on RedoxOS")
     }
 
     pub fn get_window_handle(&self) -> *mut raw::c_void {
@@ -188,15 +194,15 @@ impl Window {
         self.window.set_mouse_cursor(visibility);
     }
 
-    pub fn get_keys(&self) -> Option<Vec<Key>> {
+    pub fn get_keys(&self) -> Vec<Key> {
         self.key_handler.get_keys()
     }
 
-    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
         self.key_handler.get_keys_pressed(repeat)
     }
 
-    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+    pub fn get_keys_released(&self) -> Vec<Key> {
         self.key_handler.get_keys_released()
     }
 

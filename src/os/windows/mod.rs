@@ -3,6 +3,7 @@
 const INVALID_ACCEL: usize = 0xffffffff;
 
 use crate::error::Error;
+use crate::icon::Icon;
 use crate::key_handler::KeyHandler;
 use crate::rate::UpdateRate;
 use crate::Result;
@@ -21,13 +22,16 @@ use std::os::windows::ffi::OsStrExt;
 use std::ptr;
 
 use winapi::shared::basetsd;
-use winapi::shared::minwindef;
+use winapi::shared::minwindef::{self, LPARAM, WPARAM};
 use winapi::shared::ntdef;
 use winapi::shared::windef;
 use winapi::um::errhandlingapi;
+use winapi::um::fileapi::GetFullPathNameW;
 use winapi::um::libloaderapi;
 use winapi::um::wingdi;
-use winapi::um::winuser;
+use winapi::um::winuser::{
+    self, ICON_BIG, ICON_SMALL, IMAGE_ICON, LR_DEFAULTSIZE, LR_LOADFROMFILE, WM_SETICON,
+};
 
 // Wrap this so we can have a proper numbef of bmiColors to write in
 #[repr(C)]
@@ -166,6 +170,25 @@ unsafe fn set_window_long(window: windef::HWND, data: ntdef::LONG) -> ntdef::LON
 unsafe fn get_window_long(window: windef::HWND) -> ntdef::LONG {
     winuser::GetWindowLongW(window, winuser::GWLP_USERDATA)
 }
+#[cfg(target_arch = "aarch64")]
+unsafe fn set_window_long(window: windef::HWND, data: basetsd::LONG_PTR) -> basetsd::LONG_PTR {
+    winuser::SetWindowLongPtrW(window, winuser::GWLP_USERDATA, data)
+}
+
+#[cfg(target_arch = "aarch64")]
+unsafe fn get_window_long(window: windef::HWND) -> basetsd::LONG_PTR {
+    winuser::GetWindowLongPtrW(window, winuser::GWLP_USERDATA)
+}
+
+#[cfg(target_arch = "arm")]
+unsafe fn set_window_long(window: windef::HWND, data: basetsd::LONG_PTR) -> basetsd::LONG_PTR {
+    winuser::SetWindowLongPtrW(window, winuser::GWLP_USERDATA, data)
+}
+
+#[cfg(target_arch = "arm")]
+unsafe fn get_window_long(window: windef::HWND) -> basetsd::LONG_PTR {
+    winuser::GetWindowLongPtrW(window, winuser::GWLP_USERDATA)
+}
 
 unsafe extern "system" fn wnd_proc(
     window: windef::HWND,
@@ -184,6 +207,12 @@ unsafe extern "system" fn wnd_proc(
     let mut wnd: &mut Window = mem::transmute(user_data);
 
     match msg {
+        winuser::WM_SYSCOMMAND => {
+            if wparam == winuser::SC_KEYMENU {
+                return 0;
+            }
+        }
+
         winuser::WM_MOUSEWHEEL => {
             let scroll = ((((wparam as u32) >> 16) & 0xffff) as i16) as f32 * 0.1;
             wnd.mouse.scroll = scroll;
@@ -201,6 +230,11 @@ unsafe extern "system" fn wnd_proc(
             return 0;
         }
 
+        winuser::WM_SYSKEYDOWN => {
+            update_key_state(wnd, (lparam as u32) >> 16, true);
+            return 0;
+        }
+
         winuser::WM_CHAR => {
             char_down(wnd, wparam as u32);
         }
@@ -212,6 +246,22 @@ unsafe extern "system" fn wnd_proc(
         winuser::WM_LBUTTONDOWN => wnd.mouse.state[0] = true,
 
         winuser::WM_LBUTTONUP => wnd.mouse.state[0] = false,
+
+        winuser::WM_MOUSEMOVE => {
+            let button_checks = [
+                winuser::MK_LBUTTON,
+                winuser::MK_MBUTTON,
+                winuser::MK_RBUTTON,
+            ];
+
+            for i in 0..3 {
+                if (wparam & button_checks[i]) == button_checks[i] {
+                    wnd.mouse.state[i] = true;
+                } else {
+                    wnd.mouse.state[i] = false;
+                }
+            }
+        }
 
         winuser::WM_MBUTTONDOWN => wnd.mouse.state[1] = true,
 
@@ -226,6 +276,11 @@ unsafe extern "system" fn wnd_proc(
         }
 
         winuser::WM_KEYUP => {
+            update_key_state(wnd, (lparam as u32) >> 16, false);
+            return 0;
+        }
+
+        winuser::WM_SYSKEYUP => {
             update_key_state(wnd, (lparam as u32) >> 16, false);
             return 0;
         }
@@ -252,7 +307,7 @@ unsafe extern "system" fn wnd_proc(
 
         winuser::WM_PAINT => {
             // if we have nothing to draw here we return the default function
-            if wnd.draw_params.buffer == std::ptr::null() {
+            if wnd.draw_params.buffer.is_null() {
                 return winuser::DefWindowProcW(window, msg, wparam, lparam);
             }
 
@@ -279,7 +334,7 @@ unsafe extern "system" fn wnd_proc(
             let mut y_offset = 0;
 
             let dc = wnd.dc.unwrap();
-            wingdi::SelectObject(dc, wnd.clear_brush as *mut std::ffi::c_void);
+            wingdi::SelectObject(dc, wnd.clear_brush as *mut winapi::ctypes::c_void);
 
             match wnd.draw_params.scale_mode {
                 ScaleMode::AspectRatioStretch => {
@@ -396,7 +451,7 @@ unsafe extern "system" fn wnd_proc(
         _ => (),
     }
 
-    return winuser::DefWindowProcW(window, msg, wparam, lparam);
+    winuser::DefWindowProcW(window, msg, wparam, lparam)
 }
 
 fn to_wstring(str: &str) -> Vec<u16> {
@@ -454,12 +509,11 @@ pub struct Window {
 
 unsafe impl raw_window_handle::HasRawWindowHandle for Window {
     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-        let handle = raw_window_handle::windows::WindowsHandle {
-            hwnd: self.window.unwrap() as *mut raw::c_void,
-            hinstance: unsafe { libloaderapi::GetModuleHandleA(ptr::null()) } as *mut raw::c_void,
-            ..raw_window_handle::windows::WindowsHandle::empty()
-        };
-        raw_window_handle::RawWindowHandle::Windows(handle)
+        let mut handle = raw_window_handle::Win32Handle::empty();
+        handle.hwnd = self.window.unwrap() as *mut raw::c_void;
+        handle.hinstance =
+            unsafe { libloaderapi::GetModuleHandleA(ptr::null()) } as *mut raw::c_void;
+        raw_window_handle::RawWindowHandle::Win32(handle)
     }
 }
 
@@ -497,25 +551,6 @@ impl Window {
                 }
             }
 
-            let new_width = width * scale_factor as usize;
-            let new_height = height * scale_factor as usize;
-
-            let mut rect = windef::RECT {
-                left: 0,
-                right: new_width as ntdef::LONG,
-                top: 0,
-                bottom: new_height as ntdef::LONG,
-            };
-
-            winuser::AdjustWindowRect(
-                &mut rect,
-                winuser::WS_POPUP | winuser::WS_SYSMENU | winuser::WS_CAPTION,
-                0,
-            );
-
-            rect.right -= rect.left;
-            rect.bottom -= rect.top;
-
             let window_name = to_wstring(name);
 
             let mut flags = 0;
@@ -545,6 +580,21 @@ impl Window {
                 flags = winuser::WS_VISIBLE | winuser::WS_POPUP;
             }
 
+            let new_width = width * scale_factor as usize;
+            let new_height = height * scale_factor as usize;
+
+            let mut rect = windef::RECT {
+                left: 0,
+                right: new_width as ntdef::LONG,
+                top: 0,
+                bottom: new_height as ntdef::LONG,
+            };
+
+            winuser::AdjustWindowRect(&mut rect, flags, 0);
+
+            rect.right -= rect.left;
+            rect.bottom -= rect.top;
+
             let handle = winuser::CreateWindowExW(
                 0,
                 class_name.as_ptr(),
@@ -569,7 +619,7 @@ impl Window {
 
             winuser::ShowWindow(handle, winuser::SW_NORMAL);
 
-            return Some(handle);
+            Some(handle)
         }
     }
 
@@ -631,6 +681,57 @@ impl Window {
     }
 
     #[inline]
+    pub fn set_icon(&mut self, icon: Icon) {
+        unsafe {
+            if let Icon::Path(s_pointer) = icon {
+                let mut buffer: Vec<u16> = Vec::new();
+
+                // call once to get the size of the buffer
+                let return_value =
+                    GetFullPathNameW(s_pointer, 0, buffer.as_mut_ptr(), std::ptr::null_mut());
+
+                // adjust size of the buffer
+                buffer.reserve(return_value as usize);
+
+                let _ = GetFullPathNameW(
+                    s_pointer,
+                    return_value,
+                    buffer.as_mut_ptr(),
+                    std::ptr::null_mut(),
+                );
+
+                let path = buffer.as_ptr();
+
+                // cx and cy are 0 so Windows uses the size of the resource
+                let icon = winapi::um::winuser::LoadImageW(
+                    std::ptr::null_mut(),
+                    path,
+                    IMAGE_ICON,
+                    0,
+                    0,
+                    LR_DEFAULTSIZE | LR_LOADFROMFILE,
+                );
+
+                if let Some(handle) = self.window {
+                    winapi::um::winuser::SendMessageW(
+                        handle,
+                        WM_SETICON,
+                        ICON_SMALL as WPARAM,
+                        icon as LPARAM,
+                    );
+
+                    winapi::um::winuser::SendMessageW(
+                        handle,
+                        WM_SETICON,
+                        ICON_BIG as WPARAM,
+                        icon as LPARAM,
+                    );
+                }
+            }
+        }
+    }
+
+    #[inline]
     pub fn get_window_handle(&self) -> *mut raw::c_void {
         self.window.unwrap() as *mut raw::c_void
     }
@@ -651,11 +752,30 @@ impl Window {
     }
 
     #[inline]
+    pub fn get_position(&self) -> (isize, isize) {
+        let (mut x, mut y) = (0, 0);
+
+        unsafe {
+            let mut rect = windef::RECT {
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: 0,
+            };
+            if winuser::GetWindowRect(self.window.unwrap(), &mut rect) != 0 {
+                x = rect.left;
+                y = rect.top;
+            }
+        }
+        (x as isize, y as isize)
+    }
+
+    #[inline]
     pub fn topmost(&self, topmost: bool) {
         unsafe {
             winuser::SetWindowPos(
                 self.window.unwrap(),
-                if topmost == true {
+                if topmost {
                     winuser::HWND_TOPMOST
                 } else {
                     winuser::HWND_TOP
@@ -723,17 +843,17 @@ impl Window {
     }
 
     #[inline]
-    pub fn get_keys(&self) -> Option<Vec<Key>> {
+    pub fn get_keys(&self) -> Vec<Key> {
         self.key_handler.get_keys()
     }
 
     #[inline]
-    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
         self.key_handler.get_keys_pressed(repeat)
     }
 
     #[inline]
-    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+    pub fn get_keys_released(&self) -> Vec<Key> {
         self.key_handler.get_keys_released()
     }
 
@@ -769,7 +889,7 @@ impl Window {
 
     #[inline]
     pub fn is_open(&self) -> bool {
-        return self.is_open;
+        self.is_open
     }
 
     fn generic_update(&mut self, window: windef::HWND) {
@@ -796,28 +916,25 @@ impl Window {
             while winuser::PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, winuser::PM_REMOVE)
                 != 0
             {
+                let acc_condition = winuser::TranslateAcceleratorW(
+                    msg.hwnd,
+                    mem::transmute(self.accel_table),
+                    &mut msg,
+                ) == 0;
+
                 // Make this code a bit nicer
-                if self.accel_table == ptr::null_mut() {
-                    winuser::TranslateMessage(&mut msg);
-                    winuser::DispatchMessageW(&mut msg);
-                } else {
-                    if winuser::TranslateAcceleratorW(
-                        msg.hwnd,
-                        mem::transmute(self.accel_table),
-                        &mut msg,
-                    ) == 0
-                    {
-                        winuser::TranslateMessage(&mut msg);
-                        winuser::DispatchMessageW(&mut msg);
-                    }
+                if self.accel_table.is_null() || acc_condition {
+                    winuser::TranslateMessage(&msg);
+                    winuser::DispatchMessageW(&msg);
                 }
             }
         }
     }
 
+    #[allow(clippy::identity_op)]
     pub fn set_background_color(&mut self, color: u32) {
         unsafe {
-            wingdi::DeleteObject(self.clear_brush as *mut std::ffi::c_void);
+            wingdi::DeleteObject(self.clear_brush as *mut winapi::ctypes::c_void);
             let r = (color >> 16) & 0xff;
             let g = (color >> 8) & 0xff;
             let b = (color >> 0) & 0xff;
@@ -871,11 +988,7 @@ impl Window {
         match self.window {
             Some(hwnd) => {
                 let active = unsafe { winapi::um::winuser::GetActiveWindow() };
-                if !active.is_null() && active == hwnd {
-                    true
-                } else {
-                    false
-                }
+                !active.is_null() && active == hwnd
             }
             None => false,
         }
@@ -910,7 +1023,7 @@ impl Window {
             }
         };
 
-        return factor;
+        factor
     }
 
     //
@@ -938,11 +1051,11 @@ impl Window {
 
         for menu in self.menus.iter() {
             for item in menu.accel_table.iter() {
-                temp_accel_table.push(item.clone());
+                temp_accel_table.push(*item);
             }
         }
 
-        if self.accel_table != ptr::null_mut() {
+        if !self.accel_table.is_null() {
             winuser::DestroyAcceleratorTable(self.accel_table);
         }
 
@@ -957,7 +1070,7 @@ impl Window {
             let window = self.window.unwrap();
             let mut main_menu = winuser::GetMenu(window);
 
-            if main_menu == ptr::null_mut() {
+            if main_menu.is_null() {
                 main_menu = winuser::CreateMenu();
                 winuser::SetMenu(window, main_menu);
                 Self::adjust_window_size_for_menu(window);
@@ -990,7 +1103,11 @@ impl Window {
         for i in 0..self.menus.len() {
             if self.menus[i].menu_handle == handle.0 as windef::HMENU {
                 unsafe {
-                    let _t = winuser::RemoveMenu(main_menu, i as minwindef::UINT, 0);
+                    let _t = winuser::RemoveMenu(
+                        main_menu,
+                        i as minwindef::UINT,
+                        winuser::MF_BYPOSITION,
+                    );
                     winuser::DrawMenuBar(self.window.unwrap());
                 }
                 self.menus.swap_remove(i);
@@ -1158,7 +1275,7 @@ impl Menu {
     fn format_name(menu_item: &MenuItem, key_name: &'static str) -> String {
         let mut name = menu_item.label.clone();
 
-        name.push_str("\t");
+        name.push('\t');
 
         if (menu_item.modifier & MENU_KEY_WIN) == MENU_KEY_WIN {
             name.push_str("Win-");

@@ -479,6 +479,11 @@ static int update_events()
 
 static int generic_update(OSXWindow* win)
 {
+	if (win->shared_data) {
+		win->shared_data->scroll_x = 0.0f;
+		win->shared_data->scroll_y = 0.0f;
+	}
+
 	int state = update_events();
 
     if (win->shared_data) {
@@ -550,6 +555,24 @@ void mfb_set_position(void* window, int x, int y)
     const NSRect dummyRect = NSMakeRect(x, transformY(y + contentRect.size.height), 0, 0);
     const NSRect frameRect = [win frameRectForContentRect:dummyRect];
     [win setFrameOrigin:frameRect.origin];
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void mfb_get_position(const void* window, int *px, int *py)
+{
+	OSXWindow* win = (OSXWindow*)window;
+	const NSRect rectW = [win frame];
+	if( px != NULL ) {
+		*px = rectW.origin.x;
+	}
+	if( py != NULL ) {
+		const NSScreen *screen = [win screen];
+		const NSRect wsf = [screen frame];
+		const float height = wsf.size.height;
+		const float h = rectW.size.height;
+		*py = height - ( rectW.origin.y + h ); // origin is from bottom
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

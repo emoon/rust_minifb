@@ -1,3 +1,8 @@
+#[cfg(feature = "web")]
+extern crate instant;
+#[cfg(feature = "web")]
+use instant::{Duration, Instant};
+#[cfg(not(feature = "web"))]
 use std::time::{Duration, Instant};
 
 pub struct UpdateRate {

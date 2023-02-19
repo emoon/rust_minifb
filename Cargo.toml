@@ -1,7 +1,7 @@
 [package]
 name = "minifb"
-version = "0.19.2"
-license = "MIT/Apache-2.0"
+version = "0.24.0"
+license = "MIT OR Apache-2.0"
 authors = ["Daniel Collin <daniel@collin.com>"]
 description = "Cross-platform window setup with optional bitmap rendering"
 keywords = ["windowing", "window", "framebuffer"]
@@ -12,44 +12,97 @@ build = "build.rs"
 edition = "2018"
 readme = "README.md"
 
-exclude = [
-  "resources/"
-]
+exclude = ["resources/"]
 
 [badges]
-maintenance = {status = "actively-developed"}
+maintenance = { status = "actively-developed" }
 
 [dev-dependencies]
-png = "0.16"
+png = "0.17"
 
 [build-dependencies]
 cc = "1.0"
 
 [dependencies]
-raw-window-handle = "0.3.3"
+raw-window-handle = "0.4"
 
 [target.'cfg(windows)'.dependencies.winapi]
 version = "0.3"
-features = [
-    "winuser",
-    "wingdi",
-    "libloaderapi",
-    "errhandlingapi"
-]
+features = ["winuser", "wingdi", "libloaderapi", "errhandlingapi", "fileapi"]
 
 [features]
-default = ["wayland", "x11"]
-x11 = ["x11-dl", "xkb"]
-wayland = ["wayland-client", "wayland-protocols", "wayland-cursor", "tempfile", "xkb", "xkbcommon-sys"]
+default = ["wayland", "x11", "dlopen"]
+dlopen = ["wayland-client/dlopen"]
+x11 = ["x11-dl", "libc"]
+wayland = [
+  "dlib",
+  "lazy_static",
+  "libc",
+  "tempfile",
+  "wayland-client",
+  "wayland-cursor",
+  "wayland-protocols",
+]
+web = ["wasm-bindgen", "web-sys", "instant/wasm-bindgen", "instant/inaccurate"]
 
 [target.'cfg(not(any(target_os = "macos", target_os = "redox", windows)))'.dependencies]
-wayland-client = {version = "0.27", optional = true}
-wayland-protocols = { version = "0.27", features = ["client", "unstable_protocols"], optional = true }
-wayland-cursor = {version = "0.27", optional = true}
-tempfile = {version = "3.1.0", optional = true}
-xkb = {version = "0.2.1", optional = true}
-xkbcommon-sys = {version = "0.7.5", optional = true}
-x11-dl = {version = "2.18.3", optional = true}
+wayland-client = { version = "0.29", optional = true }
+wayland-protocols = { version = "0.29", features = [
+  "client",
+  "unstable_protocols",
+], optional = true }
+wayland-cursor = { version = "0.29", optional = true }
+tempfile = { version = "3.3", optional = true }
+x11-dl = { version = "2.19.1", optional = true }
+libc = { version = "0.2.107", optional = true }
+dlib = { version = "0.5", optional = true }
+lazy_static = { version = "1.0", optional = true }
+
 
 [target.x86_64-unknown-redox.dependencies]
 orbclient = "0.3.20"
+
+# The `wasm-bindgen` crate provides the bare minimum functionality needed
+# to interact with JavaScript.
+[target.'cfg(target_arch = "wasm32")'.dependencies.wasm-bindgen]
+version = "0.2.79"
+optional = true
+features = ["serde-serialize"]
+
+# The `web-sys` crate allows you to interact with the various browser APIs,
+# like the DOM.
+[target.'cfg(target_arch = "wasm32")'.dependencies.web-sys]
+version = "0.3.56"
+optional = true
+features = [
+  "console",
+  "Window",
+  "Document",
+  "Navigator",
+  "Element",
+  "Node",
+  "ImageData",
+  "HtmlCanvasElement",
+  "HtmlImageElement",
+  "CanvasRenderingContext2d",
+  "Headers",
+  "Request",
+  "RequestInit",
+  "RequestMode",
+  "Response",
+  "Blob",
+  "Url",
+  "Gamepad",
+  "GamepadButton",
+  "GamepadEvent",
+  'MouseEvent',
+  'KeyboardEvent',
+]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+instant = { version = "0.1.12", features = ["wasm-bindgen", "inaccurate"] }
+js-sys = "0.3.56"
+wasm-bindgen-futures = "0.4.29"
+serde = { version = "1.0.136", features = ["derive"] }
+serde_derive = "1.0.123"
+futures = "0.3.12"

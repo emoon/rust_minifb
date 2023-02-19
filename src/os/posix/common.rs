@@ -51,8 +51,6 @@ impl Menu {
     }
 
     pub fn remove_item(&mut self, handle: &MenuItemHandle) {
-        self.internal
-            .items
-            .retain(|ref item| item.handle.0 != handle.0);
+        self.internal.items.retain(|item| item.handle.0 != handle.0);
     }
 }

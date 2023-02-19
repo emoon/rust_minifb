@@ -8,7 +8,7 @@ pub enum Error {
     MenusNotSupported,
     /// Menu already exists
     MenuExists(String),
-    /// Menu already exists
+    /// Failed to create window
     WindowCreate(String),
     /// Unable to Update
     UpdateFailed(String),
@@ -37,3 +37,14 @@ impl fmt::Debug for Error {
 }
 
 impl StdError for Error {}
+
+#[cfg(target_arch = "wasm32")]
+impl From<wasm_bindgen::JsValue> for Error {
+    fn from(js_value: wasm_bindgen::JsValue) -> Self {
+        Error::UpdateFailed(
+            js_value
+                .as_string()
+                .unwrap_or("Non string error.".to_string()),
+        )
+    }
+}

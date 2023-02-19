@@ -1,8 +1,14 @@
-//! minifb is a cross platform library written in [Rust](https://www.rust-lang.org) that makes to
-//! open windows (usually native to the running operating system) and can optionally show a 32-bit
-//! buffer. minifb also support keyboard, mouse input and menus on selected operating systems.
+//! minifb is a cross platform library written in [Rust](https://www.rust-lang.org) that makes it
+//! easy to open windows (usually native to the running operating system) and can optionally show
+//! a 32-bit buffer. minifb also support keyboard, mouse input and menus on selected operating
+//! systems.
 //!
 #![deny(missing_debug_implementations)]
+
+#[cfg(not(any(target_os = "macos", target_os = "redox", windows)))]
+#[cfg(feature = "wayland")]
+#[macro_use]
+extern crate dlib;
 
 use std::fmt;
 use std::os::raw;
@@ -50,7 +56,7 @@ pub enum MouseButton {
     Right,
 }
 
-/// The diffrent modes that can be used to decide how mouse coordinates should be handled
+/// The different modes that can be used to decide how mouse coordinates should be handled
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum MouseMode {
     /// Return mouse coords from outside of the window (may be negative)
@@ -82,20 +88,29 @@ pub enum CursorStyle {
     ResizeAll,
 }
 
-/// This trait can be implemented and set with ```set_input_callback``` to reieve a callback
-/// whene there is inputs incoming. Currently only support unicode chars.
+/// This trait can be implemented and set with ```set_input_callback``` to receive a callback
+/// when there is inputs.
 pub trait InputCallback {
+    /// Called when text is added to the window, or a key is pressed. This passes
+    /// in a unicode character, and therefore does not report control characters.
     fn add_char(&mut self, uni_char: u32);
+
+    /// Called whenever a key is pressed or released. This reports the state of the
+    /// key in the `state` argument, as well as the translated key in the `key` argument.
+    /// This includes control characters such as `Key::LeftShift`.
+    fn set_key_state(&mut self, _key: Key, _state: bool) {}
 }
 
 mod error;
 pub use self::error::Error;
 pub type Result<T> = std::result::Result<T, Error>;
+pub use icon::Icon;
 pub use raw_window_handle::HasRawWindowHandle;
 
 mod key;
 pub use key::Key;
 mod buffer_helper;
+mod icon;
 mod key_handler;
 mod mouse_handler;
 mod os;
@@ -114,6 +129,8 @@ use self::os::macos as imp;
 use self::os::posix as imp;
 #[cfg(target_os = "redox")]
 use self::os::redox as imp;
+#[cfg(target_arch = "wasm32")]
+use self::os::wasm as imp;
 #[cfg(target_os = "windows")]
 use self::os::windows as imp;
 ///
@@ -247,6 +264,36 @@ impl Window {
     }
 
     ///
+    /// Sets the icon of the window after creation.
+    ///
+    /// The file path has to be relative to the current working directory.
+    ///
+    /// **Windows:** Has to be a `.ico` file. To also set the icon of the `.exe` file, see the `rc.exe` tool
+    ///
+    /// **Linux:**
+    /// - X11: Needs a `u64` buffer with ARGB data
+    /// - Wayland: *not implemented* (use a `.desktop` file)
+    ///
+    /// **MacOS:**
+    ///
+    /// **RedoxOS:** *not implemented*
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use minifb::*;
+    /// # use std::str::FromStr;
+    /// let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    ///
+    /// #[cfg(target_os = "windows")]
+    /// window.set_icon(Icon::from_str("src/icon.ico").unwrap());
+    /// ```
+    ///
+    pub fn set_icon(&mut self, icon: Icon) {
+        self.0.set_icon(icon)
+    }
+
+    ///
     /// Returns the native handle for a window which is an opaque pointer/handle which
     /// dependens on the current operating system:
     ///
@@ -266,7 +313,8 @@ impl Window {
     /// The upper 8-bits are ignored, the next 8-bits are for the red channel, the next 8-bits
     /// afterwards for the green channel, and the lower 8-bits for the blue channel.
     ///
-    /// Notice that the buffer needs to be at least the size of the created window.
+    /// Notice that the buffer needs to be at least the size of the created window. Also only one of
+    /// `update_with_buffer` or `update` should be called for updating a single window.
     ///
     /// # Examples
     ///
@@ -304,6 +352,9 @@ impl Window {
     ///
     /// Updates the window (this is required to call in order to get keyboard/mouse input, etc)
     ///
+    /// Notice that when using this function then `update_with_buffer` should not be called for the same window.
+    /// Only one of the functions should be used.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -324,6 +375,7 @@ impl Window {
     /// Checks if the window is still open. A window can be closed by the user (by for example
     /// pressing the close button on the window) It's up to the user to make sure that this is
     /// being checked and take action depending on the state.
+    ///
     ///
     /// # Examples
     ///
@@ -355,6 +407,24 @@ impl Window {
     #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
         self.0.set_position(x, y)
+    }
+
+    ///
+    /// Gets the position of the window. This is useful if you want
+    /// to store the position of the window across sessions
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    /// // Retrieves the current window position
+    /// let (x,y) = window.get_position();
+    /// ```
+    ///
+    #[inline]
+    pub fn get_position(&self) -> (isize, isize) {
+        self.0.get_position()
     }
 
     ///
@@ -558,18 +628,16 @@ impl Window {
     /// ```no_run
     /// # use minifb::*;
     /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
-    /// window.get_keys().map(|keys| {
-    ///     for t in keys {
-    ///         match t {
+    /// window.get_keys().iter().for_each(|key|
+    ///         match key {
     ///             Key::W => println!("holding w"),
     ///             Key::T => println!("holding t"),
     ///             _ => (),
     ///         }
-    ///     }
-    /// });
+    ///     );
     /// ```
     #[inline]
-    pub fn get_keys(&self) -> Option<Vec<Key>> {
+    pub fn get_keys(&self) -> Vec<Key> {
         self.0.get_keys()
     }
 
@@ -582,18 +650,16 @@ impl Window {
     /// ```no_run
     /// # use minifb::*;
     /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
-    /// window.get_keys_pressed(KeyRepeat::No).map(|keys| {
-    ///     for t in keys {
-    ///         match t {
+    /// window.get_keys_pressed(KeyRepeat::No).iter().for_each(|key|
+    ///         match key {
     ///             Key::W => println!("pressed w"),
     ///             Key::T => println!("pressed t"),
     ///             _ => (),
     ///         }
-    ///     }
-    /// });
+    ///     );
     /// ```
     #[inline]
-    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
         self.0.get_keys_pressed(repeat)
     }
 
@@ -605,18 +671,16 @@ impl Window {
     /// ```no_run
     /// # use minifb::*;
     /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
-    /// window.get_keys_released().map(|keys| {
-    ///     for t in keys {
-    ///         match t {
+    /// window.get_keys_released().iter().for_each(|key|
+    ///         match key {
     ///             Key::W => println!("released w"),
     ///             Key::T => println!("released t"),
     ///             _ => (),
     ///         }
-    ///     }
-    /// });
+    ///     );
     /// ```
     #[inline]
-    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+    pub fn get_keys_released(&self) -> Vec<Key> {
         self.0.get_keys_released()
     }
 
@@ -747,7 +811,7 @@ impl Window {
     /// Get POSIX menus. Will only return menus on POSIX-like OSes like Linux or BSD
     /// otherwise ```None```
     ///
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    #[cfg(any(target_os = "macos", target_os = "windows", target_arch = "wasm32"))]
     pub fn get_posix_menus(&self) -> Option<&Vec<UnixMenu>> {
         None
     }

@@ -7,6 +7,7 @@ use crate::Result;
 use crate::{Key, KeyRepeat, MouseButton, MouseMode, Scale, WindowOptions};
 // use MenuItem;
 use crate::buffer_helper;
+use crate::icon::Icon;
 use crate::mouse_handler;
 use crate::window_flags;
 use crate::InputCallback;
@@ -174,6 +175,7 @@ extern "C" {
         buf_stride: u32,
     );
     fn mfb_set_position(window: *mut c_void, x: i32, y: i32);
+    fn mfb_get_position(window: *const c_void, x: *mut i32, y: *mut i32);
     fn mfb_set_key_callback(
         window: *mut c_void,
         target: *mut c_void,
@@ -262,12 +264,10 @@ unsafe extern "C" fn char_callback(window: *mut c_void, code_point: u32) {
 
 unsafe impl raw_window_handle::HasRawWindowHandle for Window {
     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-        let handle = raw_window_handle::macos::MacOSHandle {
-            ns_window: self.window_handle as *mut _,
-            ns_view: self.view_handle as *mut _,
-            ..raw_window_handle::macos::MacOSHandle::empty()
-        };
-        raw_window_handle::RawWindowHandle::MacOS(handle)
+        let mut handle = raw_window_handle::AppKitHandle::empty();
+        handle.ns_window = self.window_handle as *mut _;
+        handle.ns_view = self.view_handle as *mut _;
+        raw_window_handle::RawWindowHandle::AppKit(handle)
     }
 }
 
@@ -326,6 +326,11 @@ impl Window {
             let t = CString::new(title).unwrap();
             mfb_set_title(self.window_handle, t.as_ptr());
         }
+    }
+
+    #[inline]
+    pub fn set_icon(&mut self, _icon: Icon) {
+        unimplemented!("Currently not implemented on MacOS!")
     }
 
     #[inline]
@@ -412,6 +417,15 @@ impl Window {
     }
 
     #[inline]
+    pub fn get_position(&self) -> (isize, isize) {
+        let (mut x, mut y) = (0, 0);
+        unsafe {
+            mfb_get_position(self.window_handle, &mut x, &mut y);
+        }
+        (x as isize, y as isize)
+    }
+
+    #[inline]
     pub fn topmost(&self, topmost: bool) {
         unsafe { mfb_topmost(self.window_handle, topmost) }
     }
@@ -480,17 +494,17 @@ impl Window {
     }
 
     #[inline]
-    pub fn get_keys(&self) -> Option<Vec<Key>> {
+    pub fn get_keys(&self) -> Vec<Key> {
         self.key_handler.get_keys()
     }
 
     #[inline]
-    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
         self.key_handler.get_keys_pressed(repeat)
     }
 
     #[inline]
-    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+    pub fn get_keys_released(&self) -> Vec<Key> {
         self.key_handler.get_keys_released()
     }
 

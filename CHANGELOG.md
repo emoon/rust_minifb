@@ -2,9 +2,55 @@
 
 This project follows semantic versioning.
 
+### v0.24 (2023-02-18)
+
+- [fixed] Windows: Unable to use F10 key 
+- [fixed] set byposition flag when removing menus (Thanks piksel!)
+- [fixed] fixed compilation for x11 32-bit mode (Thanks HBehrens!) 
+- [fixed] X11 window names not supporting UTF-8 (Thanks edarogh!)
+- [fixed] `get_window_position` for multiscreen setup on macOS (Thanks AnderasOM!)
+- [fixed] Using minifb on multiple threads under x11 works and doesn't crash (Thanks to konnorandrews for suggestion!)  
+- [Added] ARM and AARCH64 Windows Support (Thanks smb123w64gb!)
+
+### v0.23 (2022-04-19)
+
+- [fixed] wayland: Fix key character callback & Reduce wayland dependencies (Thanks vmedea!) 
+- [fixed] Use coercion on types failing compilation on 64 bit raspbian bullseye (Thanks wtfuzz!)
+- [added] WASM support. Thanks dc740 and tversteeg! See https://github.com/dc740/minifb-async-examples for example. 
+
+### v0.22 (2022-03-27)
+
+- [fixed] Updated docs to make it a bit more clear that only one of `update_with_buffer` or `update` should be used for updating a window. 
+
+### v0.21 (2022-03-27)
+
+- [fixed] Holding down a key on x11 would no repeat correctly 
+- [fixed] Windows dependency cleanups (Thanks Arnab Animesh Das!) 
+- [fixed] Fixed mouse button being "stuck" when moved out side of window, released and then moved by in on Windows (Thanks Arnab Animesh Das for bug report!) 
+- [fixed] Memory-map the keymap FD on Wayland to fix EOF error (Thanks Greg Depoire--Ferrer!)
+- [added] getter for window position (Thanks Andreas Neukoetter!)
+- [fixed] Fix clippy lints under windows (Thanks Kevin K!)
+- [added] Add `set_icon()` method to set a window icon at runtime (Thanks Kevin K!)
+- [added] inputcallback: add a callback for key events and key_handler: add a callback for key events (Thanks xobs and vemoo!)
+- [fixed] macOS: Fix segmentation fault when resizing window. (Thanks KaDiWa!)
+- [fixed] Various x11 and wayland fixes, version updates (Thanks vemoo!)
+
+### v0.20 (2021-11-28)
+
+- [API BREAKAGE] Changing return types of get_keys from Option<Vec<Key>> to Vec<Key> (Thanks Zij-IT!)
+- [fixed] get_scroll_wheel() would get "stuck" on macOS. (Thanks NikoUY for bug report!)
+
+### v0.19.3 (2021-03-23)
+
+- [fixed] Fixed typos in description (Thanks hiqua!)
+- [fixed] update wayland to 0.28 and small cleanup (Thanks xMAC94x!)
+- [fixed] Bump xkbcommon-sys to 0.7.5
+- [fixed] wayland missing cursor (Thanks dc740!)
+- [fixed] windows: use c_void from winapi (Thanks xobs!)
+
 ### v0.19.2 (2021-01-18)
 
-TODO:
+TODO
 
 ### v0.19 (2020-09-22)
 

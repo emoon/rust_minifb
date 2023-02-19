@@ -3,6 +3,7 @@ use crate::rate::UpdateRate;
 use crate::{
     InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions,
 };
+
 use x11_dl::{keysym::*, xcursor, xlib, xrandr::*};
 
 use crate::error::Error;
@@ -11,16 +12,24 @@ use crate::{CursorStyle, MenuHandle, UnixMenu};
 
 use std::{
     str::FromStr,
-    convert::TryFrom, mem, os::raw, ptr, ffi::CString,
+    ffi::{c_void, CStr, CString},
+    convert::TryFrom, mem, os::raw, ptr,
     os::raw::{
-        c_char, c_long, c_uchar, c_uint, c_ulong
+        c_char, c_int, c_long, c_uchar, c_uint, c_ulong
     },
 };
 
+
 use crate::buffer_helper;
+use crate::icon::Icon;
 use crate::mouse_handler;
 
 use super::common::Menu;
+use x11_dl::xlib::{
+    KeyPressMask, KeyReleaseMask, KeySym, Status, XEvent, XIMPreeditNothing, XIMStatusNothing,
+    XKeyEvent, XNClientWindow, XNFocusWindow, XNInputStyle, XWindowAttributes, XrmDatabase, XIC,
+    XIM,
+};
 
 // NOTE: the x11-dl crate does not define Button6 or Button7
 const Button6: c_uint = xlib::Button5 + 1;
@@ -108,7 +117,7 @@ struct DisplayInfo {
 
 impl DisplayInfo {
     fn new(transparency: bool) -> Result<DisplayInfo> {
-        let mut display = unsafe { Self::setup(transparency)? };
+        let mut display = Self::setup(transparency)?;
 
         display.check_formats()?;
         display.check_extensions()?;
@@ -118,76 +127,88 @@ impl DisplayInfo {
         Ok(display)
     }
 
-    unsafe fn setup(transparency: bool) -> Result<DisplayInfo> {
-        let xrandr = Xrandr_2_2_0::open()
-            .map_err(|e| Error::WindowCreate(format!("failed to load XRandr: {:?}", e)))?;
+    fn setup(transparency: bool) -> Result<DisplayInfo> {
+        unsafe {
+            libc::setlocale(libc::LC_ALL, "\0".as_ptr() as *const c_char); //needed to make compose key work
 
-        let cursor_lib = xcursor::Xcursor::open()
-            .map_err(|e| Error::WindowCreate(format!("failed to load XCursor: {:?}", e)))?;
+            let lib = xlib::Xlib::open()
+                .map_err(|e| Error::WindowCreate(format!("failed to load Xlib: {:?}", e)))?;
 
-        let lib = xlib::Xlib::open()
-            .map_err(|e| Error::WindowCreate(format!("failed to load Xlib: {:?}", e)))?;
+            if (lib.XInitThreads)() == 0 {
+                panic!("failed to init X11 threads");
+            }
 
-        let display = (lib.XOpenDisplay)(ptr::null());
+            let cursor_lib = xcursor::Xcursor::open()
+                .map_err(|e| Error::WindowCreate(format!("failed to load XCursor: {:?}", e)))?;
 
-        if display.is_null() {
-            return Err(Error::WindowCreate("XOpenDisplay failed".to_owned()));
-        }
+            let display = (lib.XOpenDisplay)(ptr::null());
 
-        let screen;
-        let visual;
-        let depth;
+            if display.is_null() {
+                return Err(Error::WindowCreate("XOpenDisplay failed".to_owned()));
+            }
 
-        let monitors = Self::get_monitor_info(&lib, xrandr, display);
+	        let xrandr = Xrandr_2_2_0::open()
+            	.map_err(|e| Error::WindowCreate(format!("failed to load XRandr: {:?}", e)))?;
 
-        let mut vinfo: xlib::XVisualInfo = std::mem::zeroed();
-        if transparency {
-            (lib.XMatchVisualInfo)(
+            let mut supported = 0;
+            (lib.XkbSetDetectableAutoRepeat)(display, 1, &mut supported);
+
+            let screen;
+            let visual;
+            let depth;
+	    	    
+            let monitors = Self::get_monitor_info(&lib, xrandr, display);
+
+            dbg!(&monitors);
+
+            let mut vinfo: xlib::XVisualInfo = std::mem::zeroed();
+            if transparency {
+                (lib.XMatchVisualInfo)(
+                    display,
+                    (lib.XDefaultScreen)(display),
+                    32,
+                    xlib::TrueColor,
+                    &mut vinfo as *mut _,
+                );
+                screen = vinfo.screen;
+                visual = vinfo.visual;
+                depth = vinfo.depth;
+            } else {
+                screen = (lib.XDefaultScreen)(display);
+                visual = (lib.XDefaultVisual)(display, screen);
+                depth = (lib.XDefaultDepth)(display, screen);
+            }
+
+            let gc = (lib.XDefaultGC)(display, screen);
+
+            let screen_width = usize::try_from((lib.XDisplayWidth)(display, screen))
+                .map_err(|e| Error::WindowCreate(format!("illegal width: {}", e)))?;
+            let screen_height = usize::try_from((lib.XDisplayHeight)(display, screen))
+                .map_err(|e| Error::WindowCreate(format!("illegal height: {}", e)))?;
+
+            // andrewj: using this instead of XUniqueContext(), as the latter
+            // seems to be erroneously feature guarded in the x11_dl crate.
+            let context = (lib.XrmUniqueQuark)();
+
+            Ok(DisplayInfo {
+                lib,
                 display,
-                (lib.XDefaultScreen)(display),
-                32,
-                xlib::TrueColor,
-                &mut vinfo as *mut _,
-            );
-            screen = vinfo.screen;
-            visual = vinfo.visual;
-            depth = vinfo.depth;
-        } else {
-            screen = (lib.XDefaultScreen)(display);
-            visual = (lib.XDefaultVisual)(display, screen);
-            depth = (lib.XDefaultDepth)(display, screen);
+                screen,
+                visual,
+                gc,
+                depth,
+                screen_width,
+                screen_height,
+                _context: context,
+                cursor_lib,
+                // the following are determined later...
+                cursors: [0; 8],
+                keyb_ext: false,
+                wm_delete_window: 0,
+		        monitors
+            })
         }
-
-        let gc = (lib.XDefaultGC)(display, screen);
-
-        let screen_width = usize::try_from((lib.XDisplayWidth)(display, screen))
-            .map_err(|e| Error::WindowCreate(format!("illegal width: {}", e)))?;
-        let screen_height = usize::try_from((lib.XDisplayHeight)(display, screen))
-            .map_err(|e| Error::WindowCreate(format!("illegal height: {}", e)))?;
-
-        // andrewj: using this instead of XUniqueContext(), as the latter
-        // seems to be erroneously feature guarded in the x11_dl crate.
-        let context = (lib.XrmUniqueQuark)();
-
-        Ok(DisplayInfo {
-            lib,
-            display,
-            screen,
-            visual,
-            gc,
-            depth,
-            screen_width,
-            screen_height,
-            _context: context,
-            cursor_lib,
-            // the following are determined later...
-            cursors: [0 as xlib::Cursor; 8],
-            keyb_ext: false,
-            wm_delete_window: 0,
-            monitors
-        })
-    }
-
+	}
     fn calc_dpi_factor(
         (width_px, height_px): (u32, u32),
         (width_mm, height_mm): (u64, u64),
@@ -199,23 +220,22 @@ impl DisplayInfo {
         } else {
             let ppmm = ((width_px as f32 * height_px as f32) / (width_mm as f32 * height_mm as f32)).sqrt();
             // Quantize 1/12 step size
-            let dpi_factor = ((ppmm * (12.0 * 25.4 / 96.0)).round() / 12.0).max(1.0);
-            dpi_factor
+            ((ppmm * (12.0 * 25.4 / 96.0)).round() / 12.0).max(1.0)
         }
     }
 
     unsafe fn get_xft_dpi(xlib: &xlib::Xlib, display: *mut xlib::Display) -> Option<f32> {
         (xlib.XrmInitialize)();
         let resource_manager_str = (xlib.XResourceManagerString)(display);
-        if resource_manager_str == ptr::null_mut() {
+        if resource_manager_str.is_null() {
             return None;
         }
         if let Ok(res) = ::std::ffi::CStr::from_ptr(resource_manager_str).to_str() {
             let name: &str = "Xft.dpi:\t";
-            for pair in res.split("\n") {
-                if pair.starts_with(&name) {
-                    let res = &pair[name.len()..];
-                    return f32::from_str(&res).ok();
+            dbg!(res);
+            for pair in res.split('\n') {
+                if let Some(pair) = pair.strip_prefix(name) {
+                    return f32::from_str(pair).ok();
                 }
             }
         }
@@ -416,6 +436,9 @@ pub struct Window {
     d: DisplayInfo,
 
     handle: xlib::Window,
+    xim: XIM,
+    xic: XIC,
+
     ximage: *mut xlib::XImage,
     draw_buffer: Vec<u32>,
 
@@ -444,11 +467,9 @@ pub struct Window {
 
 unsafe impl raw_window_handle::HasRawWindowHandle for Window {
     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-        let handle = raw_window_handle::unix::XlibHandle {
-            window: self.handle,
-            display: self.d.display as *mut core::ffi::c_void,
-            ..raw_window_handle::unix::XlibHandle::empty()
-        };
+        let mut handle = raw_window_handle::XlibHandle::empty();
+        handle.window = self.handle;
+        handle.display = self.d.display as *mut core::ffi::c_void;
         raw_window_handle::RawWindowHandle::Xlib(handle)
     }
 }
@@ -514,6 +535,43 @@ impl Window {
                 &mut attributes,
             );
 
+            let empty_string = b"\0";
+            (d.lib.XSetLocaleModifiers)(empty_string.as_ptr() as _);
+
+            let xim = (d.lib.XOpenIM)(
+                d.display,
+                0 as XrmDatabase,
+                ptr::null_mut::<c_char>(),
+                ptr::null_mut::<c_char>(),
+            );
+            if (xim as usize) == 0 {
+                return Err(Error::WindowCreate(
+                    "Failed to setup X IM via XOpenIM.".to_owned(),
+                ));
+            }
+
+            let xn_input_style = CString::new(XNInputStyle).unwrap();
+            let xn_client_window = CString::new(XNClientWindow).unwrap();
+            let xn_focus_window = CString::new(XNFocusWindow).unwrap();
+            let xic = (d.lib.XCreateIC)(
+                xim,
+                xn_input_style.as_ptr(),
+                XIMPreeditNothing | XIMStatusNothing,
+                xn_client_window.as_ptr(),
+                handle as c_ulong,
+                xn_focus_window.as_ptr(),
+                handle as c_ulong,
+                std::ptr::null_mut::<c_void>(),
+            );
+            if (xic as usize) == 0 {
+                return Err(Error::WindowCreate(
+                    "Failed to setup X IC via XCreateIC.".to_owned(),
+                ));
+            }
+
+            (d.lib.XSetICFocus)(xic);
+            (d.lib.XSelectInput)(d.display, handle, KeyPressMask | KeyReleaseMask);
+
             d.gc = (d.lib.XCreateGC)(d.display, handle, 0, ptr::null_mut());
 
             if handle == 0 {
@@ -521,6 +579,22 @@ impl Window {
             }
 
             (d.lib.XStoreName)(d.display, handle, name.as_ptr());
+            if let Ok(name_len) = c_int::try_from(name.to_bytes().len()) {
+                let net_wm_name = d.intern_atom("_NET_WM_NAME", false);
+                let utf8_string = d.intern_atom("UTF8_STRING", false);
+                (d.lib.XChangeProperty)(
+                    d.display,
+                    handle,
+                    net_wm_name,
+                    utf8_string,
+                    8,
+                    xlib::PropModeReplace,
+                    name.as_ptr() as *const c_uchar,
+                    name_len,
+                );
+            } else {
+                return Err(Error::WindowCreate("Window name too long".to_owned()));
+            }
 
             (d.lib.XSelectInput)(
                 d.display,
@@ -591,6 +665,8 @@ impl Window {
             Ok(Window {
                 d,
                 handle,
+                xim,
+                xic,
                 ximage,
                 draw_buffer,
                 width: width as u32,
@@ -653,7 +729,6 @@ impl Window {
         match CString::new(title) {
             Err(_) => {
                 println!("Unable to convert {} to c_string", title);
-                return;
             }
 
             Ok(t) => unsafe {
@@ -688,6 +763,28 @@ impl Window {
         unsafe {
             self.raw_get_mouse_pos();
             self.raw_process_events();
+        }
+    }
+
+    #[inline]
+    pub fn set_icon(&mut self, icon: Icon) {
+        // XChangeProperty
+        let net_string_ptr = b"_NET_WM_ICON\0".as_ptr() as _;
+        let cardinal_ptr = b"CARDINAL\0".as_ptr() as _;
+
+        unsafe {
+            if let Icon::Buffer(ptr, len) = icon {
+                let _ = (self.d.lib.XChangeProperty)(
+                    self.d.display,
+                    self.handle,
+                    (self.d.lib.XInternAtom)(self.d.display, net_string_ptr, xlib::False),
+                    (self.d.lib.XInternAtom)(self.d.display, cardinal_ptr, xlib::False),
+                    32,
+                    xlib::PropModeReplace,
+                    ptr as *const u8,
+                    len as c_int,
+                );
+            }
         }
     }
 
@@ -740,6 +837,37 @@ impl Window {
             (self.d.lib.XMoveWindow)(self.d.display, self.handle, x as i32, y as i32);
             (self.d.lib.XFlush)(self.d.display);
         }
+    }
+
+    #[inline]
+    pub fn get_position(&self) -> (isize, isize) {
+        let (x, y);
+        let (mut nx, mut ny) = (0, 0);
+
+        // Create dummy window for child_return value
+        let mut dummy_window: mem::MaybeUninit<Window> = mem::MaybeUninit::uninit();
+        let mut attributes: mem::MaybeUninit<XWindowAttributes> = mem::MaybeUninit::uninit();
+
+        unsafe {
+            let root = (self.d.lib.XDefaultRootWindow)(self.d.display);
+
+            (self.d.lib.XGetWindowAttributes)(self.d.display, self.handle, attributes.as_mut_ptr());
+            x = attributes.assume_init().x;
+            y = attributes.assume_init().y;
+
+            (self.d.lib.XTranslateCoordinates)(
+                self.d.display,
+                self.handle,
+                root,
+                x,
+                y,
+                &mut nx,
+                &mut ny,
+                dummy_window.as_mut_ptr() as *mut c_ulong,
+            );
+        }
+
+        (nx as isize, ny as isize)
     }
 
     #[inline]
@@ -804,17 +932,17 @@ impl Window {
     }
 
     #[inline]
-    pub fn get_keys(&self) -> Option<Vec<Key>> {
+    pub fn get_keys(&self) -> Vec<Key> {
         self.key_handler.get_keys()
     }
 
     #[inline]
-    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
         self.key_handler.get_keys_pressed(repeat)
     }
 
     #[inline]
-    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+    pub fn get_keys_released(&self) -> Vec<Key> {
         self.key_handler.get_keys_released()
     }
 
@@ -858,7 +986,8 @@ impl Window {
         self.active
     }
 
-    pub fn dpi_scale(&mut self) -> f32 {
+    #[inline]
+    pub fn dpi_scale(&self) -> f32 {
         1.0
     }
 
@@ -918,12 +1047,14 @@ impl Window {
     }
 
     pub fn remove_menu(&mut self, handle: MenuHandle) {
-        self.menus.retain(|ref menu| menu.handle != handle);
+        self.menus.retain(|menu| menu.handle != handle);
     }
 
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
         None
     }
+
+    ////////////////////////////////////
 
     unsafe fn raw_blit_buffer(
         &mut self,
@@ -1036,6 +1167,12 @@ impl Window {
 
             (self.d.lib.XNextEvent)(self.d.display, &mut event);
 
+            //skip any events that need to get eaten by X to do compose key, e.g. if the user types compose key + a + ' then all of these events need to get eaten and processed in xlib
+            //XFilterEvent will do the processing for these cases, and returns whether or not it handled an event
+            if (self.d.lib.XFilterEvent)(&mut event as *mut XEvent, 0) != 0 {
+                continue;
+            }
+
             // Don't process any more messages if we hit a termination event
             if self.raw_process_one_event(event) == ProcessEventResult::Termination {
                 return;
@@ -1043,7 +1180,7 @@ impl Window {
         }
     }
 
-    unsafe fn raw_process_one_event(&mut self, ev: xlib::XEvent) -> ProcessEventResult {
+    unsafe fn raw_process_one_event(&mut self, mut ev: xlib::XEvent) -> ProcessEventResult {
         // FIXME: we cannot handle multiple windows here!
         if ev.any.window != self.handle {
             return ProcessEventResult::Ok;
@@ -1062,9 +1199,33 @@ impl Window {
 
             xlib::KeyPress => {
                 self.process_key(ev, true /* is_down */);
+                self.emit_code_point_chars_to_callback(&mut ev.key);
             }
 
             xlib::KeyRelease => {
+                /* After XkbSetDetectableAutoRepeat it looks like we don't
+                   have to try to fix the x11 repeat issue this way, but code left as reference in one commit)
+                let mut is_retriggered = false;
+                let t = (self.d.lib.XEventsQueued)(self.d.display, 1 /*QueuedAfterReading*/);
+
+                if t != 0 {
+                    let mut nev: xlib::XEvent = mem::zeroed();
+                    (self.d.lib.XPeekEvent)(self.d.display, &mut nev);
+
+                    if nev.type_ == xlib::KeyPress
+                        && nev.key.time == ev.key.time
+                        && nev.key.keycode == ev.key.keycode
+                    {
+                        is_retriggered = true;
+                        (self.d.lib.XNextEvent)(self.d.display, &mut ev);
+                    }
+                }
+
+                if is_retriggered {
+                    println!("retrigged");
+                }
+                 */
+
                 self.process_key(ev, false /* is_down */);
             }
 
@@ -1140,24 +1301,34 @@ impl Window {
         }
 
         self.update_key_state(sym, is_down);
+    }
 
-        // unicode callback...
+    fn emit_code_point_chars_to_callback(&mut self, event: &mut XKeyEvent) {
+        const BUFFER_SIZE: usize = 32;
 
-        if !is_down {
-            return;
-        }
+        if let Some(callback) = &mut self.key_handler.key_callback {
+            let mut buff: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE];
+            let str = unsafe {
+                let mut keysym: KeySym = std::mem::zeroed();
+                let mut status: Status = 0;
+                let length_in_bytes = (self.d.lib.Xutf8LookupString)(
+                    self.xic,
+                    event as *mut XKeyEvent,
+                    buff.as_mut_ptr() as *mut c_char,
+                    (BUFFER_SIZE - 1) as c_int,
+                    (&mut keysym) as *mut KeySym,
+                    (&mut status) as *mut Status,
+                );
+                &buff[0..(length_in_bytes as usize + 1)]
+            };
 
-        let keysym = xkb::Keysym(sym as u32);
-        let code_point = keysym.utf32();
-        // Taken from GLFW
-        if code_point == 0 {
-            return;
-        } else if code_point < 32 || (code_point > 126 && code_point < 160) {
-            return;
-        }
-
-        if let Some(ref mut callback) = self.key_handler.key_callback {
-            callback.add_char(code_point);
+            if let Ok(cstr) = CStr::from_bytes_with_nul(str) {
+                if let Ok(str) = cstr.to_str() {
+                    for c in str.chars() {
+                        callback.add_char(c as u32);
+                    }
+                }
+            }
         }
     }
 
@@ -1331,6 +1502,8 @@ impl Drop for Window {
             //                  probably pointless ]
             // XSaveContext(s_display, info->window, s_context, (XPointer)0);
 
+            (self.d.lib.XDestroyIC)(self.xic);
+            (self.d.lib.XCloseIM)(self.xim);
             (self.d.lib.XDestroyWindow)(self.d.display, self.handle);
         }
     }

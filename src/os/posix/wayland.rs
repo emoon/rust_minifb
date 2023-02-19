@@ -9,6 +9,11 @@ use crate::{
 };
 
 use super::common::Menu;
+use super::xkb_ffi;
+#[cfg(feature = "dlopen")]
+use super::xkb_ffi::XKBCOMMON_HANDLE as XKBH;
+#[cfg(not(feature = "dlopen"))]
+use super::xkb_ffi::*;
 
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_compositor::WlCompositor;
@@ -25,14 +30,14 @@ use wayland_protocols::unstable::xdg_decoration::v1::client::zxdg_decoration_man
 use wayland_protocols::xdg_shell::client::xdg_surface::XdgSurface;
 use wayland_protocols::xdg_shell::client::xdg_toplevel::XdgToplevel;
 use wayland_protocols::xdg_shell::client::xdg_wm_base::XdgWmBase;
-use xkb::keymap::Keymap;
 
 use std::cell::RefCell;
 use std::ffi::c_void;
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{self, Seek, SeekFrom, Write};
 use std::mem;
-use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+use std::os::unix::io::{AsRawFd, RawFd};
+use std::ptr;
 use std::rc::Rc;
 use std::slice;
 use std::sync::mpsc;
@@ -260,7 +265,7 @@ impl DisplayInfo {
             )
         };
         tempfile
-            .write_all(&slice[..])
+            .write_all(slice)
             .map_err(|e| Error::WindowCreate(format!("Io Error: {:?}", e)))?;
         tempfile
             .flush()
@@ -311,7 +316,7 @@ impl DisplayInfo {
             .map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
         // Give the buffer to the surface and commit
-        surface.attach(Some(&buffer), 0, 0);
+        surface.attach(Some(buffer), 0, 0);
         surface.damage(0, 0, i32::max_value(), i32::max_value());
         surface.commit();
 
@@ -369,9 +374,8 @@ impl DisplayInfo {
             self.cursor_surface.attach(Some(&*img), 0, 0);
             self.cursor_surface.damage(0, 0, 32, 32);
             self.cursor_surface.commit();
-            return Ok(());
         }
-        Err(())
+        Ok(())
     }
 
     // Resizes when buffer is bigger or less
@@ -387,7 +391,7 @@ impl DisplayInfo {
             )
         };
 
-        fd.write_all(&slice[..])?;
+        fd.write_all(slice)?;
         fd.flush()?;
 
         // Acknowledge the last configure event
@@ -488,8 +492,11 @@ pub struct Window {
     active: bool,
 
     key_handler: KeyHandler,
-    // Option because MaybeUninit's get_ref() is nightly-only
-    keymap: Option<Keymap>,
+
+    xkb_context: *mut xkb_ffi::xkb_context,
+    xkb_keymap: *mut xkb_ffi::xkb_keymap,
+    xkb_state: *mut xkb_ffi::xkb_state,
+
     update_rate: UpdateRate,
     menu_counter: MenuHandle,
     menus: Vec<UnixMenu>,
@@ -532,6 +539,27 @@ impl Window {
 
         let (resolution, closed) = display.get_toplevel_info();
 
+        #[cfg(feature = "dlopen")]
+        {
+            if xkb_ffi::XKBCOMMON_OPTION.as_ref().is_none() {
+                return Err(Error::WindowCreate(
+                    "Could not load xkbcommon shared library.".to_owned(),
+                ));
+            }
+        }
+        let context = unsafe {
+            ffi_dispatch!(
+                XKBH,
+                xkb_context_new,
+                xkb_ffi::xkb_context_flags::XKB_CONTEXT_NO_FLAGS
+            )
+        };
+        if context.is_null() {
+            return Err(Error::WindowCreate(
+                "Could not create xkb context.".to_owned(),
+            ));
+        }
+
         Ok(Self {
             display,
 
@@ -553,7 +581,11 @@ impl Window {
             active: false,
 
             key_handler: KeyHandler::new(),
-            keymap: None,
+
+            xkb_context: context,
+            xkb_keymap: ptr::null_mut(),
+            xkb_state: ptr::null_mut(),
+
             update_rate: UpdateRate::new(),
             menu_counter: MenuHandle(0),
             menus: Vec::new(),
@@ -589,15 +621,15 @@ impl Window {
         (self.width as usize, self.height as usize)
     }
 
-    pub fn get_keys(&self) -> Option<Vec<Key>> {
+    pub fn get_keys(&self) -> Vec<Key> {
         self.key_handler.get_keys()
     }
 
-    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
         self.key_handler.get_keys_pressed(repeat)
     }
 
-    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+    pub fn get_keys_released(&self) -> Vec<Key> {
         self.key_handler.get_keys_released()
     }
 
@@ -646,6 +678,13 @@ impl Window {
     pub fn set_position(&mut self, x: isize, y: isize) {
         self.display
             .set_geometry((x as i32, y as i32), (self.width, self.height));
+    }
+
+    pub fn get_position(&self) -> (isize, isize) {
+        let (x, y) = (0, 0);
+        // todo!("get_position");
+
+        (x as isize, y as isize)
     }
 
     pub fn set_rate(&mut self, rate: Option<Duration>) {
@@ -702,7 +741,7 @@ impl Window {
     }
 
     pub fn remove_menu(&mut self, handle: MenuHandle) {
-        self.menus.retain(|ref menu| menu.handle != handle);
+        self.menus.retain(|menu| menu.handle != handle);
     }
 
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
@@ -710,12 +749,34 @@ impl Window {
         unimplemented!()
     }
 
-    pub fn update(&mut self) {
+    fn try_dispatch_events(&mut self) {
+        // as seen in https://docs.rs/wayland-client/0.28/wayland_client/struct.EventQueue.html
+        if let Err(e) = self.display.event_queue.display().flush() {
+            if e.kind() != io::ErrorKind::WouldBlock {
+                eprintln!("Error while trying to flush the wayland socket: {:?}", e);
+            }
+        }
+
+        if let Some(guard) = self.display.event_queue.prepare_read() {
+            if let Err(e) = guard.read_events() {
+                if e.kind() != io::ErrorKind::WouldBlock {
+                    eprintln!(
+                        "Error while trying to read from the wayland socket: {:?}",
+                        e
+                    );
+                }
+            }
+        }
+
         self.display
             .event_queue
-            .dispatch(&mut (), |_, _, _| {})
+            .dispatch_pending(&mut (), |_, _, _| {})
             .map_err(|e| Error::WindowCreate(format!("Event dispatch failed: {:?}", e)))
             .unwrap();
+    }
+
+    pub fn update(&mut self) {
+        self.try_dispatch_events();
 
         if let Some(resize) = (*self.toplevel_info.0.borrow_mut()).take() {
             // Don't try to resize to 0x0
@@ -733,7 +794,9 @@ impl Window {
 
             match event {
                 Event::Keymap { format, fd, size } => {
-                    self.keymap = Some(Self::handle_keymap(format, fd, size).unwrap());
+                    let keymap = Self::handle_keymap(self.xkb_context, format, fd, size).unwrap();
+                    self.xkb_keymap = keymap;
+                    self.xkb_state = unsafe { ffi_dispatch!(XKBH, xkb_state_new, keymap) };
                 }
                 Event::Enter { .. } => {
                     self.active = true;
@@ -742,26 +805,13 @@ impl Window {
                     self.active = false;
                 }
                 Event::Key { key, state, .. } => {
-                    if let Some(ref keymap) = self.keymap {
+                    if !self.xkb_state.is_null() {
                         Self::handle_key(
-                            keymap,
+                            self.xkb_state,
                             key + KEY_XKB_OFFSET,
                             state,
                             &mut self.key_handler,
                         );
-                    }
-
-                    if state == wl_keyboard::KeyState::Pressed {
-                        let keysym = xkb::Keysym(key);
-                        let code_point = keysym.utf32();
-                        if code_point != 0 {
-                            // Taken from GLFW
-                            if !(code_point < 32 || (code_point > 126 && code_point < 160)) {
-                                if let Some(ref mut callback) = self.key_handler.key_callback {
-                                    callback.add_char(code_point);
-                                }
-                            }
-                        }
                     }
                 }
                 Event::Modifiers {
@@ -771,10 +821,20 @@ impl Window {
                     group,
                     ..
                 } => {
-                    if let Some(ref keymap) = self.keymap {
-                        let mut state = keymap.state();
-                        let mut update = state.update();
-                        update.mask(mods_depressed, mods_latched, mods_locked, 0, 0, group);
+                    if !self.xkb_state.is_null() {
+                        unsafe {
+                            ffi_dispatch!(
+                                XKBH,
+                                xkb_state_update_mask,
+                                self.xkb_state,
+                                mods_depressed,
+                                mods_latched,
+                                mods_locked,
+                                0,
+                                0,
+                                group
+                            )
+                        };
                     }
                 }
                 _ => {}
@@ -909,127 +969,135 @@ impl Window {
     }
 
     fn handle_key(
-        keymap: &Keymap,
+        keymap_state: *mut xkb_ffi::xkb_state,
         key: u32,
         state: wl_keyboard::KeyState,
         key_handler: &mut KeyHandler,
     ) {
         let is_down = state == wl_keyboard::KeyState::Pressed;
-        let state = keymap.state();
-        let key_xkb = state.key(key);
+        let key_xkb = unsafe { ffi_dispatch!(XKBH, xkb_state_key_get_one_sym, keymap_state, key) };
+        if key_xkb != 0 {
+            use super::xkb_keysyms as key;
 
-        if let Some(keysym) = key_xkb.sym() {
-            use xkb::key;
+            if state == wl_keyboard::KeyState::Pressed {
+                // Taken from GLFW
+                let code_point = unsafe { ffi_dispatch!(XKBH, xkb_keysym_to_utf32, key_xkb) };
+                if !(code_point < 32 || (code_point > 126 && code_point < 160)) {
+                    if let Some(ref mut callback) = key_handler.key_callback {
+                        callback.add_char(code_point);
+                    }
+                }
+            }
 
-            let key_i = match keysym {
-                key::_0 => Key::Key0,
-                key::_1 => Key::Key1,
-                key::_2 => Key::Key2,
-                key::_3 => Key::Key3,
-                key::_4 => Key::Key4,
-                key::_5 => Key::Key5,
-                key::_6 => Key::Key6,
-                key::_7 => Key::Key7,
-                key::_8 => Key::Key8,
-                key::_9 => Key::Key9,
+            let key_i = match key_xkb {
+                key::XKB_KEY_0 => Key::Key0,
+                key::XKB_KEY_1 => Key::Key1,
+                key::XKB_KEY_2 => Key::Key2,
+                key::XKB_KEY_3 => Key::Key3,
+                key::XKB_KEY_4 => Key::Key4,
+                key::XKB_KEY_5 => Key::Key5,
+                key::XKB_KEY_6 => Key::Key6,
+                key::XKB_KEY_7 => Key::Key7,
+                key::XKB_KEY_8 => Key::Key8,
+                key::XKB_KEY_9 => Key::Key9,
 
-                key::a => Key::A,
-                key::b => Key::B,
-                key::c => Key::C,
-                key::d => Key::D,
-                key::e => Key::E,
-                key::f => Key::F,
-                key::g => Key::G,
-                key::h => Key::H,
-                key::i => Key::I,
-                key::j => Key::J,
-                key::k => Key::K,
-                key::l => Key::L,
-                key::m => Key::M,
-                key::n => Key::N,
-                key::o => Key::O,
-                key::p => Key::P,
-                key::q => Key::Q,
-                key::r => Key::R,
-                key::s => Key::S,
-                key::t => Key::T,
-                key::u => Key::U,
-                key::v => Key::V,
-                key::w => Key::W,
-                key::x => Key::X,
-                key::y => Key::Y,
-                key::z => Key::Z,
+                key::XKB_KEY_a => Key::A,
+                key::XKB_KEY_b => Key::B,
+                key::XKB_KEY_c => Key::C,
+                key::XKB_KEY_d => Key::D,
+                key::XKB_KEY_e => Key::E,
+                key::XKB_KEY_f => Key::F,
+                key::XKB_KEY_g => Key::G,
+                key::XKB_KEY_h => Key::H,
+                key::XKB_KEY_i => Key::I,
+                key::XKB_KEY_j => Key::J,
+                key::XKB_KEY_k => Key::K,
+                key::XKB_KEY_l => Key::L,
+                key::XKB_KEY_m => Key::M,
+                key::XKB_KEY_n => Key::N,
+                key::XKB_KEY_o => Key::O,
+                key::XKB_KEY_p => Key::P,
+                key::XKB_KEY_q => Key::Q,
+                key::XKB_KEY_r => Key::R,
+                key::XKB_KEY_s => Key::S,
+                key::XKB_KEY_t => Key::T,
+                key::XKB_KEY_u => Key::U,
+                key::XKB_KEY_v => Key::V,
+                key::XKB_KEY_w => Key::W,
+                key::XKB_KEY_x => Key::X,
+                key::XKB_KEY_y => Key::Y,
+                key::XKB_KEY_z => Key::Z,
 
-                key::apostrophe => Key::Apostrophe,
-                key::grave => Key::Backquote,
-                key::backslash => Key::Backslash,
-                key::comma => Key::Comma,
-                key::equal => Key::Equal,
-                key::bracketleft => Key::LeftBracket,
-                key::bracketright => Key::RightBracket,
-                key::minus => Key::Minus,
-                key::period => Key::Period,
-                key::semicolon => Key::Semicolon,
-                key::slash => Key::Slash,
-                key::space => Key::Space,
+                key::XKB_KEY_apostrophe => Key::Apostrophe,
+                key::XKB_KEY_grave => Key::Backquote,
+                key::XKB_KEY_backslash => Key::Backslash,
+                key::XKB_KEY_comma => Key::Comma,
+                key::XKB_KEY_equal => Key::Equal,
+                key::XKB_KEY_bracketleft => Key::LeftBracket,
+                key::XKB_KEY_bracketright => Key::RightBracket,
+                key::XKB_KEY_minus => Key::Minus,
+                key::XKB_KEY_period => Key::Period,
+                key::XKB_KEY_semicolon => Key::Semicolon,
+                key::XKB_KEY_slash => Key::Slash,
+                key::XKB_KEY_space => Key::Space,
 
-                key::F1 => Key::F1,
-                key::F2 => Key::F2,
-                key::F3 => Key::F3,
-                key::F4 => Key::F4,
-                key::F5 => Key::F5,
-                key::F6 => Key::F6,
-                key::F7 => Key::F7,
-                key::F8 => Key::F8,
-                key::F9 => Key::F9,
-                key::F10 => Key::F10,
-                key::F11 => Key::F11,
-                key::F12 => Key::F12,
+                key::XKB_KEY_F1 => Key::F1,
+                key::XKB_KEY_F2 => Key::F2,
+                key::XKB_KEY_F3 => Key::F3,
+                key::XKB_KEY_F4 => Key::F4,
+                key::XKB_KEY_F5 => Key::F5,
+                key::XKB_KEY_F6 => Key::F6,
+                key::XKB_KEY_F7 => Key::F7,
+                key::XKB_KEY_F8 => Key::F8,
+                key::XKB_KEY_F9 => Key::F9,
+                key::XKB_KEY_F10 => Key::F10,
+                key::XKB_KEY_F11 => Key::F11,
+                key::XKB_KEY_F12 => Key::F12,
 
-                key::Down => Key::Down,
-                key::Left => Key::Left,
-                key::Right => Key::Right,
-                key::Up => Key::Up,
-                key::Escape => Key::Escape,
-                key::BackSpace => Key::Backspace,
-                key::Delete => Key::Delete,
-                key::End => Key::End,
-                key::Return => Key::Enter,
-                key::Home => Key::Home,
-                key::Insert => Key::Insert,
-                key::Menu => Key::Menu,
-                key::Page_Down => Key::PageDown,
-                key::Page_Up => Key::PageUp,
-                key::Pause => Key::Pause,
-                key::Tab => Key::Tab,
-                key::Num_Lock => Key::NumLock,
-                key::Caps_Lock => Key::CapsLock,
-                key::Scroll_Lock => Key::ScrollLock,
-                key::Shift_L => Key::LeftShift,
-                key::Shift_R => Key::RightShift,
-                key::Alt_L => Key::LeftAlt,
-                key::Alt_R => Key::RightAlt,
-                key::Control_L => Key::LeftCtrl,
-                key::Control_R => Key::RightCtrl,
-                key::Super_L => Key::LeftSuper,
-                key::Super_R => Key::RightSuper,
+                key::XKB_KEY_Down => Key::Down,
+                key::XKB_KEY_Left => Key::Left,
+                key::XKB_KEY_Right => Key::Right,
+                key::XKB_KEY_Up => Key::Up,
+                key::XKB_KEY_Escape => Key::Escape,
+                key::XKB_KEY_BackSpace => Key::Backspace,
+                key::XKB_KEY_Delete => Key::Delete,
+                key::XKB_KEY_End => Key::End,
+                key::XKB_KEY_Return => Key::Enter,
+                key::XKB_KEY_Home => Key::Home,
+                key::XKB_KEY_Insert => Key::Insert,
+                key::XKB_KEY_Menu => Key::Menu,
+                key::XKB_KEY_Page_Down => Key::PageDown,
+                key::XKB_KEY_Page_Up => Key::PageUp,
+                key::XKB_KEY_Pause => Key::Pause,
+                key::XKB_KEY_Tab => Key::Tab,
+                key::XKB_KEY_Num_Lock => Key::NumLock,
+                key::XKB_KEY_Caps_Lock => Key::CapsLock,
+                key::XKB_KEY_Scroll_Lock => Key::ScrollLock,
+                key::XKB_KEY_Shift_L => Key::LeftShift,
+                key::XKB_KEY_Shift_R => Key::RightShift,
+                key::XKB_KEY_Alt_L => Key::LeftAlt,
+                key::XKB_KEY_Alt_R => Key::RightAlt,
+                key::XKB_KEY_Control_L => Key::LeftCtrl,
+                key::XKB_KEY_Control_R => Key::RightCtrl,
+                key::XKB_KEY_Super_L => Key::LeftSuper,
+                key::XKB_KEY_Super_R => Key::RightSuper,
 
-                key::KP_Insert => Key::NumPad0,
-                key::KP_End => Key::NumPad1,
-                key::KP_Down => Key::NumPad2,
-                key::KP_Next => Key::NumPad3,
-                key::KP_Left => Key::NumPad4,
-                key::KP_Begin => Key::NumPad5,
-                key::KP_Right => Key::NumPad6,
-                key::KP_Home => Key::NumPad7,
-                key::KP_Up => Key::NumPad8,
-                key::KP_Prior => Key::NumPad9,
-                key::KP_Decimal => Key::NumPadDot,
-                key::KP_Divide => Key::NumPadSlash,
-                key::KP_Multiply => Key::NumPadAsterisk,
-                key::KP_Subtract => Key::NumPadMinus,
-                key::KP_Add => Key::NumPadPlus,
-                key::KP_Enter => Key::NumPadEnter,
+                key::XKB_KEY_KP_Insert => Key::NumPad0,
+                key::XKB_KEY_KP_End => Key::NumPad1,
+                key::XKB_KEY_KP_Down => Key::NumPad2,
+                key::XKB_KEY_KP_Next => Key::NumPad3,
+                key::XKB_KEY_KP_Left => Key::NumPad4,
+                key::XKB_KEY_KP_Begin => Key::NumPad5,
+                key::XKB_KEY_KP_Right => Key::NumPad6,
+                key::XKB_KEY_KP_Home => Key::NumPad7,
+                key::XKB_KEY_KP_Up => Key::NumPad8,
+                key::XKB_KEY_KP_Prior => Key::NumPad9,
+                key::XKB_KEY_KP_Decimal => Key::NumPadDot,
+                key::XKB_KEY_KP_Divide => Key::NumPadSlash,
+                key::XKB_KEY_KP_Multiply => Key::NumPadAsterisk,
+                key::XKB_KEY_KP_Subtract => Key::NumPadMinus,
+                key::XKB_KEY_KP_Add => Key::NumPadPlus,
+                key::XKB_KEY_KP_Enter => Key::NumPadEnter,
 
                 _ => {
                     // Ignore other keys
@@ -1041,26 +1109,49 @@ impl Window {
         }
     }
 
-    fn handle_keymap(keymap: KeymapFormat, fd: RawFd, len: u32) -> std::io::Result<Keymap> {
+    fn handle_keymap(
+        context: *mut xkb_ffi::xkb_context,
+        keymap: KeymapFormat,
+        fd: RawFd,
+        len: u32,
+    ) -> Result<*mut xkb_ffi::xkb_keymap> {
         match keymap {
             KeymapFormat::XkbV1 => {
                 unsafe {
-                    // Read fd content into Vec
-                    let mut file = File::from_raw_fd(fd);
-                    let mut v = Vec::with_capacity(len as usize);
-                    v.set_len(len as usize);
-                    file.read_exact(&mut v)?;
-
-                    let ctx = xkbcommon_sys::xkb_context_new(0);
-                    let kb_map_ptr = xkbcommon_sys::xkb_keymap_new_from_string(
-                        ctx,
-                        v.as_ptr() as *const _ as *const std::os::raw::c_char,
-                        xkbcommon_sys::xkb_keymap_format::XKB_KEYMAP_FORMAT_TEXT_V1,
+                    // The file descriptor must be memory-mapped (with MAP_PRIVATE).
+                    let addr = libc::mmap(
+                        std::ptr::null_mut(),
+                        len as usize,
+                        libc::PROT_READ,
+                        libc::MAP_PRIVATE,
+                        fd,
                         0,
                     );
+                    if addr == libc::MAP_FAILED {
+                        return Err(Error::WindowCreate(format!(
+                            "Could not mmap keymap from compositor ({})",
+                            std::io::Error::last_os_error()
+                        )));
+                    }
 
-                    // Wrap keymap
-                    Ok(Keymap::from_ptr(kb_map_ptr as *mut _ as *mut c_void))
+                    let keymap = ffi_dispatch!(
+                        XKBH,
+                        xkb_keymap_new_from_string,
+                        context,
+                        addr as *const _,
+                        xkb_ffi::xkb_keymap_format::XKB_KEYMAP_FORMAT_TEXT_V1,
+                        xkb_ffi::xkb_keymap_compile_flags::XKB_KEYMAP_COMPILE_NO_FLAGS
+                    );
+
+                    libc::munmap(addr, len as usize);
+
+                    if keymap.is_null() {
+                        Err(Error::WindowCreate(
+                            "Received invalid keymap from compositor.".to_owned(),
+                        ))
+                    } else {
+                        Ok(keymap)
+                    }
                 }
             }
             _ => unimplemented!("Only XKB keymaps are supported"),
@@ -1174,7 +1265,7 @@ impl Window {
 
 unsafe impl raw_window_handle::HasRawWindowHandle for Window {
     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-        let mut handle = raw_window_handle::unix::WaylandHandle::empty();
+        let mut handle = raw_window_handle::WaylandHandle::empty();
         handle.surface = self.display.surface.as_ref().c_ptr() as *mut _ as *mut c_void;
         handle.display = self
             .display
@@ -1185,5 +1276,15 @@ unsafe impl raw_window_handle::HasRawWindowHandle for Window {
             .c_ptr() as *mut _ as *mut c_void;
 
         raw_window_handle::RawWindowHandle::Wayland(handle)
+    }
+}
+
+impl Drop for Window {
+    fn drop(&mut self) {
+        unsafe {
+            ffi_dispatch!(XKBH, xkb_state_unref, self.xkb_state);
+            ffi_dispatch!(XKBH, xkb_keymap_unref, self.xkb_keymap);
+            ffi_dispatch!(XKBH, xkb_context_unref, self.xkb_context);
+        }
     }
 }

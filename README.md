@@ -13,15 +13,13 @@ Usage
 ```toml
 # Cargo.toml
 [dependencies]
-minifb = "0.19.2"
+minifb = "0.24"
 ```
 
 Example
 -------
 
 ```rust
-extern crate minifb;
-
 use minifb::{Key, Window, WindowOptions};
 
 const WIDTH: usize = 640;

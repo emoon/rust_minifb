@@ -19,11 +19,7 @@ impl Rect {
         let xe = self.x + self.width;
         let ye = self.y + self.height;
 
-        if (y >= self.y) && (y <= ye) && (x >= self.x) && (x <= xe) {
-            true
-        } else {
-            false
-        }
+        (y >= self.y) && (y <= ye) && (x >= self.x) && (x <= xe)
     }
 }
 

@@ -1,5 +1,11 @@
+#[cfg(feature = "web")]
+extern crate instant;
+
 use crate::{InputCallback, Key, KeyRepeat};
+#[cfg(feature = "web")]
+use instant::{Duration, Instant};
 use std::mem;
+#[cfg(not(feature = "web"))]
 use std::time::{Duration, Instant};
 
 pub struct KeyHandler {
@@ -30,23 +36,23 @@ impl KeyHandler {
     #[inline]
     pub fn set_key_state(&mut self, key: Key, state: bool) {
         self.keys[key as usize] = state;
+        if let Some(cb) = &mut self.key_callback {
+            cb.set_key_state(key, state);
+        }
     }
 
-    pub fn get_keys(&self) -> Option<Vec<Key>> {
-        let mut index: u16 = 0;
+    pub fn get_keys(&self) -> Vec<Key> {
         let mut keys: Vec<Key> = Vec::new();
 
-        for i in self.keys.iter() {
+        for (index, i) in self.keys.iter().enumerate() {
             if *i {
                 unsafe {
                     keys.push(mem::transmute(index as u8));
                 }
             }
-
-            index += 1;
         }
 
-        Some(keys)
+        keys
     }
 
     pub fn update(&mut self) {
@@ -73,11 +79,10 @@ impl KeyHandler {
         self.key_callback = Some(callback);
     }
 
-    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Option<Vec<Key>> {
-        let mut index: u16 = 0;
+    pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
         let mut keys: Vec<Key> = Vec::new();
 
-        for i in self.keys.iter() {
+        for (index, i) in self.keys.iter().enumerate() {
             if *i {
                 unsafe {
                     if Self::key_pressed(self, index as usize, repeat) {
@@ -85,14 +90,12 @@ impl KeyHandler {
                     }
                 }
             }
-
-            index += 1;
         }
 
-        Some(keys)
+        keys
     }
 
-    pub fn get_keys_released(&self) -> Option<Vec<Key>> {
+    pub fn get_keys_released(&self) -> Vec<Key> {
         let mut keys: Vec<Key> = Vec::new();
 
         for (idx, is_down) in self.keys.iter().enumerate() {
@@ -103,12 +106,12 @@ impl KeyHandler {
             }
         }
 
-        Some(keys)
+        keys
     }
 
     #[inline]
     pub fn is_key_down(&self, key: Key) -> bool {
-        return self.keys[key as usize];
+        self.keys[key as usize]
     }
 
     #[inline]
@@ -139,22 +142,22 @@ impl KeyHandler {
             }
         }
 
-        return false;
+        false
     }
 
     #[inline]
     pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
-        return Self::key_pressed(self, key as usize, repeat);
+        Self::key_pressed(self, key as usize, repeat)
     }
 
     #[inline]
     pub fn is_key_released(&self, key: Key) -> bool {
         let idx = key as usize;
-        return self.is_key_index_released(idx);
+        self.is_key_index_released(idx)
     }
 
     #[inline]
     fn is_key_index_released(&self, idx: usize) -> bool {
-        return self.keys_prev[idx] && !self.keys[idx];
+        self.keys_prev[idx] && !self.keys[idx]
     }
 }
