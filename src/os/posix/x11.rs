@@ -243,27 +243,24 @@ impl DisplayInfo {
         
         let mut value: mem::MaybeUninit<XrmValue> = mem::MaybeUninit::uninit();
         let mut t = ptr::null_mut();
+            
+        if let Ok(value) = CStr::from_ptr(resource_manager_str).to_str() {
+            dbg!(value);
+        }
 
-        dbg!();
-
-        if (xlib.XrmGetResource)(db, "Xft.dpi\0".as_ptr() as _, "Xft.Dpi\0".as_ptr() as _, &mut t, value.as_mut_ptr()) == 0 {
-            dbg!(t);
-
-            if t.is_null() {
+        if (xlib.XrmGetResource)(db, "Xft.dpi\0".as_ptr() as _, "String\0".as_ptr() as _, &mut t, value.as_mut_ptr()) != 0 {
+            let addr = value.assume_init().addr;
+            if addr.is_null() {
                 return None;
             }
 
-            if let Ok(cstr) = CStr::from_ptr(t).to_str() {
-                dbg!(cstr);
-                if cstr == "String" {
-                    let addr = value.assume_init().addr;
-                    if let Ok(value) = CStr::from_ptr(addr).to_str() {
-                        let t = f32::from_str(value).ok();
-                        dbg!(t);
-                        return t;
-                    }
-                }
-            } 
+            dbg!();
+
+            if let Ok(value) = CStr::from_ptr(addr).to_str() {
+                let t = f32::from_str(value).ok();
+                dbg!(t);
+                return t;
+            }
         }
 
         (xlib.XrmDestroyDatabase)(db);
