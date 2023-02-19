@@ -579,6 +579,11 @@ impl Window {
         unsafe { mfb_is_active(self.window_handle) == 0 }
     }
 
+    #[inline]
+    pub fn dpi_scale(&self) -> f32 {
+        unsafe { mfb_dpi_scale(self.window_handle) }
+    }
+
     unsafe fn get_scale_factor(width: usize, height: usize, scale: Scale) -> i32 {
         let factor: i32 = match scale {
             Scale::X1 => 1,
@@ -765,10 +770,6 @@ impl Menu {
         unsafe {
             mfb_remove_menu_item(self.menu_handle, handle.0);
         }
-    }
-
-    pub fn dpi_scale(&self) -> f32 {
-        unsafe { mfb_dpi_scale(self.window_handle) }
     }
 }
 
