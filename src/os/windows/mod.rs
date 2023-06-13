@@ -909,6 +909,17 @@ impl Window {
         }
     }
 
+    pub fn set_mouse_pos(&mut self, top: u32, left: u32) {
+        if left < self.width as u32 && top < self.height as u32 {
+            unsafe {
+                let pos = self.get_position();
+
+                winuser::SetCursorPos(left as i32 + pos.1 as i32, top as i32 + pos.0 as i32 + 30 /* height of title bar */);
+                self.generic_update(self.window.unwrap());
+            }
+        }
+    }
+
     fn message_loop(&self, _window: windef::HWND) {
         unsafe {
             let mut msg = mem::zeroed();
