@@ -293,6 +293,11 @@ impl Window {
         self.0.set_icon(icon)
     }
 
+    /// TODO: make this work on other platforms (macos, posix, redox, wasm)
+    pub fn set_mouse_pos(&mut self, top: u32, left: u32) {
+        self.0.set_mouse_pos(top, left)
+    }
+
     ///
     /// Returns the native handle for a window which is an opaque pointer/handle which
     /// dependens on the current operating system:
