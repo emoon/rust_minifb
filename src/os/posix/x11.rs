@@ -443,23 +443,7 @@ impl Window {
                 return Err(Error::WindowCreate("Unable to open Window".to_owned()));
             }
 
-            (d.lib.XStoreName)(d.display, handle, name.as_ptr());
-            if let Ok(name_len) = c_int::try_from(name.to_bytes().len()) {
-                let net_wm_name = d.intern_atom("_NET_WM_NAME", false);
-                let utf8_string = d.intern_atom("UTF8_STRING", false);
-                (d.lib.XChangeProperty)(
-                    d.display,
-                    handle,
-                    net_wm_name,
-                    utf8_string,
-                    8,
-                    xlib::PropModeReplace,
-                    name.as_ptr() as *const c_uchar,
-                    name_len,
-                );
-            } else {
-                return Err(Error::WindowCreate("Window name too long".to_owned()));
-            }
+            Self::set_title_raw(&mut d, handle, &name)?;
 
             (d.lib.XSelectInput)(
                 d.display,
@@ -590,6 +574,27 @@ impl Window {
         self.ximage = ptr::null_mut();
     }
 
+    unsafe fn set_title_raw(d: &mut DisplayInfo, handle: xlib::Window, name: &CStr) -> Result<()> {
+        (d.lib.XStoreName)(d.display, handle, name.as_ptr());
+        if let Ok(name_len) = c_int::try_from(name.to_bytes().len()) {
+            let net_wm_name = d.intern_atom("_NET_WM_NAME", false);
+            let utf8_string = d.intern_atom("UTF8_STRING", false);
+            (d.lib.XChangeProperty)(
+                d.display,
+                handle,
+                net_wm_name,
+                utf8_string,
+                8,
+                xlib::PropModeReplace,
+                name.as_ptr() as *const c_uchar,
+                name_len,
+            );
+            Ok(())
+        } else {
+            Err(Error::WindowCreate("Window name too long".to_owned()))
+        }
+    }
+
     pub fn set_title(&mut self, title: &str) {
         match CString::new(title) {
             Err(_) => {
@@ -597,7 +602,9 @@ impl Window {
             }
 
             Ok(t) => unsafe {
-                (self.d.lib.XStoreName)(self.d.display, self.handle, t.as_ptr());
+                if let Err(e) = Self::set_title_raw(&mut self.d, self.handle, &t) {
+                    println!("Setting window title failed: {}", e);
+                }
             },
         };
     }
