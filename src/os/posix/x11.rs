@@ -577,7 +577,7 @@ impl Window {
     unsafe fn set_title_raw(
         d: &mut DisplayInfo,
         handle: xlib::Window,
-        name: &CStr
+        name: &CStr,
     ) -> core::result::Result<(), String> {
         (d.lib.XStoreName)(d.display, handle, name.as_ptr());
         if let Ok(name_len) = c_int::try_from(name.to_bytes().len()) {
