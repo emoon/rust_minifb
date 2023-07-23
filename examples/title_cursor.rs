@@ -111,8 +111,6 @@ fn main() {
         },
     ];
 
-    window.set_title("Different cursor on each color region");
-
     while window.is_open() && !window.is_key_down(Key::Escape) {
         let (mx, my) = window.get_mouse_pos(MouseMode::Clamp).unwrap();
 
@@ -120,6 +118,10 @@ fn main() {
             fill_rect(&mut buffer, rect);
             if rect.is_inside(mx, my) {
                 window.set_cursor_style(rect.cursor_style);
+                window.set_title(&format!(
+                    "Different cursor on each color region: {:?}",
+                    rect.cursor_style
+                ));
             }
         }
 
