@@ -443,7 +443,7 @@ impl Window {
                 return Err(Error::WindowCreate("Unable to open Window".to_owned()));
             }
 
-            Self::set_title_raw(&mut d, handle, &name)?;
+            Self::set_title_raw(&mut d, handle, &name).map_err(Error::WindowCreate)?;
 
             (d.lib.XSelectInput)(
                 d.display,
@@ -574,7 +574,11 @@ impl Window {
         self.ximage = ptr::null_mut();
     }
 
-    unsafe fn set_title_raw(d: &mut DisplayInfo, handle: xlib::Window, name: &CStr) -> Result<()> {
+    unsafe fn set_title_raw(
+        d: &mut DisplayInfo,
+        handle: xlib::Window,
+        name: &CStr
+    ) -> core::result::Result<(), String> {
         (d.lib.XStoreName)(d.display, handle, name.as_ptr());
         if let Ok(name_len) = c_int::try_from(name.to_bytes().len()) {
             let net_wm_name = d.intern_atom("_NET_WM_NAME", false);
@@ -591,7 +595,7 @@ impl Window {
             );
             Ok(())
         } else {
-            Err(Error::WindowCreate("Window name too long".to_owned()))
+            Err("Window name too long".to_owned())
         }
     }
 
@@ -603,7 +607,7 @@ impl Window {
 
             Ok(t) => unsafe {
                 if let Err(e) = Self::set_title_raw(&mut self.d, self.handle, &t) {
-                    println!("Setting window title failed: {}", e);
+                    println!("Setting window name failed: {}", e);
                 }
             },
         };
