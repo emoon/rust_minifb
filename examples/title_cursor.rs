@@ -118,8 +118,10 @@ fn main() {
             fill_rect(&mut buffer, rect);
             if rect.is_inside(mx, my) {
                 window.set_cursor_style(rect.cursor_style);
-                window.set_title(
-                    &format!("Different cursor on each color region: {:?}", rect.cursor_style));
+                window.set_title(&format!(
+                    "Different cursor on each color region: {:?}",
+                    rect.cursor_style
+                ));
             }
         }
 
