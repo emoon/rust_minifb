@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.25 (2023-08-02)
+
+- [fixed] 11: Fix changing window title (Thanks royaltm!)
+
 ### v0.24 (2023-02-18)
 
 - [fixed] Windows: Unable to use F10 key 
