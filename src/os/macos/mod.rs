@@ -272,7 +272,7 @@ unsafe impl raw_window_handle::HasRawWindowHandle for Window {
 
 unsafe impl raw_window_handle::HasRawDisplayHandle for Window {
     fn raw_display_handle(&self) -> raw_window_handle::RawDisplayHandle {
-        let mut handle = raw_window_handle::AppKitDisplayHandle::empty();
+        let handle = raw_window_handle::AppKitDisplayHandle::empty();
         raw_window_handle::RawDisplayHandle::AppKit(handle)
     }
 }

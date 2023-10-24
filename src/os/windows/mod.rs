@@ -517,6 +517,13 @@ unsafe impl raw_window_handle::HasRawWindowHandle for Window {
     }
 }
 
+unsafe impl raw_window_handle::HasRawDisplayHandle for Window {
+    fn raw_display_handle(&self) -> raw_window_handle::RawDisplayHandle {
+        let handle = raw_window_handle::WindowsDisplayHandle::empty();
+        raw_window_handle::RawDisplayHandle::Windows(handle)
+    }
+}
+
 impl Window {
     fn open_window(
         name: &str,
