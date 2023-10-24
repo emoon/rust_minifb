@@ -509,11 +509,18 @@ pub struct Window {
 
 unsafe impl raw_window_handle::HasRawWindowHandle for Window {
     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-        let mut handle = raw_window_handle::Win32Handle::empty();
+        let mut handle = raw_window_handle::Win32WindowHandle::empty();
         handle.hwnd = self.window.unwrap() as *mut raw::c_void;
         handle.hinstance =
             unsafe { libloaderapi::GetModuleHandleA(ptr::null()) } as *mut raw::c_void;
         raw_window_handle::RawWindowHandle::Win32(handle)
+    }
+}
+
+unsafe impl raw_window_handle::HasRawDisplayHandle for Window {
+    fn raw_display_handle(&self) -> raw_window_handle::RawDisplayHandle {
+        let handle = raw_window_handle::WindowsDisplayHandle::empty();
+        raw_window_handle::RawDisplayHandle::Windows(handle)
     }
 }
 

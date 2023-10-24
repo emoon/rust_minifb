@@ -1265,8 +1265,16 @@ impl Window {
 
 unsafe impl raw_window_handle::HasRawWindowHandle for Window {
     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-        let mut handle = raw_window_handle::WaylandHandle::empty();
+        let mut handle = raw_window_handle::WaylandWindowHandle::empty();
         handle.surface = self.display.surface.as_ref().c_ptr() as *mut _ as *mut c_void;
+
+        raw_window_handle::RawWindowHandle::Wayland(handle)
+    }
+}
+
+unsafe impl raw_window_handle::HasRawDisplayHandle for Window {
+    fn raw_display_handle(&self) -> raw_window_handle::RawDisplayHandle {
+        let mut handle = raw_window_handle::WaylandDisplayHandle::empty();
         handle.display = self
             .display
             .attached_display
@@ -1275,7 +1283,7 @@ unsafe impl raw_window_handle::HasRawWindowHandle for Window {
             .as_ref()
             .c_ptr() as *mut _ as *mut c_void;
 
-        raw_window_handle::RawWindowHandle::Wayland(handle)
+        raw_window_handle::RawDisplayHandle::Wayland(handle)
     }
 }
 

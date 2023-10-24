@@ -377,3 +377,14 @@ unsafe impl raw_window_handle::HasRawWindowHandle for Window {
         }
     }
 }
+
+unsafe impl raw_window_handle::HasRawDisplayHandle for Window {
+    fn raw_display_handle(&self) -> raw_window_handle::RawDisplayHandle {
+        match *self {
+            #[cfg(feature = "x11")]
+            Window::X11(ref w) => w.raw_display_handle(),
+            #[cfg(feature = "wayland")]
+            Window::Wayland(ref w) => w.raw_display_handle(),
+        }
+    }
+}
