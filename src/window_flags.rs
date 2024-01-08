@@ -7,9 +7,7 @@ const WINDOW_TITLE: u32 = 1 << 3;
 
 use crate::WindowOptions;
 
-//
 // Construct a bitmask of flags (sent to backends) from WindowOpts
-//
 #[allow(dead_code)]
 pub fn get_flags(opts: WindowOptions) -> u32 {
     let mut flags = 0u32;
