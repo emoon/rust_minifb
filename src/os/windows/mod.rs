@@ -30,7 +30,7 @@ use winapi::um::fileapi::GetFullPathNameW;
 use winapi::um::libloaderapi;
 use winapi::um::wingdi;
 use winapi::um::winuser::{
-    self, ICON_BIG, ICON_SMALL, IMAGE_ICON, LR_DEFAULTSIZE, LR_LOADFROMFILE, WM_SETICON,
+    self, ICON_BIG, ICON_SMALL, IMAGE_ICON, LR_DEFAULTSIZE, LR_LOADFROMFILE, WM_SETICON, TITLEBARINFO,
 };
 
 // Wrap this so we can have a proper numbef of bmiColors to write in
@@ -913,6 +913,22 @@ impl Window {
             self.key_handler.update();
 
             set_window_long(window, mem::transmute(self));
+        }
+    }
+
+    pub fn set_mouse_pos(&mut self, top: u32, left: u32) {
+        if left < self.width as u32 && top < self.height as u32 {
+            unsafe {
+                let pos = self.get_position();
+
+                let mut titlebar_info: winuser::TITLEBARINFO = std::mem::zeroed();
+                winuser::GetTitleBarInfo(self.window.unwrap(), &mut titlebar_info as *mut winuser::TITLEBARINFO);
+
+                let height = titlebar_info.rcTitleBar.top - titlebar_info.rcTitleBar.bottom;
+
+                winuser::SetCursorPos(left as i32 + pos.1 as i32, top as i32 + pos.0 as i32 + height /* height of title bar */);
+                self.generic_update(self.window.unwrap());
+            }
         }
     }
 
