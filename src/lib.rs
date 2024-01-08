@@ -157,16 +157,6 @@ unsafe impl raw_window_handle::HasRawDisplayHandle for Window {
     }
 }
 
-pub fn clamp<T: PartialOrd>(low: T, value: T, high: T) -> T {
-    if value < low {
-        low
-    } else if value > high {
-        high
-    } else {
-        value
-    }
-}
-
 ///
 /// On some OS (X11 for example) it's possible a window can resize even if no resize has been set.
 /// This causes some issues depending on how the content of an input buffer should be displayed then it's possible
@@ -455,7 +445,6 @@ impl Window {
     /// Sets the background color that is used with update_with_buffer.
     /// In some cases there will be a blank area around the buffer depending on the ScaleMode that has been set.
     /// This color will be used in the in that area.
-    /// The function takes 3 parameters in (red, green, blue) and each value is in the range of 0-255 where 255 is the brightest value
     ///
     /// # Examples
     ///
@@ -467,12 +456,9 @@ impl Window {
     /// ```
     ///
     #[inline]
-    pub fn set_background_color(&mut self, red: usize, green: usize, blue: usize) {
-        let r = clamp(0, red, 255);
-        let g = clamp(0, green, 255);
-        let b = clamp(0, blue, 255);
+    pub fn set_background_color(&mut self, red: u8, green: u8, blue: u8) {
         self.0
-            .set_background_color(((r << 16) | (g << 8) | b) as u32);
+            .set_background_color((red as u32) << 16 | (green as u32) << 8 | blue as u32);
     }
 
     ///
