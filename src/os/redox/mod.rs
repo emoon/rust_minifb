@@ -113,10 +113,10 @@ impl Window {
         self.key_handler.update();
 
         let check_res = buffer_helper::check_buffer_size(
+            buffer,
             self.buffer_width,
             self.buffer_height,
             self.window_scale,
-            buffer,
         );
         if check_res.is_err() {
             return check_res;

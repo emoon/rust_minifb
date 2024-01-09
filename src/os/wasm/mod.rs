@@ -220,7 +220,7 @@ impl Window {
         buf_height: usize,
         buf_stride: usize,
     ) -> Result<()> {
-        buffer_helper::check_buffer_size(buf_width, buf_height, buf_width, buffer)?;
+        buffer_helper::check_buffer_size(buffer, buf_width, buf_height, buf_width)?;
         // scaling not implemented. It's faster to just update the buffer
         //unsafe { self.scale_buffer(buffer, buf_width, buf_height, buf_stride) };
         self.update_with_buffer(&buffer).unwrap();
@@ -230,10 +230,10 @@ impl Window {
 
     pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
         buffer_helper::check_buffer_size(
+            buffer,
             self.width as usize,
             self.height as usize,
             self.window_scale,
-            buffer,
         )?;
         let mut data = u32_as_u8(buffer);
 
@@ -277,8 +277,7 @@ impl Window {
     #[inline]
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         if let Some((mouse_x, mouse_y)) = self.mouse_state.pos.get() {
-            mouse_handler::get_pos(
-                mode,
+            mode.get_pos(
                 mouse_x as f32,
                 mouse_y as f32,
                 self.window_scale as f32,
@@ -293,8 +292,7 @@ impl Window {
     #[inline]
     pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         if let Some((mouse_x, mouse_y)) = self.mouse_state.pos.get() {
-            mouse_handler::get_pos(
-                mode,
+            mode.get_pos(
                 mouse_x as f32,
                 mouse_y as f32,
                 1.0 as f32,
