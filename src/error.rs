@@ -16,7 +16,7 @@ pub enum Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
+        match self {
             Error::MenusNotSupported => write!(formatter, "Menus not supported"),
             Error::MenuExists(_) => write!(formatter, "Menu already exists"),
             Error::WindowCreate(_) => write!(formatter, "Failed to create window"),
@@ -27,7 +27,7 @@ impl fmt::Display for Error {
 
 impl fmt::Debug for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
+        match self {
             Error::MenusNotSupported => write!(fmt, "{}", self),
             Error::MenuExists(ref e) => write!(fmt, "{}, {:?}", self, e),
             Error::WindowCreate(ref e) => write!(fmt, "{}, {:?}", self, e),

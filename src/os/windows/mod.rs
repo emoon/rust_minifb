@@ -14,7 +14,6 @@ use crate::{
 use crate::{MENU_KEY_ALT, MENU_KEY_CTRL, MENU_KEY_SHIFT, MENU_KEY_WIN};
 
 use crate::buffer_helper;
-use crate::mouse_handler;
 use std::ffi::OsStr;
 use std::mem;
 use std::os::raw;
@@ -145,6 +144,7 @@ fn update_key_state(window: &mut Window, wparam: u32, state: bool) {
     }
 }
 
+#[inline]
 fn char_down(window: &mut Window, code_point: u32) {
     if let Some(ref mut callback) = window.key_handler.key_callback {
         callback.add_char(code_point);
@@ -152,40 +152,49 @@ fn char_down(window: &mut Window, code_point: u32) {
 }
 
 #[cfg(target_arch = "x86_64")]
+#[inline]
 unsafe fn set_window_long(window: windef::HWND, data: basetsd::LONG_PTR) -> basetsd::LONG_PTR {
     winuser::SetWindowLongPtrW(window, winuser::GWLP_USERDATA, data)
 }
 
 #[cfg(target_arch = "x86_64")]
+#[inline]
 unsafe fn get_window_long(window: windef::HWND) -> basetsd::LONG_PTR {
     winuser::GetWindowLongPtrW(window, winuser::GWLP_USERDATA)
 }
 
 #[cfg(target_arch = "x86")]
+#[inline]
 unsafe fn set_window_long(window: windef::HWND, data: ntdef::LONG) -> ntdef::LONG {
     winuser::SetWindowLongW(window, winuser::GWLP_USERDATA, data)
 }
 
 #[cfg(target_arch = "x86")]
+#[inline]
 unsafe fn get_window_long(window: windef::HWND) -> ntdef::LONG {
     winuser::GetWindowLongW(window, winuser::GWLP_USERDATA)
 }
+
 #[cfg(target_arch = "aarch64")]
+#[inline]
 unsafe fn set_window_long(window: windef::HWND, data: basetsd::LONG_PTR) -> basetsd::LONG_PTR {
     winuser::SetWindowLongPtrW(window, winuser::GWLP_USERDATA, data)
 }
 
 #[cfg(target_arch = "aarch64")]
+#[inline]
 unsafe fn get_window_long(window: windef::HWND) -> basetsd::LONG_PTR {
     winuser::GetWindowLongPtrW(window, winuser::GWLP_USERDATA)
 }
 
 #[cfg(target_arch = "arm")]
+#[inline]
 unsafe fn set_window_long(window: windef::HWND, data: basetsd::LONG_PTR) -> basetsd::LONG_PTR {
     winuser::SetWindowLongPtrW(window, winuser::GWLP_USERDATA, data)
 }
 
 #[cfg(target_arch = "arm")]
+#[inline]
 unsafe fn get_window_long(window: windef::HWND) -> basetsd::LONG_PTR {
     winuser::GetWindowLongPtrW(window, winuser::GWLP_USERDATA)
 }
@@ -454,12 +463,12 @@ unsafe extern "system" fn wnd_proc(
     winuser::DefWindowProcW(window, msg, wparam, lparam)
 }
 
+#[inline]
 fn to_wstring(str: &str) -> Vec<u16> {
-    let v: Vec<u16> = OsStr::new(str)
+    OsStr::new(str)
         .encode_wide()
         .chain(Some(0).into_iter())
-        .collect();
-    v
+        .collect::<Vec<u16>>()
 }
 
 #[derive(Default)]
@@ -801,23 +810,26 @@ impl Window {
         (self.width as usize, self.height as usize)
     }
 
+    #[inline]
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         let s = self.scale_factor as f32;
         let w = self.width as f32;
         let h = self.height as f32;
 
         // TODO: Needs to be fixed with resize support
-        mouse_handler::get_pos(mode, self.mouse.x, self.mouse.y, s, w, h)
+        mode.get_pos(self.mouse.x, self.mouse.y, s, w, h)
     }
 
+    #[inline]
     pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         let w = self.width as f32;
         let h = self.height as f32;
 
         // TODO: Needs to be fixed with resize support
-        mouse_handler::get_pos(mode, self.mouse.x, self.mouse.y, 1.0, w, h)
+        mode.get_pos(self.mouse.x, self.mouse.y, 1.0, w, h)
     }
 
+    #[inline]
     pub fn get_mouse_down(&self, button: MouseButton) -> bool {
         match button {
             MouseButton::Left => self.mouse.state[0],
@@ -826,6 +838,7 @@ impl Window {
         }
     }
 
+    #[inline]
     pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
         if self.mouse.scroll.abs() > 0.0 {
             Some((0.0, self.mouse.scroll))
@@ -949,6 +962,7 @@ impl Window {
         }
     }
 
+    #[inline]
     pub fn set_cursor_visibility(&mut self, visibility: bool) {
         unsafe {
             winuser::ShowCursor(visibility as i32);
@@ -964,9 +978,9 @@ impl Window {
     ) -> Result<()> {
         let window = self.window.unwrap();
 
-        Self::generic_update(self, window);
+        self.generic_update(window);
 
-        buffer_helper::check_buffer_size(buf_width, buf_height, buf_stride, buffer)?;
+        buffer_helper::check_buffer_size(buffer, buf_width, buf_height, buf_stride)?;
 
         self.draw_params.buffer = buffer.as_ptr();
         self.draw_params.buffer_width = buf_width as u32;
@@ -978,16 +992,17 @@ impl Window {
             winuser::InvalidateRect(window, ptr::null_mut(), minwindef::TRUE);
         }
 
-        Self::message_loop(self, window);
+        self.message_loop(window);
 
         Ok(())
     }
 
+    #[inline]
     pub fn update(&mut self) {
         let window = self.window.unwrap();
 
-        Self::generic_update(self, window);
-        Self::message_loop(self, window);
+        self.generic_update(window);
+        self.message_loop(window);
     }
 
     #[inline]
@@ -1123,6 +1138,7 @@ impl Window {
         }
     }
 
+    #[inline]
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
         if self.accel_key == INVALID_ACCEL {
             None
@@ -1305,6 +1321,7 @@ impl Menu {
         name
     }
 
+    #[inline]
     fn is_key_virtual_range(_key: raw::c_int) -> u32 {
         /*
         if (key >= 0x30 && key <= 0x30) ||
@@ -1383,8 +1400,9 @@ impl Menu {
         MenuItemHandle(0)
     }
 
+    #[inline]
     pub fn remove_item(&mut self, _item: &MenuItemHandle) {
-        panic!("remove item hasn't been implemented");
+        unimplemented!();
     }
 }
 

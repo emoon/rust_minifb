@@ -7,7 +7,6 @@ use web_sys::{window, CanvasRenderingContext2d, HtmlCanvasElement};
 
 use crate::buffer_helper;
 use crate::key_handler::KeyHandler;
-use crate::mouse_handler;
 use crate::Icon;
 use crate::InputCallback;
 use crate::Result;
@@ -23,8 +22,9 @@ use std::rc::Rc;
 
 #[inline(always)]
 #[allow(dead_code)] // Only used on 32-bit builds currently
+#[inline]
 pub fn u32_as_u8<'a>(src: &'a [u32]) -> &'a [u8] {
-    unsafe { core::slice::from_raw_parts(src.as_ptr() as *mut u8, src.len() * 4) }
+    unsafe { core::slice::from_raw_parts(src.as_ptr() as *mut u8, std::mem::size_of::<u32>()) }
 }
 
 struct MouseState {
@@ -203,10 +203,12 @@ impl Window {
         // TODO?
     }
 
+    #[inline]
     pub fn set_background_color(&mut self, bg_color: u32) {
         self.bg_color = bg_color;
     }
 
+    #[inline]
     pub fn set_cursor_visibility(&mut self, visibility: bool) {
         //TODO?
     }
@@ -247,6 +249,7 @@ impl Window {
         Ok(())
     }
 
+    #[inline]
     pub fn update(&mut self) {
         self.key_handler.borrow_mut().update();
         self.context
@@ -271,6 +274,7 @@ impl Window {
         (self.width as usize, self.height as usize)
     }
 
+    #[inline]
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         if let Some((mouse_x, mouse_y)) = self.mouse_state.pos.get() {
             mouse_handler::get_pos(
@@ -286,6 +290,7 @@ impl Window {
         }
     }
 
+    #[inline]
     pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         if let Some((mouse_x, mouse_y)) = self.mouse_state.pos.get() {
             mouse_handler::get_pos(
@@ -301,6 +306,7 @@ impl Window {
         }
     }
 
+    #[inline]
     pub fn get_mouse_down(&self, button: MouseButton) -> bool {
         match button {
             MouseButton::Left => self.mouse_state.left_button.get(),
@@ -309,6 +315,7 @@ impl Window {
         }
     }
 
+    #[inline]
     pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
         None
     }
@@ -316,34 +323,42 @@ impl Window {
     #[inline]
     pub fn set_cursor_style(&mut self, cursor: CursorStyle) {}
 
+    #[inline]
     pub fn get_keys(&self) -> Vec<Key> {
         self.key_handler.borrow().get_keys()
     }
 
+    #[inline]
     pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
         self.key_handler.borrow().get_keys_pressed(repeat)
     }
 
+    #[inline]
     pub fn is_key_down(&self, key: Key) -> bool {
         self.key_handler.borrow().is_key_down(key)
     }
 
+    #[inline]
     pub fn set_key_repeat_delay(&mut self, delay: f32) {
         self.key_handler.borrow_mut().set_key_repeat_delay(delay)
     }
 
+    #[inline]
     pub fn set_key_repeat_rate(&mut self, rate: f32) {
         self.key_handler.borrow_mut().set_key_repeat_rate(rate)
     }
 
+    #[inline]
     pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
         self.key_handler.borrow().is_key_pressed(key, repeat)
     }
 
+    #[inline]
     pub fn is_key_released(&self, key: Key) -> bool {
         self.key_handler.borrow().is_key_released(key)
     }
 
+    #[inline]
     pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>) {
         self.key_handler.borrow_mut().set_input_callback(callback)
     }
@@ -357,16 +372,20 @@ impl Window {
     pub fn get_keys_released(&self) -> Vec<Key> {
         self.key_handler.borrow().get_keys_released()
     }
+
+    #[inline]
     pub fn is_active(&mut self) -> bool {
         true
     }
 
+    #[inline]
     fn next_menu_handle(&mut self) -> MenuHandle {
         let handle = self.menu_counter;
         self.menu_counter.0 += 1;
         handle
     }
 
+    #[inline]
     pub fn add_menu(&mut self, menu: &Menu) -> MenuHandle {
         let handle = self.next_menu_handle();
         let mut menu = menu.internal.clone();
@@ -375,10 +394,12 @@ impl Window {
         handle
     }
 
+    #[inline]
     pub fn remove_menu(&mut self, handle: MenuHandle) {
         self.menus.retain(|ref menu| menu.handle != handle);
     }
 
+    #[inline]
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
         None
     }
@@ -400,14 +421,17 @@ impl Menu {
         })
     }
 
+    #[inline]
     pub fn add_sub_menu(&mut self, name: &str, sub_menu: &Menu) {}
 
+    #[inline]
     fn next_item_handle(&mut self) -> MenuItemHandle {
         let handle = self.internal.item_counter;
         self.internal.item_counter.0 += 1;
         handle
     }
 
+    #[inline]
     pub fn add_menu_item(&mut self, item: &MenuItem) -> MenuItemHandle {
         let item_handle = self.next_item_handle();
         self.internal.items.push(UnixMenuItem {
@@ -422,6 +446,7 @@ impl Menu {
         item_handle
     }
 
+    #[inline]
     pub fn remove_item(&mut self, handle: &MenuItemHandle) {}
 }
 
