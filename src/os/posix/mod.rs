@@ -63,20 +63,20 @@ impl Window {
     }
 
     pub fn set_title(&mut self, title: &str) {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref mut w) => w.set_title(title),
+            Window::X11(w) => w.set_title(title),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref mut w) => w.set_title(title),
+            Window::Wayland(w) => w.set_title(title),
         }
     }
 
     pub fn set_icon(&mut self, icon: Icon) {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref mut w) => w.set_icon(icon),
+            Window::X11(w) => w.set_icon(icon),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref mut _w) => {
+            Window::Wayland(_w) => {
                 unimplemented!("Cannot set icons at runtime on Wayland, create a .desktop file!")
             }
         }
@@ -89,69 +89,69 @@ impl Window {
         buf_height: usize,
         buf_stride: usize,
     ) -> Result<()> {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref mut w) => {
+            Window::X11(w) => {
                 w.update_with_buffer_stride(buffer, buf_width, buf_height, buf_stride)
             }
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref mut w) => {
+            Window::Wayland(w) => {
                 w.update_with_buffer_stride(buffer, buf_width, buf_height, buf_stride)
             }
         }
     }
 
     pub fn update(&mut self) {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref mut w) => w.update(),
+            Window::X11(w) => w.update(),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref mut w) => w.update(),
+            Window::Wayland(w) => w.update(),
         }
     }
 
     pub fn get_window_handle(&self) -> *mut raw::c_void {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref w) => w.get_window_handle(),
+            Window::X11(w) => w.get_window_handle(),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref w) => w.get_window_handle(),
+            Window::Wayland(w) => w.get_window_handle(),
         }
     }
 
     pub fn set_background_color(&mut self, bg_color: u32) {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref mut w) => w.set_background_color(bg_color),
+            Window::X11(w) => w.set_background_color(bg_color),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref mut w) => w.set_background_color(bg_color),
+            Window::Wayland(w) => w.set_background_color(bg_color),
         }
     }
 
     pub fn set_cursor_visibility(&mut self, visibility: bool) {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref mut w) => w.set_cursor_visibility(visibility),
+            Window::X11(w) => w.set_cursor_visibility(visibility),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref mut w) => w.set_cursor_visibility(visibility),
+            Window::Wayland(w) => w.set_cursor_visibility(visibility),
         }
     }
 
     pub fn set_position(&mut self, x: isize, y: isize) {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref mut w) => w.set_position(x, y),
+            Window::X11(w) => w.set_position(x, y),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref mut w) => w.set_position(x, y),
+            Window::Wayland(w) => w.set_position(x, y),
         }
     }
 
     pub fn get_position(&self) -> (isize, isize) {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref w) => w.get_position(),
+            Window::X11(w) => w.get_position(),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref w) => w.get_position(),
+            Window::Wayland(w) => w.get_position(),
         }
     }
 
@@ -160,231 +160,231 @@ impl Window {
     }
 
     pub fn get_size(&self) -> (usize, usize) {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref w) => w.get_size(),
+            Window::X11(w) => w.get_size(),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref w) => w.get_size(),
+            Window::Wayland(w) => w.get_size(),
         }
     }
 
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref w) => w.get_mouse_pos(mode),
+            Window::X11(w) => w.get_mouse_pos(mode),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref w) => w.get_mouse_pos(mode),
+            Window::Wayland(w) => w.get_mouse_pos(mode),
         }
     }
 
     pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref w) => w.get_unscaled_mouse_pos(mode),
+            Window::X11(w) => w.get_unscaled_mouse_pos(mode),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref w) => w.get_unscaled_mouse_pos(mode),
+            Window::Wayland(w) => w.get_unscaled_mouse_pos(mode),
         }
     }
 
     pub fn get_mouse_down(&self, button: MouseButton) -> bool {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref w) => w.get_mouse_down(button),
+            Window::X11(w) => w.get_mouse_down(button),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref w) => w.get_mouse_down(button),
+            Window::Wayland(w) => w.get_mouse_down(button),
         }
     }
 
     pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref w) => w.get_scroll_wheel(),
+            Window::X11(w) => w.get_scroll_wheel(),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref w) => w.get_scroll_wheel(),
+            Window::Wayland(w) => w.get_scroll_wheel(),
         }
     }
 
     pub fn set_cursor_style(&mut self, cursor: CursorStyle) {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref mut w) => w.set_cursor_style(cursor),
+            Window::X11(w) => w.set_cursor_style(cursor),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref mut w) => w.set_cursor_style(cursor),
+            Window::Wayland(w) => w.set_cursor_style(cursor),
         }
     }
 
     pub fn set_rate(&mut self, rate: Option<std::time::Duration>) {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref mut w) => w.set_rate(rate),
+            Window::X11(w) => w.set_rate(rate),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref mut w) => w.set_rate(rate),
+            Window::Wayland(w) => w.set_rate(rate),
         }
     }
 
     pub fn update_rate(&mut self) {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref mut w) => w.update_rate(),
+            Window::X11(w) => w.update_rate(),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref mut w) => w.update_rate(),
+            Window::Wayland(w) => w.update_rate(),
         }
     }
 
     pub fn get_keys(&self) -> Vec<Key> {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref w) => w.get_keys(),
+            Window::X11(w) => w.get_keys(),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref w) => w.get_keys(),
+            Window::Wayland(w) => w.get_keys(),
         }
     }
 
     pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref w) => w.get_keys_pressed(repeat),
+            Window::X11(w) => w.get_keys_pressed(repeat),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref w) => w.get_keys_pressed(repeat),
+            Window::Wayland(w) => w.get_keys_pressed(repeat),
         }
     }
 
     pub fn get_keys_released(&self) -> Vec<Key> {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref w) => w.get_keys_released(),
+            Window::X11(w) => w.get_keys_released(),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref w) => w.get_keys_released(),
+            Window::Wayland(w) => w.get_keys_released(),
         }
     }
 
     pub fn is_key_down(&self, key: Key) -> bool {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref w) => w.is_key_down(key),
+            Window::X11(w) => w.is_key_down(key),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref w) => w.is_key_down(key),
+            Window::Wayland(w) => w.is_key_down(key),
         }
     }
 
     pub fn set_key_repeat_delay(&mut self, delay: f32) {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref mut w) => w.set_key_repeat_delay(delay),
+            Window::X11(w) => w.set_key_repeat_delay(delay),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref mut w) => w.set_key_repeat_delay(delay),
+            Window::Wayland(w) => w.set_key_repeat_delay(delay),
         }
     }
 
     pub fn set_key_repeat_rate(&mut self, rate: f32) {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref mut w) => w.set_key_repeat_rate(rate),
+            Window::X11(w) => w.set_key_repeat_rate(rate),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref mut w) => w.set_key_repeat_rate(rate),
+            Window::Wayland(w) => w.set_key_repeat_rate(rate),
         }
     }
 
     pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref w) => w.is_key_pressed(key, repeat),
+            Window::X11(w) => w.is_key_pressed(key, repeat),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref w) => w.is_key_pressed(key, repeat),
+            Window::Wayland(w) => w.is_key_pressed(key, repeat),
         }
     }
 
     pub fn is_key_released(&self, key: Key) -> bool {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref w) => w.is_key_released(key),
+            Window::X11(w) => w.is_key_released(key),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref w) => w.is_key_released(key),
+            Window::Wayland(w) => w.is_key_released(key),
         }
     }
 
     pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>) {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref mut w) => w.set_input_callback(callback),
+            Window::X11(w) => w.set_input_callback(callback),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref mut w) => w.set_input_callback(callback),
+            Window::Wayland(w) => w.set_input_callback(callback),
         }
     }
 
     pub fn is_open(&self) -> bool {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref w) => w.is_open(),
+            Window::X11(w) => w.is_open(),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref w) => w.is_open(),
+            Window::Wayland(w) => w.is_open(),
         }
     }
 
     pub fn is_active(&mut self) -> bool {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref mut w) => w.is_active(),
+            Window::X11(w) => w.is_active(),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref mut w) => w.is_active(),
+            Window::Wayland(w) => w.is_active(),
         }
     }
 
     pub fn add_menu(&mut self, menu: &Menu) -> MenuHandle {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref mut w) => w.add_menu(menu),
+            Window::X11(w) => w.add_menu(menu),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref mut w) => w.add_menu(menu),
+            Window::Wayland(w) => w.add_menu(menu),
         }
     }
 
     pub fn get_posix_menus(&self) -> Option<&Vec<UnixMenu>> {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref w) => w.get_posix_menus(),
+            Window::X11(w) => w.get_posix_menus(),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref w) => w.get_posix_menus(),
+            Window::Wayland(w) => w.get_posix_menus(),
         }
     }
 
     pub fn remove_menu(&mut self, handle: MenuHandle) {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref mut w) => w.remove_menu(handle),
+            Window::X11(w) => w.remove_menu(handle),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref mut w) => w.remove_menu(handle),
+            Window::Wayland(w) => w.remove_menu(handle),
         }
     }
 
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref mut w) => w.is_menu_pressed(),
+            Window::X11(w) => w.is_menu_pressed(),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref mut w) => w.is_menu_pressed(),
+            Window::Wayland(w) => w.is_menu_pressed(),
         }
     }
 }
 
 unsafe impl raw_window_handle::HasRawWindowHandle for Window {
     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref w) => w.raw_window_handle(),
+            Window::X11(w) => w.raw_window_handle(),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref w) => w.raw_window_handle(),
+            Window::Wayland(w) => w.raw_window_handle(),
         }
     }
 }
 
 unsafe impl raw_window_handle::HasRawDisplayHandle for Window {
     fn raw_display_handle(&self) -> raw_window_handle::RawDisplayHandle {
-        match *self {
+        match self {
             #[cfg(feature = "x11")]
-            Window::X11(ref w) => w.raw_display_handle(),
+            Window::X11(w) => w.raw_display_handle(),
             #[cfg(feature = "wayland")]
-            Window::Wayland(ref w) => w.raw_display_handle(),
+            Window::Wayland(w) => w.raw_display_handle(),
         }
     }
 }

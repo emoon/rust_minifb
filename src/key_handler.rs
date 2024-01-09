@@ -44,10 +44,10 @@ impl KeyHandler {
     pub fn get_keys(&self) -> Vec<Key> {
         let mut keys: Vec<Key> = Vec::new();
 
-        for (index, i) in self.keys.iter().enumerate() {
-            if *i {
+        for (idx, is_down) in self.keys.iter().enumerate() {
+            if *is_down {
                 unsafe {
-                    keys.push(mem::transmute(index as u8));
+                    keys.push(mem::transmute(idx as u8));
                 }
             }
         }
@@ -61,20 +61,21 @@ impl KeyHandler {
         self.prev_time = current_time;
         let delta_time = self.delta_time.as_secs_f32();
 
-        for i in 0..self.keys.len() {
-            if self.keys[i] {
-                if self.keys_down_duration[i] < 0.0 {
-                    self.keys_down_duration[i] = 0.0;
+        for idx in 0..self.keys.len() {
+            if self.keys[idx] {
+                if self.keys_down_duration[idx] < 0.0 {
+                    self.keys_down_duration[idx] = 0.0;
                 } else {
-                    self.keys_down_duration[i] += delta_time;
+                    self.keys_down_duration[idx] += delta_time;
                 }
             } else {
-                self.keys_down_duration[i] = -1.0;
+                self.keys_down_duration[idx] = -1.0;
             }
-            self.keys_prev[i] = self.keys[i];
+            self.keys_prev[idx] = self.keys[idx];
         }
     }
 
+    #[inline]
     pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>) {
         self.key_callback = Some(callback);
     }
@@ -82,12 +83,10 @@ impl KeyHandler {
     pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
         let mut keys: Vec<Key> = Vec::new();
 
-        for (index, i) in self.keys.iter().enumerate() {
-            if *i {
+        for (idx, is_down) in self.keys.iter().enumerate() {
+            if *is_down && self.key_pressed(idx, repeat) {
                 unsafe {
-                    if Self::key_pressed(self, index as usize, repeat) {
-                        keys.push(mem::transmute(index as u8));
-                    }
+                    keys.push(mem::transmute(idx as u8));
                 }
             }
         }
@@ -147,13 +146,12 @@ impl KeyHandler {
 
     #[inline]
     pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
-        Self::key_pressed(self, key as usize, repeat)
+        self.key_pressed(key as usize, repeat)
     }
 
     #[inline]
     pub fn is_key_released(&self, key: Key) -> bool {
-        let idx = key as usize;
-        self.is_key_index_released(idx)
+        self.is_key_index_released(key as usize)
     }
 
     #[inline]

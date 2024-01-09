@@ -20,9 +20,10 @@ use std::ptr;
 
 use crate::buffer_helper;
 use crate::icon::Icon;
-use crate::mouse_handler;
 
-use super::common::Menu;
+use super::common::{
+    Image_center, Image_resize_linear_aspect_fill_c, Image_resize_linear_c, Image_upper_left, Menu,
+};
 use x11_dl::xlib::{
     KeyPressMask, KeyReleaseMask, KeySym, Status, XEvent, XIMPreeditNothing, XIMStatusNothing,
     XKeyEvent, XNClientWindow, XNFocusWindow, XNInputStyle, XWindowAttributes, XrmDatabase, XIC,
@@ -32,53 +33,6 @@ use x11_dl::xlib::{
 // NOTE: the x11-dl crate does not define Button6 or Button7
 const Button6: c_uint = xlib::Button5 + 1;
 const Button7: c_uint = xlib::Button5 + 2;
-
-// These functions are implemented in C in order to always have
-// optimizations on (`-O3`), allowing debug builds to run fast as well.
-extern "C" {
-    fn Image_upper_left(
-        target: *mut u32,
-        source: *const u32,
-        source_w: u32,
-        source_h: u32,
-        source_stride: u32,
-        dest_width: u32,
-        dest_height: u32,
-        bg_color: u32,
-    );
-
-    fn Image_center(
-        target: *mut u32,
-        source: *const u32,
-        source_w: u32,
-        source_h: u32,
-        source_stride: u32,
-        dest_width: u32,
-        dest_height: u32,
-        bg_color: u32,
-    );
-
-    fn Image_resize_linear_aspect_fill_c(
-        target: *mut u32,
-        source: *const u32,
-        source_w: u32,
-        source_h: u32,
-        source_stride: u32,
-        dest_width: u32,
-        dest_height: u32,
-        bg_color: u32,
-    );
-
-    fn Image_resize_linear_c(
-        target: *mut u32,
-        source: *const u32,
-        source_w: u32,
-        source_h: u32,
-        source_stride: u32,
-        dest_width: u32,
-        dest_height: u32,
-    );
-}
 
 #[repr(C)]
 struct MwmHints {
@@ -627,7 +581,7 @@ impl Window {
         buf_height: usize,
         buf_stride: usize,
     ) -> Result<()> {
-        buffer_helper::check_buffer_size(buf_width, buf_height, buf_stride, buffer)?;
+        buffer_helper::check_buffer_size(buffer, buf_width, buf_height, buf_stride)?;
 
         unsafe { self.raw_blit_buffer(buffer, buf_width, buf_height, buf_stride) };
 
@@ -763,14 +717,14 @@ impl Window {
         let w = self.width as f32;
         let h = self.height as f32;
 
-        mouse_handler::get_pos(mode, self.mouse_x, self.mouse_y, s, w, h)
+        mode.get_pos(self.mouse_x, self.mouse_y, s, w, h)
     }
 
     pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         let w = self.width as f32;
         let h = self.height as f32;
 
-        mouse_handler::get_pos(mode, self.mouse_x, self.mouse_y, 1.0, w, h)
+        mode.get_pos(self.mouse_x, self.mouse_y, 1.0, w, h)
     }
 
     pub fn get_mouse_down(&self, button: MouseButton) -> bool {
@@ -949,8 +903,8 @@ impl Window {
                     buf_width as u32,
                     buf_height as u32,
                     buf_stride as u32,
-                    self.width as u32,
-                    self.height as u32,
+                    self.width,
+                    self.height,
                 );
             }
 
@@ -961,8 +915,8 @@ impl Window {
                     buf_width as u32,
                     buf_height as u32,
                     buf_stride as u32,
-                    self.width as u32,
-                    self.height as u32,
+                    self.width,
+                    self.height,
                     self.bg_color,
                 );
             }
@@ -974,8 +928,8 @@ impl Window {
                     buf_width as u32,
                     buf_height as u32,
                     buf_stride as u32,
-                    self.width as u32,
-                    self.height as u32,
+                    self.width,
+                    self.height,
                     self.bg_color,
                 );
             }
@@ -987,8 +941,8 @@ impl Window {
                     buf_width as u32,
                     buf_height as u32,
                     buf_stride as u32,
-                    self.width as u32,
-                    self.height as u32,
+                    self.width,
+                    self.height,
                     self.bg_color,
                 );
             }
