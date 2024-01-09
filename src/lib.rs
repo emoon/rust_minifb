@@ -2,7 +2,7 @@
 //! easy to open windows (usually native to the running operating system) and can optionally show
 //! a 32-bit buffer. minifb also support keyboard, mouse input and menus on selected operating
 //! systems.
-//!
+
 #![deny(missing_debug_implementations)]
 
 #[cfg(not(any(target_os = "macos", target_os = "redox", windows)))]
@@ -12,6 +12,37 @@ extern crate dlib;
 
 use std::fmt;
 use std::os::raw;
+
+mod error;
+pub use self::error::Error;
+pub type Result<T> = std::result::Result<T, Error>;
+pub use icon::Icon;
+pub use raw_window_handle::HasRawWindowHandle;
+
+mod key;
+pub use key::Key;
+mod buffer_helper;
+mod icon;
+mod key_handler;
+mod os;
+mod rate;
+
+#[cfg(target_os = "macos")]
+use self::os::macos as imp;
+#[cfg(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "dragonfly",
+    target_os = "netbsd",
+    target_os = "openbsd"
+))]
+use self::os::posix as imp;
+#[cfg(target_os = "redox")]
+use self::os::redox as imp;
+#[cfg(target_arch = "wasm32")]
+use self::os::wasm as imp;
+#[cfg(target_os = "windows")]
+use self::os::windows as imp;
 
 /// Scale will scale the frame buffer and the window that is being sent in when calling the update
 /// function. This is useful if you for example want to display a 320 x 256 window on a screen with
@@ -67,6 +98,38 @@ pub enum MouseMode {
     Discard,
 }
 
+impl MouseMode {
+    pub(crate) fn get_pos(
+        self,
+        mx: f32,
+        my: f32,
+        scale: f32,
+        width: f32,
+        height: f32,
+    ) -> Option<(f32, f32)> {
+        let s = 1.0 / scale;
+        let x = mx * s;
+        let y = my * s;
+        let window_width = width * s;
+        let window_height = height * s;
+
+        match self {
+            MouseMode::Pass => Some((x, y)),
+            MouseMode::Clamp => Some((
+                x.clamp(0.0, window_width - 1.0),
+                y.clamp(0.0, window_height - 1.0),
+            )),
+            MouseMode::Discard => {
+                if x < 0.0 || y < 0.0 || x >= window_width || y >= window_height {
+                    None
+                } else {
+                    Some((x, y))
+                }
+            }
+        }
+    }
+}
+
 /// Different style of cursors that can be used
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum CursorStyle {
@@ -101,42 +164,8 @@ pub trait InputCallback {
     fn set_key_state(&mut self, _key: Key, _state: bool) {}
 }
 
-mod error;
-pub use self::error::Error;
-pub type Result<T> = std::result::Result<T, Error>;
-pub use icon::Icon;
-pub use raw_window_handle::HasRawWindowHandle;
-
-mod key;
-pub use key::Key;
-mod buffer_helper;
-mod icon;
-mod key_handler;
-mod mouse_handler;
-mod os;
-mod rate;
-mod window_flags;
-
-#[cfg(target_os = "macos")]
-use self::os::macos as imp;
-#[cfg(any(
-    target_os = "linux",
-    target_os = "freebsd",
-    target_os = "dragonfly",
-    target_os = "netbsd",
-    target_os = "openbsd"
-))]
-use self::os::posix as imp;
-#[cfg(target_os = "redox")]
-use self::os::redox as imp;
-#[cfg(target_arch = "wasm32")]
-use self::os::wasm as imp;
-#[cfg(target_os = "windows")]
-use self::os::windows as imp;
-///
 /// Window is used to open up a window. It's possible to optionally display a 32-bit buffer when
 /// the widow is set as non-resizable.
-///
 pub struct Window(imp::Window);
 
 impl fmt::Debug for Window {
@@ -157,11 +186,9 @@ unsafe impl raw_window_handle::HasRawDisplayHandle for Window {
     }
 }
 
-///
 /// On some OS (X11 for example) it's possible a window can resize even if no resize has been set.
 /// This causes some issues depending on how the content of an input buffer should be displayed then it's possible
 /// to set this scaling mode to get a better behavior.
-///
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ScaleMode {
     /// Stretch the buffer in the whole window meaning if your buffer is 256x256 and window is 1024x1024 it will be scaled up 4 times
@@ -175,10 +202,8 @@ pub enum ScaleMode {
     UpperLeft,
 }
 
-///
 /// WindowOptions is creation settings for the window. By default the settings are defined for
 /// displayng a 32-bit buffer (no scaling of window is possible)
-///
 #[derive(Clone, Copy, Debug)]
 pub struct WindowOptions {
     /// If the window should be borderless (default: false)
@@ -204,8 +229,34 @@ pub struct WindowOptions {
     pub none: bool,
 }
 
+#[allow(dead_code)]
+impl WindowOptions {
+    const WINDOW_BORDERLESS: u32 = 1 << 1;
+    const WINDOW_RESIZE: u32 = 1 << 2;
+    const WINDOW_TITLE: u32 = 1 << 3;
+
+    // Construct a bitmask of flags (sent to backends) from WindowOpts
+    #[inline]
+    pub(crate) fn get_flags(self) -> u32 {
+        let mut flags = 0u32;
+
+        if self.borderless {
+            flags |= Self::WINDOW_BORDERLESS;
+        }
+
+        if self.title {
+            flags |= Self::WINDOW_TITLE;
+        }
+
+        if self.resize {
+            flags |= Self::WINDOW_RESIZE;
+        }
+
+        flags
+    }
+}
+
 impl Window {
-    ///
     /// Opens up a new window
     ///
     /// # Examples
@@ -243,7 +294,6 @@ impl Window {
         imp::Window::new(name, width, height, opts).map(Window)
     }
 
-    ///
     /// Allows you to set a new title of the window after creation
     ///
     /// # Examples
@@ -254,12 +304,11 @@ impl Window {
     ///
     /// window.set_title("My New Title!");
     /// ```
-    ///
+    #[inline]
     pub fn set_title(&mut self, title: &str) {
         self.0.set_title(title)
     }
 
-    ///
     /// Sets the icon of the window after creation.
     ///
     /// The file path has to be relative to the current working directory.
@@ -284,12 +333,11 @@ impl Window {
     /// #[cfg(target_os = "windows")]
     /// window.set_icon(Icon::from_str("src/icon.ico").unwrap());
     /// ```
-    ///
+    #[inline]
     pub fn set_icon(&mut self, icon: Icon) {
         self.0.set_icon(icon)
     }
 
-    ///
     /// Returns the native handle for a window which is an opaque pointer/handle which
     /// dependens on the current operating system:
     ///
@@ -298,13 +346,11 @@ impl Window {
     /// MacOS   NSWindow
     /// X11     XWindow
     /// ```
-    ///
     #[inline]
     pub fn get_window_handle(&self) -> *mut raw::c_void {
         self.0.get_window_handle()
     }
 
-    ///
     /// Updates the window with a 32-bit pixel buffer. The encoding for each pixel is `0RGB`:
     /// The upper 8-bits are ignored, the next 8-bits are for the red channel, the next 8-bits
     /// afterwards for the green channel, and the lower 8-bits for the blue channel.
@@ -345,7 +391,6 @@ impl Window {
             .update_with_buffer_stride(buffer, width, height, width)
     }
 
-    ///
     /// Updates the window (this is required to call in order to get keyboard/mouse input, etc)
     ///
     /// Notice that when using this function then `update_with_buffer` should not be called for the same window.
@@ -367,11 +412,9 @@ impl Window {
         self.0.update()
     }
 
-    ///
     /// Checks if the window is still open. A window can be closed by the user (by for example
     /// pressing the close button on the window) It's up to the user to make sure that this is
     /// being checked and take action depending on the state.
-    ///
     ///
     /// # Examples
     ///
@@ -387,7 +430,6 @@ impl Window {
         self.0.is_open()
     }
 
-    ///
     /// Sets the position of the window. This is useful if you have
     /// more than one window and want to align them up on the screen
     ///
@@ -399,13 +441,11 @@ impl Window {
     /// // Moves the window to pixel position 20, 20 on the screen
     /// window.set_position(20, 20);
     /// ```
-    ///
     #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
         self.0.set_position(x, y)
     }
 
-    ///
     /// Gets the position of the window. This is useful if you want
     /// to store the position of the window across sessions
     ///
@@ -417,13 +457,11 @@ impl Window {
     /// // Retrieves the current window position
     /// let (x,y) = window.get_position();
     /// ```
-    ///
     #[inline]
     pub fn get_position(&self) -> (isize, isize) {
         self.0.get_position()
     }
 
-    ///
     /// Makes the window the topmost window and makes it stay always on top. This is useful if you
     /// want the window to float above all over windows
     ///
@@ -435,13 +473,11 @@ impl Window {
     /// // Makes the window always on top
     /// window.topmost(true);
     /// ```
-    ///
     #[inline]
     pub fn topmost(&self, topmost: bool) {
         self.0.topmost(topmost)
     }
 
-    ///
     /// Sets the background color that is used with update_with_buffer.
     /// In some cases there will be a blank area around the buffer depending on the ScaleMode that has been set.
     /// This color will be used in the in that area.
@@ -454,14 +490,12 @@ impl Window {
     /// // Set background color to bright red
     /// window.set_background_color(255, 0, 0);
     /// ```
-    ///
     #[inline]
     pub fn set_background_color(&mut self, red: u8, green: u8, blue: u8) {
         self.0
             .set_background_color((red as u32) << 16 | (green as u32) << 8 | blue as u32);
     }
 
-    ///
     /// Changes whether or not the cursor image should be shown or if the cursor image
     /// should be invisible inside the window
     /// When creating a new window the default is 'false'
@@ -470,7 +504,6 @@ impl Window {
         self.0.set_cursor_visibility(visibility);
     }
 
-    ///
     /// Limits the update rate of polling for new events in order to reduce CPU usage.
     /// The problem of having a tight loop that does something like this
     ///
@@ -494,13 +527,11 @@ impl Window {
     /// // Make sure that at least 4 ms has passed since the last event poll
     /// window.limit_update_rate(Some(std::time::Duration::from_millis(4)));
     /// ```
-    ///
     #[inline]
     pub fn limit_update_rate(&mut self, time: Option<std::time::Duration>) {
         self.0.set_rate(time)
     }
 
-    ///
     /// Returns the current size of the window
     ///
     /// # Examples
@@ -511,13 +542,11 @@ impl Window {
     /// let size = window.get_size();
     /// println!("width {} height {}", size.0, size.1);
     /// ```
-    ///
     #[inline]
     pub fn get_size(&self) -> (usize, usize) {
         self.0.get_size()
     }
 
-    ///
     /// Get the current position of the mouse relative to the current window
     /// The coordinate system is as 0, 0 as the upper left corner
     ///
@@ -530,13 +559,11 @@ impl Window {
     ///     println!("x {} y {}", mouse.0, mouse.1);
     /// });
     /// ```
-    ///
     #[inline]
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         self.0.get_mouse_pos(mode)
     }
 
-    ///
     /// Get the current position of the mouse relative to the current window
     /// The coordinate system is as 0, 0 as the upper left corner and ignores
     /// any scaling set to the window.
@@ -550,13 +577,11 @@ impl Window {
     ///     println!("x {} y {}", mouse.0, mouse.1);
     /// });
     /// ```
-    ///
     #[inline]
     pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         self.0.get_unscaled_mouse_pos(mode)
     }
 
-    ///
     /// Check if a mouse button is down or not
     ///
     /// # Examples
@@ -567,13 +592,11 @@ impl Window {
     /// let left_down = window.get_mouse_down(MouseButton::Left);
     /// println!("is left down? {}", left_down)
     /// ```
-    ///
     #[inline]
     pub fn get_mouse_down(&self, button: MouseButton) -> bool {
         self.0.get_mouse_down(button)
     }
 
-    ///
     /// Get the current movement of the scroll wheel.
     /// Scroll wheel can mean different thing depending on the device attach.
     /// For example on Mac with trackpad "scroll wheel" means two finger
@@ -589,14 +612,11 @@ impl Window {
     ///     println!("scrolling - x {} y {}", scroll.0, scroll.1);
     /// });
     /// ```
-    ///
-    ///
     #[inline]
     pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
         self.0.get_scroll_wheel()
     }
 
-    ///
     /// Set a different cursor style. This can be used if you have resizing
     /// elements or something like that
     ///
@@ -607,12 +627,11 @@ impl Window {
     /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     /// window.set_cursor_style(CursorStyle::ResizeLeftRight);
     /// ```
-    ///
+    #[inline]
     pub fn set_cursor_style(&mut self, cursor: CursorStyle) {
         self.0.set_cursor_style(cursor)
     }
 
-    ///
     /// Get the current keys that are down.
     ///
     /// # Examples
@@ -633,7 +652,6 @@ impl Window {
         self.0.get_keys()
     }
 
-    ///
     /// Get the current pressed keys. Repeat can be used to control if keys should
     /// be repeated if down or not.
     ///
@@ -655,7 +673,6 @@ impl Window {
         self.0.get_keys_pressed(repeat)
     }
 
-    ///
     /// Get the current released keys.
     ///
     /// # Examples
@@ -676,7 +693,6 @@ impl Window {
         self.0.get_keys_released()
     }
 
-    ///
     /// Check if a single key is down.
     ///
     /// # Examples
@@ -688,13 +704,11 @@ impl Window {
     ///     println!("Key A is down");
     /// }
     /// ```
-    ///
     #[inline]
     pub fn is_key_down(&self, key: Key) -> bool {
         self.0.is_key_down(key)
     }
 
-    ///
     /// Check if a single key is pressed. KeyRepeat will control if the key should be repeated or
     /// not while being pressed.
     ///
@@ -707,21 +721,17 @@ impl Window {
     ///     println!("Key A is down");
     /// }
     /// ```
-    ///
     #[inline]
     pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
         self.0.is_key_pressed(key, repeat)
     }
 
-    ///
     /// Check if a single key was released since last call to update.
-    ///
     #[inline]
     pub fn is_key_released(&self, key: Key) -> bool {
         self.0.is_key_released(key)
     }
 
-    ///
     /// Sets the delay for when a key is being held before it starts being repeated the default
     /// value is 0.25 sec
     ///
@@ -732,13 +742,11 @@ impl Window {
     /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     /// window.set_key_repeat_delay(0.5) // 0.5 sec before repeat starts
     /// ```
-    ///
     #[inline]
     pub fn set_key_repeat_delay(&mut self, delay: f32) {
         self.0.set_key_repeat_delay(delay)
     }
 
-    ///
     /// Sets the rate in between when the keys has passed the initial repeat_delay. The default
     /// value is 0.05 sec
     ///
@@ -749,29 +757,23 @@ impl Window {
     /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
     /// window.set_key_repeat_rate(0.01) // 0.01 sec between keys
     /// ```
-    ///
     #[inline]
     pub fn set_key_repeat_rate(&mut self, rate: f32) {
         self.0.set_key_repeat_rate(rate)
     }
 
-    ///
     /// Returns if this windows is the current active one
-    ///
     #[inline]
     pub fn is_active(&mut self) -> bool {
         self.0.is_active()
     }
 
-    ///
     /// Set input callback to recive callback on char input
-    ///
     #[inline]
     pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>) {
         self.0.set_input_callback(callback)
     }
 
-    ///
     /// This allows adding menus to your windows. As menus behaves a bit diffrently depending on
     /// Operating system here is how it works.
     ///
@@ -785,25 +787,21 @@ impl Window {
     ///   Menus aren't supported as they depend on each WindowManager and is outside of the
     ///   scope for this library to support. Use [get_posix_menus] to get a structure
     /// ```
-    ///
     #[inline]
     pub fn add_menu(&mut self, menu: &Menu) -> MenuHandle {
         self.0.add_menu(&menu.0)
     }
 
-    ///
     /// Remove a menu that has been added with [#add_menu]
-    ///
     #[inline]
     pub fn remove_menu(&mut self, handle: MenuHandle) {
         self.0.remove_menu(handle)
     }
 
-    ///
     /// Get POSIX menus. Will only return menus on POSIX-like OSes like Linux or BSD
     /// otherwise ```None```
-    ///
     #[cfg(any(target_os = "macos", target_os = "windows", target_arch = "wasm32"))]
+    #[inline]
     pub fn get_posix_menus(&self) -> Option<&Vec<UnixMenu>> {
         None
     }
@@ -816,6 +814,7 @@ impl Window {
         target_os = "openbsd",
         target_os = "redox"
     ))]
+    #[inline]
     pub fn get_posix_menus(&self) -> Option<&Vec<UnixMenu>> {
         self.0.get_posix_menus()
     }
@@ -824,13 +823,12 @@ impl Window {
         since = "0.17.0",
         note = "`get_unix_menus` will be removed in 1.0.0, use `get_posix_menus` instead"
     )]
+    #[inline]
     pub fn get_unix_menus(&self) -> Option<&Vec<UnixMenu>> {
         self.get_posix_menus()
     }
 
-    ///
     /// Check if a menu item has been pressed
-    ///
     #[inline]
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
         self.0.is_menu_pressed()
@@ -850,13 +848,11 @@ pub const MENU_KEY_ALT: usize = 16;
 
 const MENU_ID_SEPARATOR: usize = 0xffffffff;
 
-///
 /// Used on POSIX systems (Linux, FreeBSD, etc) as menus aren't supported in a native way there.
 /// This structure can be used by calling [#get_posix_menus] on Window.
 ///
 /// In version 1.0.0, this struct will be renamed to PosixMenu, but it remains UnixMenu for backwards compatibility
 /// reasons.
-///
 #[derive(Debug, Clone)]
 pub struct UnixMenu {
     /// Name of the menu
@@ -869,10 +865,8 @@ pub struct UnixMenu {
     pub item_counter: MenuItemHandle,
 }
 
-///
 /// Used on POSIX systems (Linux, FreeBSD, etc) as menus aren't supported in a native way there.
 /// This structure holds info for each item in a #UnixMenu
-///
 #[derive(Debug, Clone)]
 pub struct UnixMenuItem {
     /// Set to a menu if there is a Item is a sub_menu otherwise None
@@ -899,9 +893,7 @@ pub struct MenuItemHandle(pub u64);
 #[doc(hidden)]
 pub struct MenuHandle(pub u64);
 
-///
 /// Menu holds info for menus
-///
 pub struct Menu(imp::Menu);
 
 impl fmt::Debug for Menu {
@@ -916,19 +908,20 @@ impl Menu {
         imp::Menu::new(name).map(Menu)
     }
 
-    #[inline]
     /// Destroys a menu. Currently not implemented
+    #[inline]
     pub fn destroy_menu(&mut self) {
         //self.0.destroy_menu()
     }
 
-    #[inline]
     /// Adds a sub menu to the current menu
+    #[inline]
     pub fn add_sub_menu(&mut self, name: &str, menu: &Menu) {
         self.0.add_sub_menu(name, &menu.0)
     }
 
     /// Adds a menu separator
+    #[inline]
     pub fn add_separator(&mut self) {
         self.add_menu_item(&MenuItem {
             id: MENU_ID_SEPARATOR,
@@ -936,13 +929,12 @@ impl Menu {
         });
     }
 
-    #[inline]
     /// Adds an item to the menu
+    #[inline]
     pub fn add_menu_item(&mut self, item: &MenuItem) -> MenuItemHandle {
         self.0.add_menu_item(item)
     }
 
-    #[inline]
     /// Adds an item to the menu. Notice that you need to call "build" to finish the add
     /// # Examples
     ///
@@ -952,6 +944,7 @@ impl Menu {
     /// menu.add_item("test", 1).shortcut(Key::A, 0).build()
     /// # ;
     /// ```
+    #[inline]
     pub fn add_item(&mut self, name: &str, id: usize) -> MenuItem {
         MenuItem {
             id,
@@ -961,16 +954,14 @@ impl Menu {
         }
     }
 
-    #[inline]
     /// Removes an item from the menu
+    #[inline]
     pub fn remove_item(&mut self, item: &MenuItemHandle) {
         self.0.remove_item(item)
     }
 }
 
-///
 /// Holds info about each item in a menu
-///
 #[derive(Debug)]
 pub struct MenuItem<'a> {
     pub id: usize,
@@ -1017,7 +1008,7 @@ impl<'a> MenuItem<'a> {
             ..MenuItem::default()
         }
     }
-    #[inline]
+
     /// Sets a shortcut key and modifer (and returns itself)
     ///
     /// # Examples
@@ -1028,6 +1019,7 @@ impl<'a> MenuItem<'a> {
     /// menu.add_item("test", 1).shortcut(Key::A, 0).build()
     /// # ;
     /// ```
+    #[inline]
     pub fn shortcut(self, key: Key, modifier: usize) -> Self {
         MenuItem {
             key,
@@ -1035,8 +1027,9 @@ impl<'a> MenuItem<'a> {
             ..self
         }
     }
-    #[inline]
+
     /// Sets item to a separator
+    /// Notice that it's usually easier to just call ```menu.add_separator()``` directly
     ///
     /// # Examples
     ///
@@ -1046,14 +1039,14 @@ impl<'a> MenuItem<'a> {
     /// menu.add_item("", 0).separator().build()
     /// # ;
     /// ```
-    /// Notice that it's usually easier to just call ```menu.add_separator()``` directly
+    #[inline]
     pub fn separator(self) -> Self {
         MenuItem {
             id: MENU_ID_SEPARATOR,
             ..self
         }
     }
-    #[inline]
+
     /// Sets the menu item disabled/or not
     ///
     /// # Examples
@@ -1064,10 +1057,11 @@ impl<'a> MenuItem<'a> {
     /// menu.add_item("test", 1).enabled(false).build()
     /// # ;
     /// ```
+    #[inline]
     pub fn enabled(self, enabled: bool) -> Self {
         MenuItem { enabled, ..self }
     }
-    #[inline]
+
     /// Must be called to finalize building of a menu item when started with ```menu.add_item()```
     ///
     /// # Examples
@@ -1078,6 +1072,7 @@ impl<'a> MenuItem<'a> {
     /// menu.add_item("test", 1).enabled(false).build()
     /// # ;
     /// ```
+    #[inline]
     pub fn build(&mut self) -> MenuItemHandle {
         let t = self.clone();
         if let Some(ref mut menu) = self.menu {
@@ -1087,8 +1082,6 @@ impl<'a> MenuItem<'a> {
         }
     }
 }
-
-// Impl for WindowOptions
 
 impl Default for WindowOptions {
     fn default() -> WindowOptions {

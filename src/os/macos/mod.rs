@@ -8,8 +8,6 @@ use crate::{Key, KeyRepeat, MouseButton, MouseMode, Scale, WindowOptions};
 // use MenuItem;
 use crate::buffer_helper;
 use crate::icon::Icon;
-use crate::mouse_handler;
-use crate::window_flags;
 use crate::InputCallback;
 use crate::{CursorStyle, MenuHandle, MenuItem, MenuItemHandle};
 // use menu::Menu;
@@ -294,7 +292,7 @@ impl Window {
                 n.as_ptr(),
                 width as u32,
                 height as u32,
-                window_flags::get_flags(opts),
+                opts.get_flags(),
                 scale_factor as i32,
                 &mut view_handle,
             );
@@ -380,7 +378,7 @@ impl Window {
     ) -> Result<()> {
         self.key_handler.update();
 
-        buffer_helper::check_buffer_size(buf_width, buf_height, buf_stride, buffer)?;
+        buffer_helper::check_buffer_size(buffer, buf_width, buf_height, buf_stride)?;
 
         unsafe {
             mfb_update_with_buffer(
@@ -436,6 +434,7 @@ impl Window {
         unsafe { mfb_topmost(self.window_handle, topmost) }
     }
 
+    #[inline]
     pub fn get_size(&self) -> (usize, usize) {
         (
             self.shared_data.width as usize,
@@ -454,6 +453,7 @@ impl Window {
         }
     }
 
+    #[inline]
     pub fn get_mouse_down(&self, button: MouseButton) -> bool {
         match button {
             MouseButton::Left => self.shared_data.state[0] > 0,
@@ -462,34 +462,22 @@ impl Window {
         }
     }
 
+    #[inline]
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         let s = self.scale_factor as f32;
         let w = self.shared_data.width as f32;
         let h = self.shared_data.height as f32;
 
-        mouse_handler::get_pos(
-            mode,
-            self.shared_data.mouse_x,
-            self.shared_data.mouse_y,
-            s,
-            w,
-            h,
-        )
+        mode.get_pos(self.shared_data.mouse_x, self.shared_data.mouse_y, s, w, h)
     }
 
+    #[inline]
     pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         let s = 1.0;
         let w = self.shared_data.width as f32;
         let h = self.shared_data.height as f32;
 
-        mouse_handler::get_pos(
-            mode,
-            self.shared_data.mouse_x,
-            self.shared_data.mouse_y,
-            s,
-            w,
-            h,
-        )
+        mode.get_pos(self.shared_data.mouse_x, self.shared_data.mouse_y, s, w, h)
     }
 
     #[inline]
@@ -544,6 +532,7 @@ impl Window {
         self.key_handler.set_input_callback(callback)
     }
 
+    #[inline]
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
         let menu_id = unsafe { mfb_active_menu(self.window_handle) };
 
@@ -554,6 +543,7 @@ impl Window {
         }
     }
 
+    #[inline]
     pub fn add_menu(&mut self, menu: &Menu) -> MenuHandle {
         unsafe {
             let handle = MenuHandle(mfb_add_menu(self.window_handle, menu.menu_handle));
@@ -744,6 +734,7 @@ impl Menu {
         }
     }
 
+    #[inline]
     pub fn add_sub_menu(&mut self, name: &str, sub_menu: &Menu) {
         unsafe {
             let menu_name = CString::new(name).unwrap();
@@ -767,6 +758,7 @@ impl Menu {
         }
     }
 
+    #[inline]
     pub fn remove_item(&mut self, handle: &MenuItemHandle) {
         unsafe {
             mfb_remove_menu_item(self.menu_handle, handle.0);

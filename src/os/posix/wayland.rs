@@ -1,6 +1,5 @@
 use crate::buffer_helper;
 use crate::key_handler::KeyHandler;
-use crate::mouse_handler;
 use crate::rate::UpdateRate;
 use crate::{CursorStyle, MenuHandle, UnixMenu};
 use crate::{Error, Result};
@@ -8,7 +7,9 @@ use crate::{
     InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions,
 };
 
-use super::common::Menu;
+use super::common::{
+    Image_center, Image_resize_linear_aspect_fill_c, Image_resize_linear_c, Image_upper_left, Menu,
+};
 use super::xkb_ffi;
 #[cfg(feature = "dlopen")]
 use super::xkb_ffi::XKBCOMMON_HANDLE as XKBH;
@@ -50,53 +51,6 @@ const KEY_MOUSE_BTN3: u32 = 274;
 
 type ToplevelResolution = Rc<RefCell<Option<(i32, i32)>>>;
 type ToplevelClosed = Rc<RefCell<bool>>;
-
-// These functions are implemented in C in order to always have
-// optimizations on (`-O3`), allowing debug builds to run fast as well.
-extern "C" {
-    fn Image_upper_left(
-        target: *mut u32,
-        source: *const u32,
-        source_w: u32,
-        source_h: u32,
-        source_stride: u32,
-        dest_width: u32,
-        dest_height: u32,
-        bg_color: u32,
-    );
-
-    fn Image_center(
-        target: *mut u32,
-        source: *const u32,
-        source_w: u32,
-        source_h: u32,
-        source_stride: u32,
-        dest_width: u32,
-        dest_height: u32,
-        bg_color: u32,
-    );
-
-    fn Image_resize_linear_aspect_fill_c(
-        target: *mut u32,
-        source: *const u32,
-        source_w: u32,
-        source_h: u32,
-        source_stride: u32,
-        dest_width: u32,
-        dest_height: u32,
-        bg_color: u32,
-    );
-
-    fn Image_resize_linear_c(
-        target: *mut u32,
-        source: *const u32,
-        source_w: u32,
-        source_h: u32,
-        source_stride: u32,
-        dest_width: u32,
-        dest_height: u32,
-    );
-}
 
 struct Buffer {
     fd: File,
@@ -260,7 +214,7 @@ impl DisplayInfo {
         let frame: Vec<u32> = vec![0xFF00_0000; (size.0 * size.1) as usize];
         let slice = unsafe {
             slice::from_raw_parts(
-                frame[..].as_ptr() as *const u8,
+                frame.as_ptr() as *const u8,
                 frame.len() * mem::size_of::<u32>(),
             )
         };
@@ -352,26 +306,30 @@ impl DisplayInfo {
         ))
     }
 
+    #[inline]
     fn set_geometry(&self, pos: (i32, i32), size: (i32, i32)) {
         self.xdg_surface
             .set_window_geometry(pos.0, pos.1, size.0, size.1);
     }
 
+    #[inline]
     fn set_title(&self, title: &str) {
         self.toplevel.set_title(title.to_owned());
     }
 
+    #[inline]
     fn set_no_resize(&self, size: (i32, i32)) {
         self.toplevel.set_max_size(size.0, size.1);
         self.toplevel.set_min_size(size.0, size.1);
     }
 
     // Sets a specific cursor style
+    #[inline]
     fn update_cursor(&mut self, cursor: &str) -> std::result::Result<(), ()> {
         let cursor = self.cursor.get_cursor(cursor);
         if let Some(cursor) = cursor {
             let img = &cursor[0];
-            self.cursor_surface.attach(Some(&*img), 0, 0);
+            self.cursor_surface.attach(Some(img), 0, 0);
             self.cursor_surface.damage(0, 0, 32, 32);
             self.cursor_surface.commit();
         }
@@ -386,8 +344,8 @@ impl DisplayInfo {
 
         let slice = unsafe {
             slice::from_raw_parts(
-                buffer[..].as_ptr() as *const u8,
-                buffer.len() * mem::size_of::<u32>(),
+                buffer.as_ptr() as *const u8,
+                buffer.len() * std::mem::size_of::<u32>(),
             )
         };
 
@@ -458,14 +416,17 @@ impl WaylandInput {
         }
     }
 
+    #[inline]
     fn get_pointer(&self) -> &Main<WlPointer> {
         &self.pointer
     }
 
+    #[inline]
     fn iter_keyboard_events(&self) -> mpsc::TryIter<wl_keyboard::Event> {
         self.kb_events.try_iter()
     }
 
+    #[inline]
     fn iter_pointer_events(&self) -> mpsc::TryIter<wl_pointer::Event> {
         self.pt_events.try_iter()
     }
@@ -597,45 +558,54 @@ impl Window {
         })
     }
 
+    #[inline]
     pub fn set_title(&mut self, title: &str) {
         self.display.set_title(title);
     }
 
+    #[inline]
     pub fn set_background_color(&mut self, bg_color: u32) {
         self.bg_color = bg_color;
     }
 
+    #[inline]
     pub fn set_cursor_visibility(&mut self, visibility: bool) {
         self.pointer_visibility = visibility;
     }
 
+    #[inline]
     pub fn is_open(&self) -> bool {
         !self.should_close
     }
 
+    #[inline]
     pub fn get_window_handle(&self) -> *mut c_void {
         self.display.surface.as_ref().c_ptr() as *mut c_void
     }
 
+    #[inline]
     pub fn get_size(&self) -> (usize, usize) {
         (self.width as usize, self.height as usize)
     }
 
+    #[inline]
     pub fn get_keys(&self) -> Vec<Key> {
         self.key_handler.get_keys()
     }
 
+    #[inline]
     pub fn get_keys_pressed(&self, repeat: KeyRepeat) -> Vec<Key> {
         self.key_handler.get_keys_pressed(repeat)
     }
 
+    #[inline]
     pub fn get_keys_released(&self) -> Vec<Key> {
         self.key_handler.get_keys_released()
     }
 
+    #[inline]
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
-        mouse_handler::get_pos(
-            mode,
+        mode.get_pos(
             self.mouse_x,
             self.mouse_y,
             self.scale as f32,
@@ -644,6 +614,7 @@ impl Window {
         )
     }
 
+    #[inline]
     pub fn get_mouse_down(&self, button: MouseButton) -> bool {
         match button {
             MouseButton::Left => self.buttons[0],
@@ -652,9 +623,9 @@ impl Window {
         }
     }
 
+    #[inline]
     pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
-        mouse_handler::get_pos(
-            mode,
+        mode.get_pos(
             self.mouse_x,
             self.mouse_y,
             1.0,
@@ -663,6 +634,7 @@ impl Window {
         )
     }
 
+    #[inline]
     pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
         if self.scroll_x.abs() > 0.0 || self.scroll_y.abs() > 0.0 {
             Some((self.scroll_x, self.scroll_y))
@@ -671,15 +643,18 @@ impl Window {
         }
     }
 
+    #[inline]
     pub fn is_key_down(&self, key: Key) -> bool {
         self.key_handler.is_key_down(key)
     }
 
+    #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
         self.display
             .set_geometry((x as i32, y as i32), (self.width, self.height));
     }
 
+    #[inline]
     pub fn get_position(&self) -> (isize, isize) {
         let (x, y) = (0, 0);
         // todo!("get_position");
@@ -687,63 +662,76 @@ impl Window {
         (x as isize, y as isize)
     }
 
+    #[inline]
     pub fn set_rate(&mut self, rate: Option<Duration>) {
         self.update_rate.set_rate(rate);
     }
 
+    #[inline]
     pub fn set_key_repeat_rate(&mut self, rate: f32) {
         self.key_handler.set_key_repeat_delay(rate);
     }
 
+    #[inline]
     pub fn set_key_repeat_delay(&mut self, delay: f32) {
         self.key_handler.set_key_repeat_delay(delay);
     }
 
+    #[inline]
     pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>) {
         self.key_handler.set_input_callback(callback);
     }
 
+    #[inline]
     pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
         self.key_handler.is_key_pressed(key, repeat)
     }
 
+    #[inline]
     pub fn is_key_released(&self, key: Key) -> bool {
+        // BUG(stefano): is this really supposed to return !... or is it a bug/typo?
+        // IDEA(stefano): perhaps it's meant to return "!self.key_handler.is_key_pressed(key)"?
         !self.key_handler.is_key_released(key)
     }
 
+    #[inline]
     pub fn update_rate(&mut self) {
         self.update_rate.update();
     }
 
+    #[inline]
     pub fn is_active(&self) -> bool {
         self.active
     }
 
+    #[inline]
     fn next_menu_handle(&mut self) -> MenuHandle {
         let handle = self.menu_counter;
         self.menu_counter.0 += 1;
-
         handle
     }
 
+    #[inline]
     pub fn add_menu(&mut self, menu: &Menu) -> MenuHandle {
         let handle = self.next_menu_handle();
         let mut menu = menu.internal.clone();
         menu.handle = handle;
         self.menus.push(menu);
-
         handle
     }
 
+    #[inline]
     pub fn get_posix_menus(&self) -> Option<&Vec<UnixMenu>> {
         //FIXME
         unimplemented!()
     }
 
+    #[inline]
     pub fn remove_menu(&mut self, handle: MenuHandle) {
         self.menus.retain(|menu| menu.handle != handle);
     }
 
+    #[inline]
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
         //FIXME
         unimplemented!()
@@ -1158,6 +1146,7 @@ impl Window {
         }
     }
 
+    #[inline]
     fn decode_cursor(cursor: CursorStyle) -> &'static str {
         match cursor {
             CursorStyle::Arrow => "arrow",
@@ -1171,6 +1160,7 @@ impl Window {
         }
     }
 
+    #[inline]
     pub fn set_cursor_style(&mut self, cursor: CursorStyle) {
         if self.prev_cursor != cursor {
             self.display
@@ -1187,12 +1177,12 @@ impl Window {
         buf_height: usize,
         buf_stride: usize,
     ) -> Result<()> {
-        buffer_helper::check_buffer_size(buf_width, buf_height, buf_width, buffer)?;
+        buffer_helper::check_buffer_size(buffer, buf_width, buf_height, buf_width)?;
 
         unsafe { self.scale_buffer(buffer, buf_width, buf_height, buf_stride) };
 
         self.display
-            .update_framebuffer(&self.buffer[..], (self.width as i32, self.height as i32))
+            .update_framebuffer(&self.buffer, (self.width, self.height))
             .map_err(|e| Error::UpdateFailed(format!("Error updating framebuffer: {:?}", e)))?;
         self.update();
 
