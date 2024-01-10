@@ -1,21 +1,17 @@
 #![cfg(target_os = "redox")]
 
-use crate::os::redox::orbclient::Renderer;
-
-use crate::buffer_helper;
-use crate::error::Error;
-use crate::icon::Icon;
-use crate::key_handler::KeyHandler;
-use crate::InputCallback;
-use crate::Result;
-use crate::{CursorStyle, MouseButton, MouseMode};
-use crate::{Key, KeyRepeat};
-use crate::{MenuHandle, MenuItem, MenuItemHandle, UnixMenu, UnixMenuItem};
-use crate::{Scale, WindowOptions};
-
+use crate::{
+    check_buffer_size, error::Error, icon::Icon, key_handler::KeyHandler,
+    os::redox::orbclient::Renderer, CursorStyle, InputCallback, Key, KeyRepeat, MenuHandle,
+    MenuItem, MenuItemHandle, MouseButton, MouseMode, Result, Scale, UnixMenu, UnixMenuItem,
+    WindowOptions,
+};
 use orbclient::Renderer;
-use std::cmp;
-use std::os::raw;
+use raw_window_handle::{
+    DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, OrbitalDisplayHandle,
+    OrbitalWindowHandle, RawDisplayHandle, RawWindowHandle, WindowHandle,
+};
+use std::{cmp, os::raw};
 
 pub struct Window {
     is_open: bool,
@@ -112,7 +108,7 @@ impl Window {
         self.process_events();
         self.key_handler.update();
 
-        let check_res = buffer_helper::check_buffer_size(
+        let check_res = check_buffer_size(
             buffer,
             self.buffer_width,
             self.buffer_height,
@@ -434,6 +430,23 @@ impl Window {
     #[inline]
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
         None
+    }
+}
+
+impl HasWindowHandle for Window {
+    fn window_handle(&self) -> std::result::Result<WindowHandle, HandleError> {
+        let raw_window = &self.window as *const orbclient::Window as *const std::ffi::c_void;
+        let handle = OrbitalWindowHandle::new(raw_window);
+        let raw_handle = RawWindowHandle::Orbital(handle);
+        unsafe { Ok(WindowHandle::borrow_raw(raw_handle)) }
+    }
+}
+
+impl HasDisplayHandle for Window {
+    fn display_handle(&self) -> std::result::Result<DisplayHandle, HandleError> {
+        let handle = OrbitalDisplayHandle::new();
+        let raw_handle = RawDisplayHandle::Orbital(handle);
+        unsafe { Ok(DisplayHandle::borrow_raw(raw_handle)) }
     }
 }
 

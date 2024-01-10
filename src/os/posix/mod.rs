@@ -9,6 +9,7 @@
 #![allow(non_upper_case_globals)]
 
 mod common;
+
 #[cfg(feature = "wayland")]
 mod wayland;
 #[cfg(feature = "x11")]
@@ -18,12 +19,14 @@ mod xkb_ffi;
 #[cfg(feature = "wayland")]
 mod xkb_keysyms;
 
-use crate::icon::Icon;
-use crate::Result;
-use crate::{CursorStyle, MenuHandle, UnixMenu};
-use crate::{InputCallback, Key, KeyRepeat, MouseButton, MouseMode, WindowOptions};
+use crate::{
+    icon::Icon, CursorStyle, InputCallback, Key, KeyRepeat, MenuHandle, MouseButton, MouseMode,
+    Result, UnixMenu, WindowOptions,
+};
 pub use common::Menu;
-
+use raw_window_handle::{
+    DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, WindowHandle,
+};
 use std::os::raw;
 
 // Differentiate between Wayland and X11 at run-time
@@ -367,24 +370,24 @@ impl Window {
     }
 }
 
-unsafe impl raw_window_handle::HasRawWindowHandle for Window {
-    fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
+impl HasWindowHandle for Window {
+    fn window_handle(&self) -> std::result::Result<WindowHandle, HandleError> {
         match self {
             #[cfg(feature = "x11")]
-            Window::X11(w) => w.raw_window_handle(),
+            Window::X11(w) => w.window_handle(),
             #[cfg(feature = "wayland")]
-            Window::Wayland(w) => w.raw_window_handle(),
+            Window::Wayland(w) => w.window_handle(),
         }
     }
 }
 
-unsafe impl raw_window_handle::HasRawDisplayHandle for Window {
-    fn raw_display_handle(&self) -> raw_window_handle::RawDisplayHandle {
+impl HasDisplayHandle for Window {
+    fn display_handle(&self) -> std::result::Result<DisplayHandle, HandleError> {
         match self {
             #[cfg(feature = "x11")]
-            Window::X11(w) => w.raw_display_handle(),
+            Window::X11(w) => w.display_handle(),
             #[cfg(feature = "wayland")]
-            Window::Wayland(w) => w.raw_display_handle(),
+            Window::Wayland(w) => w.display_handle(),
         }
     }
 }

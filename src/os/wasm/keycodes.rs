@@ -1,4 +1,5 @@
 use crate::key::Key;
+
 pub const BACKSPACE: &'static str = "Backspace";
 pub const TAB: &'static str = "Tab";
 pub const ENTER: &'static str = "Enter";
