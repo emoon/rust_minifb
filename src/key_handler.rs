@@ -1,12 +1,13 @@
 #[cfg(feature = "web")]
 extern crate instant;
 
-use crate::{InputCallback, Key, KeyRepeat};
 #[cfg(feature = "web")]
 use instant::{Duration, Instant};
-use std::mem;
 #[cfg(not(feature = "web"))]
 use std::time::{Duration, Instant};
+
+use crate::{InputCallback, Key, KeyRepeat};
+use std::mem;
 
 pub struct KeyHandler {
     pub key_callback: Option<Box<dyn InputCallback>>,

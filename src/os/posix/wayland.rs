@@ -1,48 +1,55 @@
-use crate::buffer_helper;
-use crate::key_handler::KeyHandler;
-use crate::rate::UpdateRate;
-use crate::{CursorStyle, MenuHandle, UnixMenu};
-use crate::{Error, Result};
-use crate::{
-    InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions,
+use std::{
+    cell::RefCell,
+    ffi::c_void,
+    fs::File,
+    io::{self, Seek, SeekFrom, Write},
+    mem,
+    os::unix::io::{AsRawFd, RawFd},
+    ptr::{self, NonNull},
+    rc::Rc,
+    slice,
+    sync::mpsc,
+    time::Duration,
 };
 
 use super::common::{
     Image_center, Image_resize_linear_aspect_fill_c, Image_resize_linear_c, Image_upper_left, Menu,
 };
+use crate::{
+    check_buffer_size, key_handler::KeyHandler, rate::UpdateRate, CursorStyle, Error,
+    InputCallback, Key, KeyRepeat, MenuHandle, MouseButton, MouseMode, Result, Scale, ScaleMode,
+    UnixMenu, WindowOptions,
+};
+use raw_window_handle::{
+    DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
+    RawWindowHandle, WaylandDisplayHandle, WaylandWindowHandle, WindowHandle,
+};
+use wayland_client::{
+    protocol::{
+        wl_buffer::WlBuffer,
+        wl_compositor::WlCompositor,
+        wl_display::WlDisplay,
+        wl_keyboard::{self, KeymapFormat, WlKeyboard},
+        wl_pointer::{self, WlPointer},
+        wl_seat::WlSeat,
+        wl_shm::{Format, WlShm},
+        wl_shm_pool::WlShmPool,
+        wl_surface::WlSurface,
+    },
+    Attached, Display, EventQueue, GlobalManager, Main,
+};
+use wayland_protocols::{
+    unstable::xdg_decoration::v1::client::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1,
+    xdg_shell::client::{
+        xdg_surface::XdgSurface, xdg_toplevel::XdgToplevel, xdg_wm_base::XdgWmBase,
+    },
+};
+
 use super::xkb_ffi;
 #[cfg(feature = "dlopen")]
 use super::xkb_ffi::XKBCOMMON_HANDLE as XKBH;
 #[cfg(not(feature = "dlopen"))]
 use super::xkb_ffi::*;
-
-use wayland_client::protocol::wl_buffer::WlBuffer;
-use wayland_client::protocol::wl_compositor::WlCompositor;
-use wayland_client::protocol::wl_display::WlDisplay;
-use wayland_client::protocol::wl_keyboard::{KeymapFormat, WlKeyboard};
-use wayland_client::protocol::wl_pointer::WlPointer;
-use wayland_client::protocol::wl_seat::WlSeat;
-use wayland_client::protocol::wl_shm::{Format, WlShm};
-use wayland_client::protocol::wl_shm_pool::WlShmPool;
-use wayland_client::protocol::wl_surface::WlSurface;
-use wayland_client::protocol::{wl_keyboard, wl_pointer};
-use wayland_client::{Attached, Display, EventQueue, GlobalManager, Main};
-use wayland_protocols::unstable::xdg_decoration::v1::client::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1;
-use wayland_protocols::xdg_shell::client::xdg_surface::XdgSurface;
-use wayland_protocols::xdg_shell::client::xdg_toplevel::XdgToplevel;
-use wayland_protocols::xdg_shell::client::xdg_wm_base::XdgWmBase;
-
-use std::cell::RefCell;
-use std::ffi::c_void;
-use std::fs::File;
-use std::io::{self, Seek, SeekFrom, Write};
-use std::mem;
-use std::os::unix::io::{AsRawFd, RawFd};
-use std::ptr;
-use std::rc::Rc;
-use std::slice;
-use std::sync::mpsc;
-use std::time::Duration;
 
 const KEY_XKB_OFFSET: u32 = 8;
 const KEY_MOUSE_BTN1: u32 = 272;
@@ -1177,7 +1184,7 @@ impl Window {
         buf_height: usize,
         buf_stride: usize,
     ) -> Result<()> {
-        buffer_helper::check_buffer_size(buffer, buf_width, buf_height, buf_width)?;
+        check_buffer_size(buffer, buf_width, buf_height, buf_stride)?;
 
         unsafe { self.scale_buffer(buffer, buf_width, buf_height, buf_stride) };
 
@@ -1253,27 +1260,36 @@ impl Window {
     }
 }
 
-unsafe impl raw_window_handle::HasRawWindowHandle for Window {
-    fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-        let mut handle = raw_window_handle::WaylandWindowHandle::empty();
-        handle.surface = self.display.surface.as_ref().c_ptr() as *mut _ as *mut c_void;
+impl HasWindowHandle for Window {
+    fn window_handle(&self) -> std::result::Result<WindowHandle, HandleError> {
+        let raw_display_surface = self.display.surface.as_ref().c_ptr() as *mut c_void;
+        let display_surface = match NonNull::new(raw_display_surface) {
+            Some(display_surface) => display_surface,
+            None => unimplemented!("null display surface"),
+        };
 
-        raw_window_handle::RawWindowHandle::Wayland(handle)
+        let handle = WaylandWindowHandle::new(display_surface);
+        let raw_handle = RawWindowHandle::Wayland(handle);
+        unsafe { Ok(WindowHandle::borrow_raw(raw_handle)) }
     }
 }
 
-unsafe impl raw_window_handle::HasRawDisplayHandle for Window {
-    fn raw_display_handle(&self) -> raw_window_handle::RawDisplayHandle {
-        let mut handle = raw_window_handle::WaylandDisplayHandle::empty();
-        handle.display = self
+impl HasDisplayHandle for Window {
+    fn display_handle(&self) -> std::result::Result<DisplayHandle, HandleError> {
+        let raw_display = self
             .display
             .attached_display
             .clone()
             .detach()
             .as_ref()
-            .c_ptr() as *mut _ as *mut c_void;
-
-        raw_window_handle::RawDisplayHandle::Wayland(handle)
+            .c_ptr() as *mut c_void;
+        let display = match NonNull::new(raw_display) {
+            Some(display) => display,
+            None => unimplemented!("null display"),
+        };
+        let handle = WaylandDisplayHandle::new(display);
+        let raw_handle = RawDisplayHandle::Wayland(handle);
+        unsafe { Ok(DisplayHandle::borrow_raw(raw_handle)) }
     }
 }
 

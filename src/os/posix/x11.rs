@@ -1,33 +1,30 @@
-use crate::key_handler::KeyHandler;
-use crate::rate::UpdateRate;
-use crate::{
-    InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions,
-};
-use x11_dl::keysym::*;
-use x11_dl::xcursor;
-use x11_dl::xlib;
-
-use crate::error::Error;
-use crate::Result;
-use crate::{CursorStyle, MenuHandle, UnixMenu};
-
-use std::convert::TryFrom;
-use std::ffi::{c_void, CStr, CString};
-use std::mem;
-use std::os::raw;
-use std::os::raw::{c_char, c_int, c_long, c_uchar, c_uint, c_ulong};
-use std::ptr;
-
-use crate::buffer_helper;
-use crate::icon::Icon;
-
 use super::common::{
     Image_center, Image_resize_linear_aspect_fill_c, Image_resize_linear_c, Image_upper_left, Menu,
 };
-use x11_dl::xlib::{
-    KeyPressMask, KeyReleaseMask, KeySym, Status, XEvent, XIMPreeditNothing, XIMStatusNothing,
-    XKeyEvent, XNClientWindow, XNFocusWindow, XNInputStyle, XWindowAttributes, XrmDatabase, XIC,
-    XIM,
+use crate::{
+    check_buffer_size, error::Error, icon::Icon, key_handler::KeyHandler, rate::UpdateRate,
+    CursorStyle, InputCallback, Key, KeyRepeat, MenuHandle, MouseButton, MouseMode, Result, Scale,
+    ScaleMode, UnixMenu, WindowOptions,
+};
+use raw_window_handle::{
+    DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
+    RawWindowHandle, WindowHandle, XlibDisplayHandle, XlibWindowHandle,
+};
+use std::{
+    convert::TryFrom,
+    ffi::{c_void, CStr, CString},
+    mem,
+    os::raw::{self, c_char, c_int, c_long, c_uchar, c_uint, c_ulong},
+    ptr::{self, NonNull},
+};
+use x11_dl::{
+    keysym::*,
+    xcursor,
+    xlib::{
+        self, KeyPressMask, KeyReleaseMask, KeySym, Status, XEvent, XIMPreeditNothing,
+        XIMStatusNothing, XKeyEvent, XNClientWindow, XNFocusWindow, XNInputStyle,
+        XWindowAttributes, XrmDatabase, XIC, XIM,
+    },
 };
 
 // NOTE: the x11-dl crate does not define Button6 or Button7
@@ -284,19 +281,21 @@ pub struct Window {
     menus: Vec<UnixMenu>,
 }
 
-unsafe impl raw_window_handle::HasRawWindowHandle for Window {
-    fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-        let mut handle = raw_window_handle::XlibWindowHandle::empty();
-        handle.window = self.handle;
-        raw_window_handle::RawWindowHandle::Xlib(handle)
+impl HasWindowHandle for Window {
+    fn window_handle(&self) -> std::result::Result<WindowHandle, HandleError> {
+        let handle = XlibWindowHandle::new(self.handle);
+        let raw_handle = RawWindowHandle::Xlib(handle);
+        unsafe { Ok(WindowHandle::borrow_raw(raw_handle)) }
     }
 }
 
-unsafe impl raw_window_handle::HasRawDisplayHandle for Window {
-    fn raw_display_handle(&self) -> raw_window_handle::RawDisplayHandle {
-        let mut handle = raw_window_handle::XlibDisplayHandle::empty();
-        handle.display = self.d.display as *mut core::ffi::c_void;
-        raw_window_handle::RawDisplayHandle::Xlib(handle)
+impl HasDisplayHandle for Window {
+    fn display_handle(&self) -> std::result::Result<DisplayHandle, HandleError> {
+        let raw_display = self.d.display as *mut core::ffi::c_void;
+        let display = NonNull::new(raw_display);
+        let handle = XlibDisplayHandle::new(display, self.d.screen);
+        let raw_handle = RawDisplayHandle::Xlib(handle);
+        unsafe { Ok(DisplayHandle::borrow_raw(raw_handle)) }
     }
 }
 
@@ -581,7 +580,7 @@ impl Window {
         buf_height: usize,
         buf_stride: usize,
     ) -> Result<()> {
-        buffer_helper::check_buffer_size(buffer, buf_width, buf_height, buf_stride)?;
+        check_buffer_size(buffer, buf_width, buf_height, buf_stride)?;
 
         unsafe { self.raw_blit_buffer(buffer, buf_width, buf_height, buf_stride) };
 

@@ -1,25 +1,22 @@
 #![cfg(target_os = "macos")]
 
-use crate::error::Error;
-use crate::key_handler::KeyHandler;
-use crate::rate::UpdateRate;
-use crate::Result;
-use crate::{Key, KeyRepeat, MouseButton, MouseMode, Scale, WindowOptions};
-// use MenuItem;
-use crate::buffer_helper;
-use crate::icon::Icon;
-use crate::InputCallback;
-use crate::{CursorStyle, MenuHandle, MenuItem, MenuItemHandle};
-// use menu::Menu;
+use crate::{
+    check_buffer_size, error::Error, icon::Icon, key_handler::KeyHandler, rate::UpdateRate,
+    CursorStyle, InputCallback, Key, KeyRepeat, MenuHandle, MenuItem, MenuItemHandle, MouseButton,
+    MouseMode, Result, Scale, WindowOptions,
+};
+use raw_window_handle::{
+    AppKitDisplayHandle, AppKitWindowHandle, DisplayHandle, HandleError, HasDisplayHandle,
+    HasWindowHandle, RawDisplayHandle, RawWindowHandle, WindowHandle,
+};
+use std::{
+    ffi::CString,
+    mem,
+    os::raw::{self, c_char, c_uchar, c_void},
+    ptr::{self, NonNull},
+};
 
-use std::ffi::CString;
-use std::mem;
-use std::os::raw;
-use std::os::raw::{c_char, c_uchar, c_void};
-use std::ptr;
-
-// Table taken from GLFW and slightly modified
-
+/// Table taken from GLFW and slightly modified
 static KEY_MAPPINGS: [Key; 128] = [
     /* 00 */ Key::A,
     /* 01 */ Key::S,
@@ -259,19 +256,25 @@ unsafe extern "C" fn char_callback(window: *mut c_void, code_point: u32) {
     }
 }
 
-unsafe impl raw_window_handle::HasRawWindowHandle for Window {
-    fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-        let mut handle = raw_window_handle::AppKitWindowHandle::empty();
-        handle.ns_window = self.window_handle as *mut _;
-        handle.ns_view = self.view_handle as *mut _;
-        raw_window_handle::RawWindowHandle::AppKit(handle)
+impl HasWindowHandle for Window {
+    fn window_handle(&self) -> std::result::Result<WindowHandle, HandleError> {
+        let raw_ns_view = self.view_handle as *mut _;
+        let ns_view = match NonNull::new(raw_ns_view) {
+            Some(ns_view) => ns_view,
+            None => unimplemented!("null view"),
+        };
+
+        let handle = AppKitWindowHandle::new(ns_view);
+        let raw_handle = RawWindowHandle::AppKit(handle);
+        unsafe { Ok(WindowHandle::borrow_raw(raw_handle)) }
     }
 }
 
-unsafe impl raw_window_handle::HasRawDisplayHandle for Window {
-    fn raw_display_handle(&self) -> raw_window_handle::RawDisplayHandle {
-        let handle = raw_window_handle::AppKitDisplayHandle::empty();
-        raw_window_handle::RawDisplayHandle::AppKit(handle)
+impl HasDisplayHandle for Window {
+    fn display_handle(&self) -> std::result::Result<DisplayHandle, HandleError> {
+        let handle = AppKitDisplayHandle::new();
+        let raw_handle = RawDisplayHandle::AppKit(handle);
+        unsafe { Ok(DisplayHandle::borrow_raw(raw_handle)) }
     }
 }
 
@@ -378,7 +381,7 @@ impl Window {
     ) -> Result<()> {
         self.key_handler.update();
 
-        buffer_helper::check_buffer_size(buffer, buf_width, buf_height, buf_stride)?;
+        check_buffer_size(buffer, buf_width, buf_height, buf_stride)?;
 
         unsafe {
             mfb_update_with_buffer(
@@ -442,6 +445,7 @@ impl Window {
         )
     }
 
+    #[inline]
     pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
         let sx = self.shared_data.scroll_x;
         let sy = self.shared_data.scroll_y;
@@ -742,6 +746,7 @@ impl Menu {
         }
     }
 
+    #[inline]
     pub fn add_menu_item(&mut self, item: &MenuItem) -> MenuItemHandle {
         unsafe {
             let item_name = CString::new(item.label.as_str()).unwrap();

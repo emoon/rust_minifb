@@ -1,30 +1,35 @@
-mod keycodes;
-use wasm_bindgen::prelude::*;
-use wasm_bindgen::Clamped;
-use wasm_bindgen::JsCast;
-use web_sys::ImageData;
-use web_sys::{window, CanvasRenderingContext2d, HtmlCanvasElement};
+// NOTE(stefano): add missing implementations of methods where possible
+#![cfg(target_os = "wasm32")]
 
-use crate::buffer_helper;
-use crate::key_handler::KeyHandler;
-use crate::Icon;
-use crate::InputCallback;
-use crate::Result;
-use crate::{CursorStyle, MouseButton, MouseMode};
-use crate::{Key, KeyRepeat};
-use crate::{MenuHandle, MenuItem, MenuItemHandle, UnixMenu, UnixMenuItem};
-use crate::{Scale, WindowOptions};
-use core;
+mod keycodes;
+
+use crate::{
+    check_buffer_size, key_handler::KeyHandler, CursorStyle, Icon, InputCallback, Key, KeyRepeat,
+    MenuHandle, MenuItem, MenuItemHandle, MouseButton, MouseMode, Result, Scale, UnixMenu,
+    UnixMenuItem, WindowOptions,
+};
 use keycodes::event_to_key;
-use std::cell::{Cell, RefCell};
-use std::os::raw;
-use std::rc::Rc;
+use raw_window_handle::{
+    DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
+    RawWindowHandle, WebDisplayHandle, WebWindowHandle, WindowHandle,
+};
+use std::{
+    cell::{Cell, RefCell},
+    os::raw,
+    rc::Rc,
+};
+use wasm_bindgen::{prelude::*, Clamped, JsCast};
+use web_sys::{window, CanvasRenderingContext2d, HtmlCanvasElement, ImageData};
 
 #[inline(always)]
 #[allow(dead_code)] // Only used on 32-bit builds currently
-#[inline]
 pub fn u32_as_u8<'a>(src: &'a [u32]) -> &'a [u8] {
-    unsafe { core::slice::from_raw_parts(src.as_ptr() as *mut u8, std::mem::size_of::<u32>()) }
+    unsafe {
+        std::slice::from_raw_parts(
+            src.as_ptr() as *mut u8,
+            src.len() * std::mem::size_of::<u32>(),
+        )
+    }
 }
 
 struct MouseState {
@@ -35,6 +40,7 @@ struct MouseState {
     middle_button: Cell<bool>,
 }
 
+// IDEA(stefano): possibly have this contain a "document" field, so not to recompute it every time
 pub struct Window {
     width: u32,
     height: u32,
@@ -220,7 +226,7 @@ impl Window {
         buf_height: usize,
         buf_stride: usize,
     ) -> Result<()> {
-        buffer_helper::check_buffer_size(buf_width, buf_height, buf_width, buffer)?;
+        check_buffer_size(buffer, buf_width, buf_height, buf_stride)?;
         // scaling not implemented. It's faster to just update the buffer
         //unsafe { self.scale_buffer(buffer, buf_width, buf_height, buf_stride) };
         self.update_with_buffer(&buffer).unwrap();
@@ -229,11 +235,11 @@ impl Window {
     }
 
     pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
-        buffer_helper::check_buffer_size(
+        check_buffer_size(
+            buffer,
             self.width as usize,
             self.height as usize,
             self.window_scale,
-            buffer,
         )?;
         let mut data = u32_as_u8(buffer);
 
@@ -265,8 +271,7 @@ impl Window {
 
     #[inline]
     pub fn get_position(&self) -> (isize, isize) {
-        let (x, y) = (0, 0);
-        (x as isize, y as isize)
+        (0isize, 0isize)
     }
 
     #[inline]
@@ -277,8 +282,7 @@ impl Window {
     #[inline]
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         if let Some((mouse_x, mouse_y)) = self.mouse_state.pos.get() {
-            mouse_handler::get_pos(
-                mode,
+            mode.get_pos(
                 mouse_x as f32,
                 mouse_y as f32,
                 self.window_scale as f32,
@@ -293,8 +297,7 @@ impl Window {
     #[inline]
     pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         if let Some((mouse_x, mouse_y)) = self.mouse_state.pos.get() {
-            mouse_handler::get_pos(
-                mode,
+            mode.get_pos(
                 mouse_x as f32,
                 mouse_y as f32,
                 1.0 as f32,
@@ -450,17 +453,19 @@ impl Menu {
     pub fn remove_item(&mut self, handle: &MenuItemHandle) {}
 }
 
-unsafe impl raw_window_handle::HasRawWindowHandle for Window {
-    fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-        //TODO: assign a different ID to each window
-        let handle = raw_window_handle::WebWindowHandle::empty();
-        raw_window_handle::RawWindowHandle::Web(handle)
+impl HasWindowHandle for Window {
+    fn window_handle(&self) -> std::result::Result<WindowHandle, HandleError> {
+        // TODO assign a different ID to each window
+        let handle = WebWindowHandle::new(0);
+        let raw_handle = RawWindowHandle::Web(handle);
+        unsafe { Ok(WindowHandle::borrow_raw(raw_handle)) }
     }
 }
 
-unsafe impl raw_window_handle::HasRawDisplayHandle for Window {
-    fn raw_display_handle(&self) -> raw_window_handle::RawDisplayHandle {
-        let handle = raw_window_handle::WebDisplayHandle::empty();
-        raw_window_handle::RawDisplayHandle::Web(handle)
+impl HasDisplayHandle for Window {
+    fn display_handle(&self) -> std::result::Result<DisplayHandle, HandleError> {
+        let handle = WebDisplayHandle::new();
+        let raw_handle = RawDisplayHandle::Web(handle);
+        unsafe { Ok(DisplayHandle::borrow_raw(raw_handle)) }
     }
 }

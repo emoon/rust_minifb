@@ -10,25 +10,18 @@
 #[macro_use]
 extern crate dlib;
 
-use std::fmt;
-use std::os::raw;
-
 mod error;
-pub use self::error::Error;
-pub type Result<T> = std::result::Result<T, Error>;
-pub use icon::Icon;
-pub use raw_window_handle::HasRawWindowHandle;
-
-mod key;
-pub use key::Key;
-mod buffer_helper;
 mod icon;
+mod key;
 mod key_handler;
 mod os;
 mod rate;
 
+use raw_window_handle::{DisplayHandle, HandleError, HasDisplayHandle, WindowHandle};
+use std::{fmt, os::raw};
+
 #[cfg(target_os = "macos")]
-use self::os::macos as imp;
+use os::macos as imp;
 #[cfg(any(
     target_os = "linux",
     target_os = "freebsd",
@@ -36,13 +29,20 @@ use self::os::macos as imp;
     target_os = "netbsd",
     target_os = "openbsd"
 ))]
-use self::os::posix as imp;
+use os::posix as imp;
 #[cfg(target_os = "redox")]
-use self::os::redox as imp;
+use os::redox as imp;
 #[cfg(target_arch = "wasm32")]
-use self::os::wasm as imp;
+use os::wasm as imp;
 #[cfg(target_os = "windows")]
-use self::os::windows as imp;
+use os::windows as imp;
+
+pub use error::Error;
+pub use icon::Icon;
+pub use key::Key;
+pub use raw_window_handle::HasWindowHandle;
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// Scale will scale the frame buffer and the window that is being sent in when calling the update
 /// function. This is useful if you for example want to display a 320 x 256 window on a screen with
@@ -174,15 +174,15 @@ impl fmt::Debug for Window {
     }
 }
 
-unsafe impl raw_window_handle::HasRawWindowHandle for Window {
-    fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-        self.0.raw_window_handle()
+impl HasWindowHandle for Window {
+    fn window_handle(&self) -> std::result::Result<WindowHandle, HandleError> {
+        self.0.window_handle()
     }
 }
 
-unsafe impl raw_window_handle::HasRawDisplayHandle for Window {
-    fn raw_display_handle(&self) -> raw_window_handle::RawDisplayHandle {
-        self.0.raw_display_handle()
+impl HasDisplayHandle for Window {
+    fn display_handle(&self) -> std::result::Result<DisplayHandle, HandleError> {
+        self.0.display_handle()
     }
 }
 
@@ -1095,5 +1095,26 @@ impl Default for WindowOptions {
             topmost: false,
             none: false,
         }
+    }
+}
+
+pub(crate) fn check_buffer_size(
+    buffer: &[u32],
+    buffer_width: usize,
+    buffer_height: usize,
+    buffer_stride: usize,
+) -> Result<()> {
+    let width = usize::max(buffer_width, buffer_stride);
+    let buffer_size = buffer.len() * std::mem::size_of::<u32>();
+    let required_buffer_size = width * buffer_height * std::mem::size_of::<u32>(); // * 4 (size of u32) for 32-bit buffer
+
+    if buffer_size < required_buffer_size {
+        let err = format!(
+            "Update failed because input buffer is too small. Required size for {} ({} stride) x {} buffer is {}
+            bytes but the size of the input buffer has the size {} bytes",
+            buffer_width, buffer_stride, buffer_height, required_buffer_size, buffer_size);
+        Err(Error::UpdateFailed(err))
+    } else {
+        Ok(())
     }
 }

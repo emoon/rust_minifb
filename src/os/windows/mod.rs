@@ -1,36 +1,40 @@
 #![cfg(target_os = "windows")]
 
-const INVALID_ACCEL: usize = 0xffffffff;
-
-use crate::error::Error;
-use crate::icon::Icon;
-use crate::key_handler::KeyHandler;
-use crate::rate::UpdateRate;
-use crate::Result;
-use crate::{CursorStyle, MenuHandle, MenuItem, MenuItemHandle};
 use crate::{
-    InputCallback, Key, KeyRepeat, MouseButton, MouseMode, Scale, ScaleMode, WindowOptions,
+    check_buffer_size, error::Error, icon::Icon, key_handler::KeyHandler, rate::UpdateRate,
+    CursorStyle, InputCallback, Key, KeyRepeat, MenuHandle, MenuItem, MenuItemHandle, MouseButton,
+    MouseMode, Result, Scale, ScaleMode, WindowOptions, MENU_KEY_ALT, MENU_KEY_CTRL,
+    MENU_KEY_SHIFT, MENU_KEY_WIN,
 };
-use crate::{MENU_KEY_ALT, MENU_KEY_CTRL, MENU_KEY_SHIFT, MENU_KEY_WIN};
-
-use crate::buffer_helper;
-use std::ffi::OsStr;
-use std::mem;
-use std::os::raw;
-use std::os::windows::ffi::OsStrExt;
-use std::ptr;
-
-use winapi::shared::basetsd;
-use winapi::shared::minwindef::{self, LPARAM, WPARAM};
-use winapi::shared::ntdef;
-use winapi::shared::windef;
-use winapi::um::errhandlingapi;
-use winapi::um::fileapi::GetFullPathNameW;
-use winapi::um::libloaderapi;
-use winapi::um::wingdi;
-use winapi::um::winuser::{
-    self, ICON_BIG, ICON_SMALL, IMAGE_ICON, LR_DEFAULTSIZE, LR_LOADFROMFILE, WM_SETICON,
+use raw_window_handle::{
+    DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
+    RawWindowHandle, Win32WindowHandle, WindowHandle, WindowsDisplayHandle,
 };
+use std::{
+    ffi::OsStr,
+    mem,
+    num::NonZeroIsize,
+    os::{raw, windows::ffi::OsStrExt},
+    ptr,
+};
+use winapi::{
+    shared::{
+        basetsd,
+        minwindef::{self, LPARAM, WPARAM},
+        ntdef, windef,
+    },
+    um::{
+        errhandlingapi,
+        fileapi::GetFullPathNameW,
+        libloaderapi, wingdi,
+        winuser::{
+            self, GetWindowLongPtrW, GWLP_HINSTANCE, ICON_BIG, ICON_SMALL, IMAGE_ICON,
+            LR_DEFAULTSIZE, LR_LOADFROMFILE, WM_SETICON,
+        },
+    },
+};
+
+const INVALID_ACCEL: usize = 0xffffffff;
 
 // Wrap this so we can have a proper numbef of bmiColors to write in
 #[repr(C)]
@@ -213,7 +217,7 @@ unsafe extern "system" fn wnd_proc(
         return winuser::DefWindowProcW(window, msg, wparam, lparam);
     }
 
-    let mut wnd: &mut Window = mem::transmute(user_data);
+    let wnd: &mut Window = mem::transmute(user_data);
 
     match msg {
         winuser::WM_SYSCOMMAND => {
@@ -516,20 +520,31 @@ pub struct Window {
     draw_params: DrawParameters,
 }
 
-unsafe impl raw_window_handle::HasRawWindowHandle for Window {
-    fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-        let mut handle = raw_window_handle::Win32WindowHandle::empty();
-        handle.hwnd = self.window.unwrap() as *mut raw::c_void;
-        handle.hinstance =
-            unsafe { libloaderapi::GetModuleHandleA(ptr::null()) } as *mut raw::c_void;
-        raw_window_handle::RawWindowHandle::Win32(handle)
+impl HasWindowHandle for Window {
+    fn window_handle(&self) -> std::result::Result<WindowHandle, HandleError> {
+        let raw_hwnd = self.window.unwrap();
+        let hwnd = match NonZeroIsize::new(unsafe { *(raw_hwnd as *const isize) }) {
+            Some(hwnd) => hwnd,
+            None => unimplemented!("invalid hwnd"),
+        };
+
+        let raw_hinstance =
+            unsafe { *(GetWindowLongPtrW(raw_hwnd, GWLP_HINSTANCE) as *const isize) };
+        let hinstance = NonZeroIsize::new(raw_hinstance);
+
+        let mut handle = Win32WindowHandle::new(hwnd);
+        handle.hinstance = hinstance;
+
+        let raw_handle = RawWindowHandle::Win32(handle);
+        unsafe { Ok(WindowHandle::borrow_raw(raw_handle)) }
     }
 }
 
-unsafe impl raw_window_handle::HasRawDisplayHandle for Window {
-    fn raw_display_handle(&self) -> raw_window_handle::RawDisplayHandle {
-        let handle = raw_window_handle::WindowsDisplayHandle::empty();
-        raw_window_handle::RawDisplayHandle::Windows(handle)
+impl HasDisplayHandle for Window {
+    fn display_handle(&self) -> std::result::Result<DisplayHandle, HandleError> {
+        let handle = WindowsDisplayHandle::new();
+        let raw_handle = RawDisplayHandle::Windows(handle);
+        unsafe { Ok(DisplayHandle::borrow_raw(raw_handle)) }
     }
 }
 
@@ -980,7 +995,7 @@ impl Window {
 
         self.generic_update(window);
 
-        buffer_helper::check_buffer_size(buffer, buf_width, buf_height, buf_stride)?;
+        check_buffer_size(buffer, buf_width, buf_height, buf_stride)?;
 
         self.draw_params.buffer = buffer.as_ptr();
         self.draw_params.buffer_width = buf_width as u32;
