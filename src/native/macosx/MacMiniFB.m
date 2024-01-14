@@ -276,7 +276,11 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 
 	[window center];
 
-	[NSApp activateIgnoringOtherApps:YES];
+	// Must be wrapped for menus to work without reselecting window
+	// See https://github.com/emoon/rust_minifb/issues/334
+	dispatch_async(dispatch_get_main_queue(), ^{
+        [NSApp activateIgnoringOtherApps:YES];
+    });
 
 	if (!prev_init)
 		[NSApp finishLaunching];
