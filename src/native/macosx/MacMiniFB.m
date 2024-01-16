@@ -840,6 +840,8 @@ uint64_t mfb_add_menu_item(
 void mfb_add_sub_menu(void* parent_menu, const char* menu_name, void* attach_menu) {
 	NSMenu* parent = (NSMenu*)parent_menu;
 	NSMenu* attach = (NSMenu*)attach_menu;
+	[attach setAutoenablesItems:NO];
+	
 	NSString* name = [NSString stringWithUTF8String: menu_name];
 
 	NSMenuItem* newItem = [[NSMenuItem alloc] initWithTitle:name action:NULL keyEquivalent:@""];
@@ -885,6 +887,7 @@ uint64_t mfb_add_menu(void* window, void* m)
 	NSMenu* menu = (NSMenu*)m;
 
  	NSMenu* main_menu = [NSApp mainMenu];
+	[menu setAutoenablesItems:NO];
 
     NSMenuItem* windowMenuItem = [main_menu addItemWithTitle:@"" action:NULL keyEquivalent:@""];
     [NSApp setWindowsMenu:menu];
