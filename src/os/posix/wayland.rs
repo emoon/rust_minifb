@@ -694,9 +694,7 @@ impl Window {
 
     #[inline]
     pub fn is_key_released(&self, key: Key) -> bool {
-        // BUG(stefano): is this really supposed to return !... or is it a bug/typo?
-        // IDEA(stefano): perhaps it's meant to return "!self.key_handler.is_key_pressed(key)"?
-        !self.key_handler.is_key_released(key)
+        self.key_handler.is_key_released(key)
     }
 
     #[inline]
