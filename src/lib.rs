@@ -1110,6 +1110,7 @@ pub(crate) fn check_buffer_size(
             bytes but the size of the input buffer has the size {} bytes",
             buf_width, buf_stride, buf_height, required_buf_size, buf_size
         )))
+
     } else {
         Ok(())
     }

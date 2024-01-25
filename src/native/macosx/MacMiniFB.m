@@ -277,7 +277,11 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
 
     [window center];
 
-    [NSApp activateIgnoringOtherApps:YES];
+    // Must be wrapped for menus to work without reselecting window
+    // See https://github.com/emoon/rust_minifb/issues/334
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [NSApp activateIgnoringOtherApps:YES];
+    });
 
     if (!prev_init) {
         [NSApp finishLaunching];
@@ -806,8 +810,10 @@ uint64_t mfb_add_menu_item(
 
 void mfb_add_sub_menu(void* parent_menu, const char* menu_name, void* attach_menu) {
     NSMenu* parent = (NSMenu*)parent_menu;
-    NSMenu* attach = (NSMenu*)attach_menu;
-    NSString* name = [NSString stringWithUTF8String: menu_name];
+	  NSMenu* attach = (NSMenu*)attach_menu;
+	  [attach setAutoenablesItems:NO];
+
+	  NSString* name = [NSString stringWithUTF8String: menu_name];
 
     NSMenuItem* newItem = [[NSMenuItem alloc] initWithTitle:name action:NULL keyEquivalent:@""];
     [newItem setSubmenu:attach];
@@ -849,7 +855,8 @@ uint64_t mfb_add_menu(void* window, void* m) {
     //OSXWindow* win = (OSXWindow*)window;
     NSMenu* menu = (NSMenu*)m;
 
-    NSMenu* main_menu = [NSApp mainMenu];
+  	NSMenu* main_menu = [NSApp mainMenu];
+	  [menu setAutoenablesItems:NO];
 
     NSMenuItem* windowMenuItem = [main_menu addItemWithTitle:@"" action:NULL keyEquivalent:@""];
     [NSApp setWindowsMenu:menu];
