@@ -7,7 +7,6 @@ use instant::{Duration, Instant};
 use std::time::{Duration, Instant};
 
 use crate::{InputCallback, Key, KeyRepeat};
-use std::mem;
 
 pub struct KeyHandler {
     pub key_callback: Option<Box<dyn InputCallback>>,
@@ -48,7 +47,7 @@ impl KeyHandler {
         for (idx, is_down) in self.keys.iter().enumerate() {
             if *is_down {
                 unsafe {
-                    keys.push(mem::transmute(idx as u8));
+                    keys.push(std::mem::transmute(idx as u8));
                 }
             }
         }
@@ -57,9 +56,8 @@ impl KeyHandler {
     }
 
     pub fn update(&mut self) {
-        let current_time = Instant::now();
         self.delta_time = self.prev_time.elapsed();
-        self.prev_time = current_time;
+        self.prev_time = Instant::now();
         let delta_time = self.delta_time.as_secs_f32();
 
         for idx in 0..self.keys.len() {
@@ -85,9 +83,9 @@ impl KeyHandler {
         let mut keys: Vec<Key> = Vec::new();
 
         for (idx, is_down) in self.keys.iter().enumerate() {
-            if *is_down && self.key_pressed(idx, repeat) {
+            if *is_down && self.is_key_index_pressed(idx, repeat) {
                 unsafe {
-                    keys.push(mem::transmute(idx as u8));
+                    keys.push(std::mem::transmute(idx as u8));
                 }
             }
         }
@@ -101,7 +99,7 @@ impl KeyHandler {
         for (idx, is_down) in self.keys.iter().enumerate() {
             if !(*is_down) && self.is_key_index_released(idx) {
                 unsafe {
-                    keys.push(mem::transmute(idx as u8));
+                    keys.push(std::mem::transmute(idx as u8));
                 }
             }
         }
@@ -124,7 +122,7 @@ impl KeyHandler {
         self.key_repeat_rate = rate;
     }
 
-    pub fn key_pressed(&self, index: usize, repeat: KeyRepeat) -> bool {
+    fn is_key_index_pressed(&self, index: usize, repeat: KeyRepeat) -> bool {
         let t = self.keys_down_duration[index];
 
         if t == 0.0 {
@@ -147,7 +145,7 @@ impl KeyHandler {
 
     #[inline]
     pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
-        self.key_pressed(key as usize, repeat)
+        self.is_key_index_pressed(key as usize, repeat)
     }
 
     #[inline]

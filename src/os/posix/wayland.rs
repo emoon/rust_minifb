@@ -2,18 +2,16 @@ use std::{
     cell::RefCell,
     ffi::c_void,
     fs::File,
-    io::{self, Seek, SeekFrom, Write},
-    mem,
+    io::{Seek, SeekFrom, Write},
     os::unix::io::{AsRawFd, RawFd},
-    ptr::{self, NonNull},
+    ptr::NonNull,
     rc::Rc,
-    slice,
     sync::mpsc,
     time::Duration,
 };
 
 use super::common::{
-    Image_center, Image_resize_linear_aspect_fill_c, Image_resize_linear_c, Image_upper_left, Menu,
+    image_center, image_resize_linear, image_resize_linear_aspect_fill, image_upper_left, Menu,
 };
 use crate::{
     check_buffer_size, key_handler::KeyHandler, rate::UpdateRate, CursorStyle, Error,
@@ -92,7 +90,7 @@ impl BufferPool {
             0,
             size.0,
             size.1,
-            size.0 * mem::size_of::<u32>() as i32,
+            size.0 * std::mem::size_of::<u32>() as i32,
             format,
         );
 
@@ -113,7 +111,7 @@ impl BufferPool {
 
     fn get_buffer(&mut self, size: (i32, i32)) -> std::io::Result<(File, &Main<WlBuffer>)> {
         let pos = self.pool.iter().rposition(|e| *e.buffer_state.borrow());
-        let size_bytes = size.0 * size.1 * mem::size_of::<u32>() as i32;
+        let size_bytes = size.0 * size.1 * std::mem::size_of::<u32>() as i32;
 
         // If possible, take an older shm_pool and create a new buffer in it
         if let Some(idx) = pos {
@@ -126,7 +124,7 @@ impl BufferPool {
             // Different buffer size
             if self.pool[idx].fb_size != size {
                 let new_buffer = Self::create_shm_buffer(&self.pool[idx].pool, size, self.format);
-                let old_buffer = mem::replace(&mut self.pool[idx].buffer, new_buffer.0);
+                let old_buffer = std::mem::replace(&mut self.pool[idx].buffer, new_buffer.0);
                 old_buffer.destroy();
                 self.pool[idx].fb_size = size;
             }
@@ -136,7 +134,7 @@ impl BufferPool {
             let tempfile = tempfile::tempfile()?;
             let shm_pool = self.shm.create_pool(
                 tempfile.as_raw_fd(),
-                size.0 * size.1 * mem::size_of::<u32>() as i32,
+                size.0 * size.1 * std::mem::size_of::<u32>() as i32,
             );
             let buffer = Self::create_shm_buffer(&shm_pool, size, self.format);
 
@@ -220,9 +218,9 @@ impl DisplayInfo {
         // Add a black canvas into the framebuffer
         let frame: Vec<u32> = vec![0xFF00_0000; (size.0 * size.1) as usize];
         let slice = unsafe {
-            slice::from_raw_parts(
+            std::slice::from_raw_parts(
                 frame.as_ptr() as *const u8,
-                frame.len() * mem::size_of::<u32>(),
+                frame.len() * std::mem::size_of::<u32>(),
             )
         };
         tempfile
@@ -350,7 +348,7 @@ impl DisplayInfo {
         fd.seek(SeekFrom::Start(0))?;
 
         let slice = unsafe {
-            slice::from_raw_parts(
+            std::slice::from_raw_parts(
                 buffer.as_ptr() as *const u8,
                 buffer.len() * std::mem::size_of::<u32>(),
             )
@@ -551,8 +549,8 @@ impl Window {
             key_handler: KeyHandler::new(),
 
             xkb_context: context,
-            xkb_keymap: ptr::null_mut(),
-            xkb_state: ptr::null_mut(),
+            xkb_keymap: std::ptr::null_mut(),
+            xkb_state: std::ptr::null_mut(),
 
             update_rate: UpdateRate::new(),
             menu_counter: MenuHandle(0),
@@ -747,14 +745,14 @@ impl Window {
     fn try_dispatch_events(&mut self) {
         // as seen in https://docs.rs/wayland-client/0.28/wayland_client/struct.EventQueue.html
         if let Err(e) = self.display.event_queue.display().flush() {
-            if e.kind() != io::ErrorKind::WouldBlock {
+            if e.kind() != std::io::ErrorKind::WouldBlock {
                 eprintln!("Error while trying to flush the wayland socket: {:?}", e);
             }
         }
 
         if let Some(guard) = self.display.event_queue.prepare_read() {
             if let Err(e) = guard.read_events() {
-                if e.kind() != io::ErrorKind::WouldBlock {
+                if e.kind() != std::io::ErrorKind::WouldBlock {
                     eprintln!(
                         "Error while trying to read from the wayland socket: {:?}",
                         e
@@ -1207,52 +1205,52 @@ impl Window {
 
         match self.scale_mode {
             ScaleMode::Stretch => {
-                Image_resize_linear_c(
+                image_resize_linear(
                     self.buffer.as_mut_ptr(),
+                    self.width as u32,
+                    self.height as u32,
                     buffer.as_ptr(),
                     buf_width as u32,
                     buf_height as u32,
                     buf_stride as u32,
-                    self.width as u32,
-                    self.height as u32,
                 );
             }
 
             ScaleMode::AspectRatioStretch => {
-                Image_resize_linear_aspect_fill_c(
+                image_resize_linear_aspect_fill(
                     self.buffer.as_mut_ptr(),
+                    self.width as u32,
+                    self.height as u32,
                     buffer.as_ptr(),
                     buf_width as u32,
                     buf_height as u32,
                     buf_stride as u32,
-                    self.width as u32,
-                    self.height as u32,
                     self.bg_color,
                 );
             }
 
             ScaleMode::Center => {
-                Image_center(
+                image_center(
                     self.buffer.as_mut_ptr(),
+                    self.width as u32,
+                    self.height as u32,
                     buffer.as_ptr(),
                     buf_width as u32,
                     buf_height as u32,
                     buf_stride as u32,
-                    self.width as u32,
-                    self.height as u32,
                     self.bg_color,
                 );
             }
 
             ScaleMode::UpperLeft => {
-                Image_upper_left(
+                image_upper_left(
                     self.buffer.as_mut_ptr(),
+                    self.width as u32,
+                    self.height as u32,
                     buffer.as_ptr(),
                     buf_width as u32,
                     buf_height as u32,
                     buf_stride as u32,
-                    self.width as u32,
-                    self.height as u32,
                     self.bg_color,
                 );
             }

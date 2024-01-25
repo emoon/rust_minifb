@@ -22,4 +22,3 @@ typedef struct DrawParameters {
     int buffer_stride;
     int scale_mode;
 } DrawParameters;
-

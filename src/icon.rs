@@ -25,12 +25,12 @@ impl FromStr for Icon {
             return Err("Path to icon cannot be empty!");
         }
 
-        let v: Vec<u16> = OsStr::new(s)
+        let path = OsStr::new(s)
             .encode_wide()
             .chain(Some(0).into_iter())
-            .collect();
+            .collect::<Vec<u16>>();
 
-        Ok(Icon::Path(v.as_ptr()))
+        Ok(Icon::Path(path.as_ptr()))
     }
 }
 
