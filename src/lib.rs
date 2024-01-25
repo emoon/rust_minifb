@@ -1105,12 +1105,11 @@ pub(crate) fn check_buffer_size(
     let required_buf_size = buf_width * buf_height * std::mem::size_of::<u32>();
 
     if buf_size < required_buf_size {
-        Err(Error::UpdateFailed(format!(
+        let err = format!(
             "Update failed because input buffer is too small. Required size for {} ({} stride) x {} buffer is {}
             bytes but the size of the input buffer has the size {} bytes",
-            buf_width, buf_stride, buf_height, required_buf_size, buf_size
-        )))
-
+            buf_width, buf_stride, buf_height, required_buf_size, buf_size);
+        Err(Error::UpdateFailed(err))
     } else {
         Ok(())
     }
