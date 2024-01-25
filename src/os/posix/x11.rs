@@ -22,7 +22,7 @@ use x11_dl::{
     xcursor,
     xlib::{
         self, KeyPressMask, KeyReleaseMask, KeySym, Status, XEvent, XIMPreeditNothing,
-        XIMStatusNothing, XKeyEvent, XNClientWindow, XNFocusWindow, XNInputStyle,
+        XIMStatusNothing, XKeyEvent, XNClientWindow_0, XNFocusWindow_0, XNInputStyle_0,
         XWindowAttributes, XrmDatabase, XIC, XIM,
     },
 };
@@ -197,30 +197,30 @@ impl DisplayInfo {
     }
 
     fn init_cursors(&mut self) {
-        self.cursors[0] = self.load_cursor("arrow");
-        self.cursors[1] = self.load_cursor("xterm");
-        self.cursors[2] = self.load_cursor("crosshair");
-        self.cursors[3] = self.load_cursor("hand2");
-        self.cursors[4] = self.load_cursor("hand2");
-        self.cursors[5] = self.load_cursor("sb_h_double_arrow");
-        self.cursors[6] = self.load_cursor("sb_v_double_arrow");
-        self.cursors[7] = self.load_cursor("diamond_cross");
+        self.cursors[0] = self.load_cursor(b"arrow\0");
+        self.cursors[1] = self.load_cursor(b"xterm\0");
+        self.cursors[2] = self.load_cursor(b"crosshair\0");
+        self.cursors[3] = self.load_cursor(b"hand2\0");
+        self.cursors[4] = self.load_cursor(b"hand2\0");
+        self.cursors[5] = self.load_cursor(b"sb_h_double_arrow\0");
+        self.cursors[6] = self.load_cursor(b"sb_v_double_arrow\0");
+        self.cursors[7] = self.load_cursor(b"diamond_cross\0");
     }
 
-    fn load_cursor(&mut self, name: &'static str) -> xlib::Cursor {
-        let name = CString::new(name).expect("static data");
-
-        unsafe { (self.cursor_lib.XcursorLibraryLoadCursor)(self.display, name.as_ptr()) }
+    fn load_cursor(&mut self, name: &'static [u8]) -> xlib::Cursor {
+        unsafe {
+            let name = CStr::from_bytes_with_nul_unchecked(name);
+            (self.cursor_lib.XcursorLibraryLoadCursor)(self.display, name.as_ptr())
+        }
     }
 
     fn init_atoms(&mut self) {
-        self.wm_delete_window = self.intern_atom("WM_DELETE_WINDOW", false);
+        self.wm_delete_window = self.intern_atom(b"WM_DELETE_WINDOW\0", false);
     }
 
-    fn intern_atom(&mut self, name: &'static str, only_if_exists: bool) -> xlib::Atom {
-        let name = CString::new(name).expect("static data");
-
+    fn intern_atom(&mut self, name: &'static [u8], only_if_exists: bool) -> xlib::Atom {
         unsafe {
+            let name = CStr::from_bytes_with_nul_unchecked(name);
             (self.lib.XInternAtom)(
                 self.display,
                 name.as_ptr(),
@@ -375,9 +375,9 @@ impl Window {
                 ));
             }
 
-            let xn_input_style = CString::new(XNInputStyle).unwrap();
-            let xn_client_window = CString::new(XNClientWindow).unwrap();
-            let xn_focus_window = CString::new(XNFocusWindow).unwrap();
+            let xn_input_style = CStr::from_bytes_with_nul_unchecked(XNInputStyle_0);
+            let xn_client_window = CStr::from_bytes_with_nul_unchecked(XNClientWindow_0);
+            let xn_focus_window = CStr::from_bytes_with_nul_unchecked(XNFocusWindow_0);
             let xic = (d.lib.XCreateIC)(
                 xim,
                 xn_input_style.as_ptr(),
@@ -541,8 +541,8 @@ impl Window {
     ) -> std::result::Result<(), String> {
         (d.lib.XStoreName)(d.display, handle, name.as_ptr());
         if let Ok(name_len) = c_int::try_from(name.to_bytes().len()) {
-            let net_wm_name = d.intern_atom("_NET_WM_NAME", false);
-            let utf8_string = d.intern_atom("UTF8_STRING", false);
+            let net_wm_name = d.intern_atom(b"_NET_WM_NAME\0", false);
+            let utf8_string = d.intern_atom(b"UTF8_STRING\0", false);
             (d.lib.XChangeProperty)(
                 d.display,
                 handle,
