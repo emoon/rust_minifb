@@ -18,7 +18,7 @@ mod os;
 mod rate;
 
 use raw_window_handle::{DisplayHandle, HandleError, HasDisplayHandle, WindowHandle};
-use std::{fmt, os::raw};
+use std::{ffi::c_void, fmt, time::Duration};
 
 #[cfg(target_os = "macos")]
 use os::macos as imp;
@@ -101,26 +101,22 @@ pub enum MouseMode {
 impl MouseMode {
     pub(crate) fn get_pos(
         self,
-        mx: f32,
-        my: f32,
+        mut x: f32,
+        mut y: f32,
         scale: f32,
-        width: f32,
-        height: f32,
+        mut width: f32,
+        mut height: f32,
     ) -> Option<(f32, f32)> {
-        let s = 1.0 / scale;
-        let x = mx * s;
-        let y = my * s;
-        let window_width = width * s;
-        let window_height = height * s;
+        x /= scale;
+        y /= scale;
+        width /= scale;
+        height /= scale;
 
         match self {
-            MouseMode::Pass => Some((x, y)),
-            MouseMode::Clamp => Some((
-                x.clamp(0.0, window_width - 1.0),
-                y.clamp(0.0, window_height - 1.0),
-            )),
-            MouseMode::Discard => {
-                if x < 0.0 || y < 0.0 || x >= window_width || y >= window_height {
+            Self::Pass => Some((x, y)),
+            Self::Clamp => Some((x.clamp(0.0, width - 1.0), y.clamp(0.0, height - 1.0))),
+            Self::Discard => {
+                if x < 0.0 || y < 0.0 || x >= width || y >= height {
                     None
                 } else {
                     Some((x, y))
@@ -347,7 +343,7 @@ impl Window {
     /// X11     XWindow
     /// ```
     #[inline]
-    pub fn get_window_handle(&self) -> *mut raw::c_void {
+    pub fn get_window_handle(&self) -> *mut c_void {
         self.0.get_window_handle()
     }
 
@@ -528,7 +524,7 @@ impl Window {
     /// window.limit_update_rate(Some(std::time::Duration::from_millis(4)));
     /// ```
     #[inline]
-    pub fn limit_update_rate(&mut self, time: Option<std::time::Duration>) {
+    pub fn limit_update_rate(&mut self, time: Option<Duration>) {
         self.0.set_rate(time)
     }
 
@@ -973,11 +969,11 @@ pub struct MenuItem<'a> {
     pub menu: Option<&'a mut Menu>,
 }
 
-impl<'a> Default for MenuItem<'a> {
+impl Default for MenuItem<'_> {
     fn default() -> Self {
         MenuItem {
             id: MENU_ID_SEPARATOR,
-            label: "".to_owned(),
+            label: String::default(),
             enabled: true,
             key: Key::Unknown,
             modifier: 0,
@@ -986,7 +982,7 @@ impl<'a> Default for MenuItem<'a> {
     }
 }
 
-impl<'a> Clone for MenuItem<'a> {
+impl Clone for MenuItem<'_> {
     fn clone(&self) -> Self {
         MenuItem {
             id: self.id,
@@ -999,7 +995,7 @@ impl<'a> Clone for MenuItem<'a> {
     }
 }
 
-impl<'a> MenuItem<'a> {
+impl MenuItem<'_> {
     /// Creates a new menu item
     pub fn new(name: &str, id: usize) -> MenuItem {
         MenuItem {
@@ -1100,19 +1096,19 @@ impl Default for WindowOptions {
 
 pub(crate) fn check_buffer_size(
     buffer: &[u32],
-    buffer_width: usize,
-    buffer_height: usize,
-    buffer_stride: usize,
+    mut buf_width: usize,
+    buf_height: usize,
+    buf_stride: usize,
 ) -> Result<()> {
-    let width = usize::max(buffer_width, buffer_stride);
-    let buffer_size = buffer.len() * std::mem::size_of::<u32>();
-    let required_buffer_size = width * buffer_height * std::mem::size_of::<u32>(); // * 4 (size of u32) for 32-bit buffer
+    buf_width = buf_width.max(buf_stride);
+    let buf_size = buffer.len() * std::mem::size_of::<u32>();
+    let required_buf_size = buf_width * buf_height * std::mem::size_of::<u32>();
 
-    if buffer_size < required_buffer_size {
+    if buf_size < required_buf_size {
         let err = format!(
             "Update failed because input buffer is too small. Required size for {} ({} stride) x {} buffer is {}
             bytes but the size of the input buffer has the size {} bytes",
-            buffer_width, buffer_stride, buffer_height, required_buffer_size, buffer_size);
+            buf_width, buf_stride, buf_height, required_buf_size, buf_size);
         Err(Error::UpdateFailed(err))
     } else {
         Ok(())

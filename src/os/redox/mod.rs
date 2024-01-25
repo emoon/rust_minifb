@@ -11,7 +11,7 @@ use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, OrbitalDisplayHandle,
     OrbitalWindowHandle, RawDisplayHandle, RawWindowHandle, WindowHandle,
 };
-use std::{cmp, os::raw};
+use std::{cmp, std::ffi::c_void};
 
 pub struct Window {
     is_open: bool,
@@ -100,23 +100,20 @@ impl Window {
     }
 
     #[inline]
-    pub fn get_window_handle(&self) -> *mut raw::c_void {
-        0 as *mut raw::c_void
+    pub fn get_window_handle(&self) -> *mut c_void {
+        std::ptr::null_mut()
     }
 
     pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
         self.process_events();
         self.key_handler.update();
 
-        let check_res = check_buffer_size(
+        check_buffer_size(
             buffer,
             self.buffer_width,
             self.buffer_height,
             self.window_scale,
-        );
-        if check_res.is_err() {
-            return check_res;
-        }
+        )?;
 
         self.render_buffer(buffer);
         self.window.sync();
@@ -435,7 +432,7 @@ impl Window {
 
 impl HasWindowHandle for Window {
     fn window_handle(&self) -> std::result::Result<WindowHandle, HandleError> {
-        let raw_window = &self.window as *const orbclient::Window as *const std::ffi::c_void;
+        let raw_window = &self.window as *const orbclient::Window as *const c_void;
         let handle = OrbitalWindowHandle::new(raw_window);
         let raw_handle = RawWindowHandle::Orbital(handle);
         unsafe { Ok(WindowHandle::borrow_raw(raw_handle)) }

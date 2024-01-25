@@ -61,46 +61,46 @@ impl Menu {
 // These functions are implemented in C in order to always have
 // optimizations on (`-O3`), allowing debug builds to run fast as well.
 extern "C" {
-    pub(crate) fn Image_upper_left(
-        target: *mut u32,
-        source: *const u32,
-        source_w: u32,
-        source_h: u32,
-        source_stride: u32,
-        dest_width: u32,
-        dest_height: u32,
+    pub(crate) fn image_upper_left(
+        dst: *mut u32,
+        dst_width: u32,
+        dst_height: u32,
+        src: *const u32,
+        src_width: u32,
+        src_height: u32,
+        src_stride: u32,
         bg_color: u32,
     );
 
-    pub(crate) fn Image_center(
-        target: *mut u32,
-        source: *const u32,
-        source_w: u32,
-        source_h: u32,
-        source_stride: u32,
-        dest_width: u32,
-        dest_height: u32,
+    pub(crate) fn image_center(
+        dst: *mut u32,
+        dst_width: u32,
+        dst_height: u32,
+        src: *const u32,
+        src_width: u32,
+        src_height: u32,
+        src_stride: u32,
         bg_color: u32,
     );
 
-    pub(crate) fn Image_resize_linear_aspect_fill_c(
-        target: *mut u32,
-        source: *const u32,
-        source_w: u32,
-        source_h: u32,
-        source_stride: u32,
-        dest_width: u32,
-        dest_height: u32,
+    pub(crate) fn image_resize_linear_aspect_fill(
+        dst: *mut u32,
+        dst_width: u32,
+        dst_height: u32,
+        src: *const u32,
+        src_width: u32,
+        src_height: u32,
+        src_stride: u32,
         bg_color: u32,
     );
 
-    pub(crate) fn Image_resize_linear_c(
-        target: *mut u32,
-        source: *const u32,
-        source_w: u32,
-        source_h: u32,
-        source_stride: u32,
-        dest_width: u32,
-        dest_height: u32,
+    pub(crate) fn image_resize_linear(
+        dst: *mut u32,
+        dst_width: u32,
+        dst_height: u32,
+        src: *const u32,
+        src_width: u32,
+        src_height: u32,
+        src_stride: u32,
     );
 }

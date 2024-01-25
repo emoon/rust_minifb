@@ -1,5 +1,5 @@
 use super::common::{
-    Image_center, Image_resize_linear_aspect_fill_c, Image_resize_linear_c, Image_upper_left, Menu,
+    image_center, image_resize_linear, image_resize_linear_aspect_fill, image_upper_left, Menu,
 };
 use crate::{
     check_buffer_size, error::Error, icon::Icon, key_handler::KeyHandler, rate::UpdateRate,
@@ -12,10 +12,10 @@ use raw_window_handle::{
 };
 use std::{
     convert::TryFrom,
-    ffi::{c_void, CStr, CString},
-    mem,
-    os::raw::{self, c_char, c_int, c_long, c_uchar, c_uint, c_ulong},
-    ptr::{self, NonNull},
+    ffi::{c_char, c_int, c_long, c_uchar, c_uint, c_ulong, c_void, CStr, CString},
+    mem::MaybeUninit,
+    ptr::NonNull,
+    time::Duration,
 };
 use x11_dl::{
     keysym::*,
@@ -70,7 +70,7 @@ impl DisplayInfo {
 
     fn setup(transparency: bool) -> Result<DisplayInfo> {
         unsafe {
-            libc::setlocale(libc::LC_ALL, "\0".as_ptr() as *const c_char); //needed to make compose key work
+            libc::setlocale(libc::LC_ALL, std::ptr::null()); //needed to make compose key work
 
             let lib = xlib::Xlib::open()
                 .map_err(|e| Error::WindowCreate(format!("failed to load Xlib: {:?}", e)))?;
@@ -82,7 +82,7 @@ impl DisplayInfo {
             let cursor_lib = xcursor::Xcursor::open()
                 .map_err(|e| Error::WindowCreate(format!("failed to load XCursor: {:?}", e)))?;
 
-            let display = (lib.XOpenDisplay)(ptr::null());
+            let display = (lib.XOpenDisplay)(std::ptr::null());
 
             if display.is_null() {
                 return Err(Error::WindowCreate("XOpenDisplay failed".to_owned()));
@@ -291,7 +291,7 @@ impl HasWindowHandle for Window {
 
 impl HasDisplayHandle for Window {
     fn display_handle(&self) -> std::result::Result<DisplayHandle, HandleError> {
-        let raw_display = self.d.display as *mut core::ffi::c_void;
+        let raw_display = self.d.display as *mut c_void;
         let display = NonNull::new(raw_display);
         let handle = XlibDisplayHandle::new(display, self.d.screen);
         let raw_handle = RawDisplayHandle::Xlib(handle);
@@ -321,7 +321,7 @@ impl Window {
         let height = height * scale;
 
         unsafe {
-            let mut attributes: xlib::XSetWindowAttributes = mem::zeroed();
+            let mut attributes: xlib::XSetWindowAttributes = std::mem::zeroed();
 
             let root = (d.lib.XDefaultRootWindow)(d.display);
 
@@ -366,8 +366,8 @@ impl Window {
             let xim = (d.lib.XOpenIM)(
                 d.display,
                 0 as XrmDatabase,
-                ptr::null_mut::<c_char>(),
-                ptr::null_mut::<c_char>(),
+                std::ptr::null_mut::<c_char>(),
+                std::ptr::null_mut::<c_char>(),
             );
             if (xim as usize) == 0 {
                 return Err(Error::WindowCreate(
@@ -397,7 +397,7 @@ impl Window {
             (d.lib.XSetICFocus)(xic);
             (d.lib.XSelectInput)(d.display, handle, KeyPressMask | KeyReleaseMask);
 
-            d.gc = (d.lib.XCreateGC)(d.display, handle, 0, ptr::null_mut());
+            d.gc = (d.lib.XCreateGC)(d.display, handle, 0, std::ptr::null_mut());
 
             if handle == 0 {
                 return Err(Error::WindowCreate("Unable to open Window".to_owned()));
@@ -417,7 +417,7 @@ impl Window {
             );
 
             if !opts.resize || opts.none {
-                let mut size_hints: xlib::XSizeHints = mem::zeroed();
+                let mut size_hints: xlib::XSizeHints = std::mem::zeroed();
 
                 size_hints.flags = xlib::PMinSize | xlib::PMaxSize;
                 size_hints.min_width = width as i32;
@@ -529,16 +529,16 @@ impl Window {
     }
 
     unsafe fn free_image(&mut self) {
-        (*self.ximage).data = ptr::null_mut();
+        (*self.ximage).data = std::ptr::null_mut();
         (self.d.lib.XDestroyImage)(self.ximage);
-        self.ximage = ptr::null_mut();
+        self.ximage = std::ptr::null_mut();
     }
 
     unsafe fn set_title_raw(
         d: &mut DisplayInfo,
         handle: xlib::Window,
         name: &CStr,
-    ) -> core::result::Result<(), String> {
+    ) -> std::result::Result<(), String> {
         (d.lib.XStoreName)(d.display, handle, name.as_ptr());
         if let Ok(name_len) = c_int::try_from(name.to_bytes().len()) {
             let net_wm_name = d.intern_atom("_NET_WM_NAME", false);
@@ -625,8 +625,8 @@ impl Window {
     }
 
     #[inline]
-    pub fn get_window_handle(&self) -> *mut raw::c_void {
-        self.handle as *mut raw::c_void
+    pub fn get_window_handle(&self) -> *mut c_void {
+        self.handle as *mut c_void
     }
 
     #[inline]
@@ -681,8 +681,8 @@ impl Window {
         let (mut nx, mut ny) = (0, 0);
 
         // Create dummy window for child_return value
-        let mut dummy_window: mem::MaybeUninit<Window> = mem::MaybeUninit::uninit();
-        let mut attributes: mem::MaybeUninit<XWindowAttributes> = mem::MaybeUninit::uninit();
+        let mut dummy_window: MaybeUninit<Window> = MaybeUninit::uninit();
+        let mut attributes: MaybeUninit<XWindowAttributes> = MaybeUninit::uninit();
 
         unsafe {
             let root = (self.d.lib.XDefaultRootWindow)(self.d.display);
@@ -758,7 +758,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_rate(&mut self, rate: Option<std::time::Duration>) {
+    pub fn set_rate(&mut self, rate: Option<Duration>) {
         self.update_rate.set_rate(rate);
     }
 
@@ -896,52 +896,52 @@ impl Window {
     ) {
         match self.scale_mode {
             ScaleMode::Stretch => {
-                Image_resize_linear_c(
+                image_resize_linear(
                     self.draw_buffer.as_mut_ptr(),
+                    self.width,
+                    self.height,
                     buffer.as_ptr(),
                     buf_width as u32,
                     buf_height as u32,
                     buf_stride as u32,
-                    self.width,
-                    self.height,
                 );
             }
 
             ScaleMode::AspectRatioStretch => {
-                Image_resize_linear_aspect_fill_c(
+                image_resize_linear_aspect_fill(
                     self.draw_buffer.as_mut_ptr(),
+                    self.width,
+                    self.height,
                     buffer.as_ptr(),
                     buf_width as u32,
                     buf_height as u32,
                     buf_stride as u32,
-                    self.width,
-                    self.height,
                     self.bg_color,
                 );
             }
 
             ScaleMode::Center => {
-                Image_center(
+                image_center(
                     self.draw_buffer.as_mut_ptr(),
+                    self.width,
+                    self.height,
                     buffer.as_ptr(),
                     buf_width as u32,
                     buf_height as u32,
                     buf_stride as u32,
-                    self.width,
-                    self.height,
                     self.bg_color,
                 );
             }
 
             ScaleMode::UpperLeft => {
-                Image_upper_left(
+                image_upper_left(
                     self.draw_buffer.as_mut_ptr(),
+                    self.width,
+                    self.height,
                     buffer.as_ptr(),
                     buf_width as u32,
                     buf_height as u32,
                     buf_stride as u32,
-                    self.width,
-                    self.height,
                     self.bg_color,
                 );
             }
@@ -994,7 +994,7 @@ impl Window {
         let count = (self.d.lib.XPending)(self.d.display);
 
         for _ in 0..count {
-            let mut event: xlib::XEvent = mem::zeroed();
+            let mut event: xlib::XEvent = std::mem::zeroed();
 
             (self.d.lib.XNextEvent)(self.d.display, &mut event);
 

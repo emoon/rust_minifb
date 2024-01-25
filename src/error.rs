@@ -1,4 +1,4 @@
-use std::{error::Error as StdError, fmt};
+use std::fmt;
 
 /// Errors that can be returned from various operations
 pub enum Error {
@@ -34,7 +34,7 @@ impl fmt::Debug for Error {
     }
 }
 
-impl StdError for Error {}
+impl std::error::Error for Error {}
 
 #[cfg(target_arch = "wasm32")]
 impl From<wasm_bindgen::JsValue> for Error {

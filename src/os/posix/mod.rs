@@ -27,7 +27,7 @@ pub use common::Menu;
 use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, WindowHandle,
 };
-use std::os::raw;
+use std::{ffi::c_void, time::Duration};
 
 // Differentiate between Wayland and X11 at run-time
 #[allow(clippy::large_enum_variant)]
@@ -113,7 +113,7 @@ impl Window {
         }
     }
 
-    pub fn get_window_handle(&self) -> *mut raw::c_void {
+    pub fn get_window_handle(&self) -> *mut c_void {
         match self {
             #[cfg(feature = "x11")]
             Window::X11(w) => w.get_window_handle(),
@@ -216,7 +216,7 @@ impl Window {
         }
     }
 
-    pub fn set_rate(&mut self, rate: Option<std::time::Duration>) {
+    pub fn set_rate(&mut self, rate: Option<Duration>) {
         match self {
             #[cfg(feature = "x11")]
             Window::X11(w) => w.set_rate(rate),

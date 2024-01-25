@@ -11,11 +11,10 @@ use raw_window_handle::{
     RawWindowHandle, Win32WindowHandle, WindowHandle, WindowsDisplayHandle,
 };
 use std::{
-    ffi::OsStr,
-    mem,
+    ffi::{c_int, c_void, OsStr},
     num::NonZeroIsize,
-    os::{raw, windows::ffi::OsStrExt},
-    ptr,
+    os::windows::ffi::OsStrExt,
+    time::Duration,
 };
 use winapi::{
     shared::{
@@ -217,7 +216,7 @@ unsafe extern "system" fn wnd_proc(
         return winuser::DefWindowProcW(window, msg, wparam, lparam);
     }
 
-    let wnd: &mut Window = mem::transmute(user_data);
+    let wnd: &mut Window = std::mem::transmute(user_data);
 
     match msg {
         winuser::WM_SYSCOMMAND => {
@@ -324,9 +323,9 @@ unsafe extern "system" fn wnd_proc(
                 return winuser::DefWindowProcW(window, msg, wparam, lparam);
             }
 
-            let mut bitmap_info: BitmapInfo = mem::zeroed();
+            let mut bitmap_info: BitmapInfo = std::mem::zeroed();
 
-            bitmap_info.bmi_header.biSize = mem::size_of::<wingdi::BITMAPINFOHEADER>() as u32;
+            bitmap_info.bmi_header.biSize = std::mem::size_of::<wingdi::BITMAPINFOHEADER>() as u32;
             bitmap_info.bmi_header.biPlanes = 1;
             bitmap_info.bmi_header.biBitCount = 32;
             bitmap_info.bmi_header.biCompression = wingdi::BI_BITFIELDS;
@@ -450,13 +449,13 @@ unsafe extern "system" fn wnd_proc(
                 0,
                 wnd.draw_params.buffer_width as i32,
                 wnd.draw_params.buffer_height as i32,
-                mem::transmute(wnd.draw_params.buffer),
-                mem::transmute(&bitmap_info),
+                std::mem::transmute(wnd.draw_params.buffer),
+                std::mem::transmute(&bitmap_info),
                 wingdi::DIB_RGB_COLORS,
                 wingdi::SRCCOPY,
             );
 
-            winuser::ValidateRect(window, ptr::null_mut());
+            winuser::ValidateRect(window, std::ptr::null_mut());
 
             return 0;
         }
@@ -563,11 +562,11 @@ impl Window {
                 lpfnWndProc: Some(wnd_proc),
                 cbClsExtra: 0,
                 cbWndExtra: 0,
-                hInstance: libloaderapi::GetModuleHandleA(ptr::null()),
-                hIcon: ptr::null_mut(),
-                hCursor: winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_ARROW),
-                hbrBackground: ptr::null_mut(),
-                lpszMenuName: ptr::null(),
+                hInstance: libloaderapi::GetModuleHandleA(std::ptr::null()),
+                hIcon: std::ptr::null_mut(),
+                hCursor: winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_ARROW),
+                hbrBackground: std::ptr::null_mut(),
+                lpszMenuName: std::ptr::null(),
                 lpszClassName: class_name.as_ptr(),
             };
 
@@ -635,10 +634,10 @@ impl Window {
                 winuser::CW_USEDEFAULT,
                 rect.right,
                 rect.bottom,
-                ptr::null_mut(),
-                ptr::null_mut(),
-                ptr::null_mut(),
-                ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
             );
             if handle.is_null() {
                 println!(
@@ -675,19 +674,19 @@ impl Window {
                 width: (width * scale_factor as usize) as i32,
                 height: (height * scale_factor as usize) as i32,
                 menus: Vec::new(),
-                accel_table: ptr::null_mut(),
+                accel_table: std::ptr::null_mut(),
                 accel_key: INVALID_ACCEL,
                 cursor: CursorStyle::Arrow,
                 clear_brush: wingdi::CreateSolidBrush(0),
                 cursors: [
-                    winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_ARROW),
-                    winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_IBEAM),
-                    winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_CROSS),
-                    winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_HAND),
-                    winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_HAND),
-                    winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZEWE),
-                    winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZENS),
-                    winuser::LoadCursorW(ptr::null_mut(), winuser::IDC_SIZEALL),
+                    winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_ARROW),
+                    winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_IBEAM),
+                    winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_CROSS),
+                    winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_HAND),
+                    winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_HAND),
+                    winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_SIZEWE),
+                    winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_SIZENS),
+                    winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_SIZEALL),
                 ],
                 draw_params: DrawParameters {
                     scale_mode: opts.scale_mode,
@@ -763,8 +762,8 @@ impl Window {
     }
 
     #[inline]
-    pub fn get_window_handle(&self) -> *mut raw::c_void {
-        self.window.unwrap() as *mut raw::c_void
+    pub fn get_window_handle(&self) -> *mut c_void {
+        self.window.unwrap() as *mut c_void
     }
 
     #[inline]
@@ -772,7 +771,7 @@ impl Window {
         unsafe {
             winuser::SetWindowPos(
                 self.window.unwrap(),
-                ptr::null_mut(),
+                std::ptr::null_mut(),
                 x as i32,
                 y as i32,
                 0,
@@ -868,7 +867,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_rate(&mut self, rate: Option<std::time::Duration>) {
+    pub fn set_rate(&mut self, rate: Option<Duration>) {
         self.update_rate.set_rate(rate);
     }
 
@@ -929,7 +928,7 @@ impl Window {
 
     fn generic_update(&mut self, window: windef::HWND) {
         unsafe {
-            let mut point: windef::POINT = mem::zeroed();
+            let mut point: windef::POINT = std::mem::zeroed();
 
             winuser::GetCursorPos(&mut point);
             winuser::ScreenToClient(window, &mut point);
@@ -940,20 +939,20 @@ impl Window {
 
             self.key_handler.update();
 
-            set_window_long(window, mem::transmute(self));
+            set_window_long(window, std::mem::transmute(self));
         }
     }
 
     fn message_loop(&self, _window: windef::HWND) {
         unsafe {
-            let mut msg = mem::zeroed();
+            let mut msg = std::mem::zeroed();
 
             while winuser::PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, winuser::PM_REMOVE)
                 != 0
             {
                 let acc_condition = winuser::TranslateAcceleratorW(
                     msg.hwnd,
-                    mem::transmute(self.accel_table),
+                    std::mem::transmute(self.accel_table),
                     &mut msg,
                 ) == 0;
 
@@ -1004,7 +1003,7 @@ impl Window {
         //self.draw_params.buffer_stride = buf_stride as u32;
 
         unsafe {
-            winuser::InvalidateRect(window, ptr::null_mut(), minwindef::TRUE);
+            winuser::InvalidateRect(window, std::ptr::null_mut(), minwindef::TRUE);
         }
 
         self.message_loop(window);
@@ -1068,7 +1067,7 @@ impl Window {
     // the current client size is preserved and still show all pixels
     //
     unsafe fn adjust_window_size_for_menu(handle: windef::HWND) {
-        let mut rect: windef::RECT = mem::zeroed();
+        let mut rect: windef::RECT = std::mem::zeroed();
 
         let menu_height = winuser::GetSystemMetrics(winuser::SM_CYMENU);
 
@@ -1183,7 +1182,7 @@ impl Menu {
         }
     }
 
-    fn map_key_to_vk_accel(key: Key) -> (raw::c_int, &'static str) {
+    fn map_key_to_vk_accel(key: Key) -> (c_int, &'static str) {
         match key {
             Key::Key0 => (0x30, "0"),
             Key::Key1 => (0x31, "1"),
@@ -1337,7 +1336,7 @@ impl Menu {
     }
 
     #[inline]
-    fn is_key_virtual_range(_key: raw::c_int) -> u32 {
+    fn is_key_virtual_range(_key: c_int) -> u32 {
         /*
         if (key >= 0x30 && key <= 0x30) ||
            (key >= 0x41 && key <= 0x5a) {
@@ -1350,7 +1349,7 @@ impl Menu {
         1
     }
 
-    fn get_virt_key(menu_item: &MenuItem, key: raw::c_int) -> u32 {
+    fn get_virt_key(menu_item: &MenuItem, key: c_int) -> u32 {
         let mut virt = Self::is_key_virtual_range(key);
 
         if (menu_item.modifier & MENU_KEY_ALT) == MENU_KEY_ALT {
@@ -1368,7 +1367,7 @@ impl Menu {
         virt
     }
 
-    fn add_accel(&mut self, vk: raw::c_int, menu_item: &MenuItem) {
+    fn add_accel(&mut self, vk: c_int, menu_item: &MenuItem) {
         let vk_accel = Self::map_key_to_vk_accel(menu_item.key);
         let virt = Self::get_virt_key(menu_item, vk);
         let accel = winuser::ACCEL {

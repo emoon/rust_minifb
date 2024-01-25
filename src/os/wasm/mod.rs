@@ -15,8 +15,9 @@ use raw_window_handle::{
 };
 use std::{
     cell::{Cell, RefCell},
-    os::raw,
+    ffi::c_void,
     rc::Rc,
+    time::Duration,
 };
 use wasm_bindgen::{prelude::*, Clamped, JsCast};
 use web_sys::{window, CanvasRenderingContext2d, HtmlCanvasElement, ImageData};
@@ -194,14 +195,14 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_rate(&mut self, rate: Option<std::time::Duration>) {}
+    pub fn set_rate(&mut self, rate: Option<Duration>) {}
 
     #[inline]
     pub fn update_rate(&mut self) {}
 
     #[inline]
-    pub fn get_window_handle(&self) -> *mut raw::c_void {
-        0 as *mut raw::c_void
+    pub fn get_window_handle(&self) -> *mut c_void {
+        std::ptr::null_mut()
     }
 
     #[inline]

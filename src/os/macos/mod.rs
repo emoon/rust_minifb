@@ -10,10 +10,9 @@ use raw_window_handle::{
     HasWindowHandle, RawDisplayHandle, RawWindowHandle, WindowHandle,
 };
 use std::{
-    ffi::CString,
-    mem,
-    os::raw::{self, c_char, c_uchar, c_void},
-    ptr::{self, NonNull},
+    ffi::{c_char, c_uchar, c_void, CString},
+    ptr::NonNull,
+    time::Duration,
 };
 
 /// Table taken from GLFW and slightly modified
@@ -230,7 +229,7 @@ pub struct Window {
 }
 
 unsafe extern "C" fn key_callback(window: *mut c_void, key: i32, state: i32) {
-    let win: *mut Window = mem::transmute(window);
+    let win: *mut Window = std::mem::transmute(window);
 
     let s = state == 1;
 
@@ -244,7 +243,7 @@ unsafe extern "C" fn key_callback(window: *mut c_void, key: i32, state: i32) {
 }
 
 unsafe extern "C" fn char_callback(window: *mut c_void, code_point: u32) {
-    let win: *mut Window = mem::transmute(window);
+    let win: *mut Window = std::mem::transmute(window);
 
     // Taken from GLFW
     if code_point < 32 || (code_point > 126 && code_point < 160) {
@@ -290,7 +289,7 @@ impl Window {
 
         unsafe {
             let scale_factor = Self::get_scale_factor(width, height, opts.scale) as usize;
-            let mut view_handle = ptr::null();
+            let mut view_handle = std::ptr::null();
             let handle = mfb_open(
                 n.as_ptr(),
                 width as u32,
@@ -304,7 +303,7 @@ impl Window {
                 mfb_topmost(handle, true);
             }
 
-            if handle == ptr::null_mut() {
+            if handle == std::ptr::null_mut() {
                 return Err(Error::WindowCreate("Unable to open Window".to_owned()));
             }
 
@@ -341,7 +340,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_rate(&mut self, rate: Option<std::time::Duration>) {
+    pub fn set_rate(&mut self, rate: Option<Duration>) {
         self.update_rate.set_rate(rate);
     }
 
@@ -351,8 +350,8 @@ impl Window {
     }
 
     #[inline]
-    pub fn get_window_handle(&self) -> *mut raw::c_void {
-        self.window_handle as *mut raw::c_void
+    pub fn get_window_handle(&self) -> *mut c_void {
+        self.window_handle as *mut c_void
     }
 
     #[inline]
@@ -391,10 +390,10 @@ impl Window {
                 buf_height as u32,
                 buf_stride as u32,
             );
-            Self::set_mouse_data(self);
+            self.set_mouse_data();
             mfb_set_key_callback(
                 self.window_handle,
-                mem::transmute(self),
+                std::mem::transmute(self),
                 key_callback,
                 char_callback,
             );
@@ -408,10 +407,10 @@ impl Window {
 
         unsafe {
             mfb_update(self.window_handle);
-            Self::set_mouse_data(self);
+            self.set_mouse_data();
             mfb_set_key_callback(
                 self.window_handle,
-                mem::transmute(self),
+                std::mem::transmute(self),
                 key_callback,
                 char_callback,
             );

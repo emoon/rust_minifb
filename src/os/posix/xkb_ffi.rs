@@ -1,7 +1,7 @@
 #![allow(non_camel_case_types, clippy::identity_op)]
 
 /** Minimal xkb_common ffi wrapper, based on sctk's. */
-use std::os::raw::c_char;
+use std::ffi::c_char;
 
 #[repr(C)]
 pub struct xkb_context {
