@@ -40,8 +40,7 @@ fn main() {
 
     let input = Box::new(Input::new(&keys_data));
 
-    // Limit to max ~60 fps update rate
-    window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
+    window.set_target_fps(60);
     window.set_input_callback(input);
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
