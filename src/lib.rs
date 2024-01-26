@@ -524,8 +524,46 @@ impl Window {
     /// window.limit_update_rate(Some(std::time::Duration::from_millis(4)));
     /// ```
     #[inline]
+    #[deprecated(
+        since = "0.26",
+        note = "use set_fps_target instead, this function will be removed in the future."
+    )]
     pub fn limit_update_rate(&mut self, time: Option<Duration>) {
         self.0.set_rate(time)
+    }
+
+    /// Limits the FPS of polling for new events in order to reduce CPU usage.
+    /// The problem of having a tight loop that does something like this
+    ///
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    /// loop {
+    ///    window.update();
+    /// }
+    /// ```
+    /// Is that lots of CPU time will be spent calling system functions to check for new events in a tight loop making the CPU time go up.
+    /// Using `set_target_fps` minifb will check how many frames are left to reach the target FPS and if there are any it will sleep for that amount of frames.
+    /// This means that if more frames than the target happened (external code taking longer) minifb will not do any waiting at all so there is no loss in CPU performance with this feature.
+    /// By default it's set to 250 FPS. Setting this value to None and no waiting will be done
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    /// // Set the target rate to 60 fps, meaning events will be polled every ~16.6 ms
+    /// window.set_target_fps(60);
+    /// ```
+    #[inline]
+    pub fn set_target_fps(&mut self, fps: usize) {
+        match fps {
+            0 => self.0.set_rate(None),
+            non_zero => {
+                let fps = Duration::from_secs_f32(1. / non_zero as f32);
+                self.0.set_rate(Some(fps));
+            }
+        }
     }
 
     /// Returns the current size of the window
