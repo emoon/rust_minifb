@@ -12,7 +12,7 @@ build = "build.rs"
 edition = "2018"
 readme = "README.md"
 
-exclude = ["resources/"]
+exclude = ["examples/resources/"]
 
 [badges]
 maintenance = { status = "actively-developed" }

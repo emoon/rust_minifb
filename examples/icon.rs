@@ -5,20 +5,25 @@ use std::str::FromStr;
 
 use minifb::{Icon, Key, Window, WindowOptions};
 
+const WIDTH: usize = 1280;
+const HEIGHT: usize = 720;
+
 fn main() {
     let mut window = Window::new(
-        "Window Icon Test - Press ESC to exit",
-        300,
-        300,
+        "Window icon example - press ESC to exit",
+        WIDTH,
+        HEIGHT,
         WindowOptions {
             resize: true,
             ..WindowOptions::default()
         },
     )
-    .expect("Unable to open Window");
+    .expect("Unable to create the window");
+
+    window.set_target_fps(60);
 
     #[cfg(target_os = "windows")]
-    window.set_icon(Icon::from_str("resources/icon256.ico").unwrap());
+    window.set_icon(Icon::from_str("examples/resources/icon256.ico").unwrap());
 
     #[cfg(target_os = "linux")]
     {
@@ -170,7 +175,9 @@ fn main() {
             1476329472, 1342111744, 1207894016, 1056899072, 939458560, 788463616, 654245888,
             536281096, 385810432, 251592704, 134152192,
         ];
-        window.set_icon(Icon::try_from(&test[..]).unwrap());
+
+        // NOTE(@StefanoIncardone): this does not work on wayland
+        window.set_icon(Icon::try_from(test.as_slice()).unwrap());
     }
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
