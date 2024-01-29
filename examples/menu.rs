@@ -1,8 +1,7 @@
-use minifb::MENU_KEY_CTRL;
-use minifb::{InputCallback, Key, Menu, Scale, Window, WindowOptions};
+use minifb::{Key, Menu, Scale, Window, WindowOptions, MENU_KEY_CTRL};
 
-const WIDTH: usize = 640;
-const HEIGHT: usize = 360;
+const WIDTH: usize = 1280 / 2;
+const HEIGHT: usize = 720 / 2;
 
 const MENU_TEST_ID: usize = 1;
 const OTHER_MENU_ID: usize = 2;
@@ -11,19 +10,11 @@ const COLOR_1_ID: usize = 4;
 const COLOR_2_ID: usize = 5;
 const CLOSE_MENU_ID: usize = 6;
 
-struct KeyCharCallback;
-
-impl InputCallback for KeyCharCallback {
-    fn add_char(&mut self, c: u32) {
-        println!("add_char {}", c);
-    }
-}
-
 fn main() {
-    let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
+    let mut buffer = vec![0u32; WIDTH * HEIGHT];
 
     let mut window = Window::new(
-        "Menu Test - Press ESC to exit",
+        "Menu example - press ESC to exit",
         WIDTH,
         HEIGHT,
         WindowOptions {
@@ -32,9 +23,9 @@ fn main() {
             ..WindowOptions::default()
         },
     )
-    .expect("Unable to Open Window");
+    .expect("Unable to open the window");
 
-    window.set_input_callback(Box::new(KeyCharCallback {}));
+    window.set_target_fps(60);
 
     let mut menu = Menu::new("Test").unwrap();
     let mut sub = Menu::new("Select Color").unwrap();
@@ -48,7 +39,6 @@ fn main() {
     sub.add_item("Color 2", COLOR_2_ID)
         .shortcut(Key::F7, 0)
         .build();
-
     menu.add_item("Menu Test", MENU_TEST_ID)
         .shortcut(Key::W, MENU_KEY_CTRL)
         .build();
@@ -91,7 +81,7 @@ fn main() {
                     color_mul = 1;
                 }
                 CLOSE_MENU_ID => {
-                    println!("remove menu");
+                    println!("Removed menu id {:?}", menu_handle);
                     window.remove_menu(menu_handle);
                 }
                 _ => (),
@@ -100,13 +90,6 @@ fn main() {
             println!("Menu id {} pressed", menu_id);
         }
 
-        window.get_keys().iter().for_each(|key| match key {
-            Key::W => println!("holding w!"),
-            Key::T => println!("holding t!"),
-            _ => (),
-        });
-
-        // We unwrap here as we want this code to exit if it fails
         window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
     }
 }

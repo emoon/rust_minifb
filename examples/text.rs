@@ -1,32 +1,31 @@
-use minifb::{Key, Scale, Window, WindowOptions};
+use minifb::{Key, Window, WindowOptions};
 
-const WIDTH: usize = 640;
-const HEIGHT: usize = 360;
+const WIDTH: usize = 1280;
+const HEIGHT: usize = 720;
 
 fn main() {
+    let mut buffer = vec![0u32; WIDTH * HEIGHT];
+
     let mut window = Window::new(
         "Plasma + Text Example",
         WIDTH,
         HEIGHT,
         WindowOptions {
             resize: false,
-            scale: Scale::X1,
             ..WindowOptions::default()
         },
     )
-    .expect("Unable to create window");
+    .expect("Unable to create the window");
 
     window.set_target_fps(60);
-
-    let mut buffer: Vec<u32> = Vec::with_capacity(WIDTH * HEIGHT);
 
     let mut size = (0, 0);
     let mut time = 0.0f32;
 
-    let status_text = StatusText::new(WIDTH, HEIGHT, 2);
+    let press_esc_text = Text::new(WIDTH, HEIGHT, 2);
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
-        let new_size = (window.get_size().0, window.get_size().1);
+        let new_size = window.get_size();
         if new_size != size {
             size = new_size;
             buffer.resize(size.0 * size.1, 0);
@@ -34,22 +33,24 @@ fn main() {
 
         let y_step = 1.0 / HEIGHT as f32;
         let x_step = 1.0 / WIDTH as f32;
+
         let mut y = 0.0;
-
         for yi in 0..HEIGHT {
-            let buf = &mut buffer[yi * WIDTH..(yi + 1) * WIDTH];
-            let mut x = 0.0f32;
+            let row = &mut buffer[yi * WIDTH..(yi + 1) * WIDTH];
 
-            // So this code is really slow, but good enough as example :)
+            // So this code is really slow, but good enough as an example :)
+            let mut x = 0.0;
             for xi in 0..WIDTH {
                 let k = 0.1 + (y + (0.148 - time).sin()).cos() + 2.4 * time;
                 let w = 0.9 + (x + (0.628 + time).cos()).cos() - 0.7 * time;
                 let d = (x * x + y * y).sqrt();
+
                 let s = 7.0 * (d + w).cos() * (k + w).sin();
+
                 let r = ((s + 0.2).cos() * 255.0) as u32;
                 let g = ((s + 0.5).cos() * 255.0) as u32;
                 let b = ((s + 0.7).cos() * 255.0) as u32;
-                buf[xi] = (r << 16) | (g << 8) | b;
+                row[xi] = (r << 16) | (g << 8) | b;
 
                 x += x_step;
             }
@@ -58,7 +59,7 @@ fn main() {
         }
 
         // Show some basic text at the bottom of the screen
-        status_text.draw(&mut buffer, (20, HEIGHT - 20), "Press ESC to exit");
+        press_esc_text.draw(&mut buffer, (20, HEIGHT - 20), "Press ESC to exit");
 
         window
             .update_with_buffer(&buffer, new_size.0, new_size.1)
@@ -69,10 +70,10 @@ fn main() {
     }
 }
 
-pub struct StatusText {
+pub struct Text {
     texture: Vec<u32>,
     width: usize,
-    //height: usize,
+    // height: usize,
     scale: usize,
 }
 
@@ -85,9 +86,9 @@ fn color_from_bit(bit: u8) -> u32 {
     }
 }
 
-impl StatusText {
+impl Text {
     pub fn new(width: usize, _height: usize, scale: usize) -> Self {
-        // unpack texture for easier drawing
+        // Unpack texture for easier drawing
         let mut texture = Vec::with_capacity(128 * 128);
 
         for t in MICROKNIGHT_FONT {
@@ -104,22 +105,20 @@ impl StatusText {
         Self {
             texture,
             width,
-            //height,
+            // height,
             scale,
         }
     }
 
-    pub fn draw(&self, screen: &mut [u32], pos: (usize, usize), text: &str) {
-        let mut x = pos.0;
-        let y = pos.1;
+    pub fn draw(&self, screen: &mut [u32], (mut x, y): (usize, usize), text: &str) {
         for c in text.chars() {
             let mut index = c as usize - ' ' as usize;
             if index > MICROKNIGHT_LAYOUT.len() as usize {
                 index = 0;
             }
 
-            let layout = MICROKNIGHT_LAYOUT[index];
-            let texture_offset = (layout.1 as usize * 128) + layout.0 as usize;
+            let (layout_x, layout_y) = MICROKNIGHT_LAYOUT[index];
+            let texture_offset = layout_x as usize + (layout_y as usize * 128);
 
             for fy in 0..8 * self.scale {
                 let ty = fy / self.scale;
@@ -139,7 +138,7 @@ impl StatusText {
 
 // Microknight font (128x128 packed with 1 bit per pixel)
 #[rustfmt::skip]
-pub static MICROKNIGHT_FONT: &[u8] = &[
+static MICROKNIGHT_FONT: [u8; ((128 * 128) / u8::BITS) as usize] = [
     0x00, 0x0c, 0x1b, 0x0d, 0x81, 0x03, 0x01, 0xc0, 0x30, 0x18, 0x18, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x0c, 0x1b, 0x0d, 0x87, 0xc4, 0xb3, 0x60, 0x30, 0x30, 0x0c, 0x1b, 0x03, 0x00, 0x00, 0x00,
     0x00, 0x0c, 0x09, 0x1f, 0xcd, 0x03, 0xe1, 0xc0, 0x10, 0x60, 0x06, 0x0e, 0x03, 0x00, 0x00, 0x00,
@@ -272,7 +271,7 @@ pub static MICROKNIGHT_FONT: &[u8] = &[
 
 // Font layout (generated from Angelcode Bitmap Font generator)
 #[rustfmt::skip]
-pub static MICROKNIGHT_LAYOUT: &[(u8, u8)] = &[
+static MICROKNIGHT_LAYOUT: [(u8, u8); 224] = [
     (0, 0), (9, 0), (18, 0), (27, 0), (36, 0), (45, 0), (54, 0), (63, 0), (72, 0), (81, 0), (90, 0), (99, 0), (108, 0),
     (117, 0), (0, 9), (9, 9), (18, 9), (27, 9), (36, 9), (45, 9), (54, 9), (63, 9), (72, 9), (81, 9), (90, 9), (99, 9),
     (108, 9), (117, 9), (0, 18), (9, 18), (18, 18), (27, 18), (36, 18), (45, 18), (54, 18), (63, 18), (72, 18), (81, 18),

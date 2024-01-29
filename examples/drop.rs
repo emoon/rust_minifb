@@ -1,30 +1,33 @@
 use minifb::{Window, WindowOptions};
-use std::thread;
-use std::time::{Duration, Instant};
+use std::{
+    thread,
+    time::{Duration, Instant},
+};
 
-const WIDTH: usize = 640 / 2;
-const HEIGHT: usize = 360 / 2;
+const WIDTH: usize = 1280;
+const HEIGHT: usize = 720;
 
-fn show_window() {
+fn main() {
+    println!("Creating and showing a Window");
+
     let mut window = Window::new(
-        "Drop Test - Window will close after 2 seconds.",
+        "Drop example - Window will close after 5 seconds",
         WIDTH,
         HEIGHT,
         WindowOptions::default(),
     )
-    .expect("Unable to create window");
+    .expect("Unable to create the window");
+
+    window.set_target_fps(60);
 
     let now = Instant::now();
-
-    while window.is_open() && now.elapsed().as_secs() < 2 {
+    while window.is_open() && now.elapsed().as_secs() < 5 {
         window.update();
     }
-}
 
-fn main() {
-    println!("Showing Window");
-    show_window();
+    drop(window);
     println!("Dropped");
-    thread::sleep(Duration::from_millis(2000));
+
+    thread::sleep(Duration::from_secs(2));
     println!("Exiting");
 }
