@@ -382,9 +382,11 @@ impl Window {
         width: usize,
         height: usize,
     ) -> Result<()> {
+        let update_result = self
+            .0
+            .update_with_buffer_stride(buffer, width, height, width);
         self.0.update_rate();
-        self.0
-            .update_with_buffer_stride(buffer, width, height, width)
+        update_result
     }
 
     /// Updates the window (this is required to call in order to get keyboard/mouse input, etc)
@@ -404,8 +406,8 @@ impl Window {
     /// ```
     #[inline]
     pub fn update(&mut self) {
+        self.0.update();
         self.0.update_rate();
-        self.0.update()
     }
 
     /// Checks if the window is still open. A window can be closed by the user (by for example
