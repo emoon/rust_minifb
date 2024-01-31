@@ -545,7 +545,7 @@ impl Window {
     /// Is that lots of CPU time will be spent calling system functions to check for new events in a tight loop making the CPU time go up.
     /// Using `set_target_fps` minifb will check how many frames are left to reach the target FPS and if there are any it will sleep for that amount of frames.
     /// This means that if more frames than the target happened (external code taking longer) minifb will not do any waiting at all so there is no loss in CPU performance with this feature.
-    /// By default it's set to 250 FPS. Setting this value to None and no waiting will be done
+    /// By default it's set to 250 FPS. Setting this value to 0 and no waiting will be done
     ///
     /// # Examples
     ///
