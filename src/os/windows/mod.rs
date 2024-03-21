@@ -500,6 +500,7 @@ impl Default for DrawParameters {
     }
 }
 
+#[repr(C)]
 pub struct Window {
     mouse: MouseData,
     dc: Option<windef::HDC>,
