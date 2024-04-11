@@ -45,7 +45,7 @@ fn main() {
     } else if !env.contains("windows") && !env.contains("wasm32") {
         // build scalar on non-windows and non-mac
         cc::Build::new()
-            .file("src/native/posix/scalar.cpp")
+            .file("src/native/posix/scalar.c")
             .opt_level(3) // always build with opts for scaler so it's fast in debug also
             .compile("libscalar.a")
     }

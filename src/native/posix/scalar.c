@@ -1,7 +1,6 @@
 #include <stdint.h>
-#include <stdio.h>
 
-extern "C" void image_resize_linear(
+void image_resize_linear(
     uint32_t* dst,
     const uint32_t dst_width,
     const uint32_t dst_height,
@@ -10,8 +9,8 @@ extern "C" void image_resize_linear(
     const uint32_t src_height,
     const uint32_t src_stride
 ) {
-    const float x_ratio = float(src_width) / float(dst_width);
-    const float y_ratio = float(src_height) / float(dst_height);
+    const float x_ratio = (float)(src_width) / (float)(dst_width);
+    const float y_ratio = (float)(src_height) / (float)(dst_height);
     const int step_x = x_ratio * 1024.0f;
     const int step_y = y_ratio * 1024.0f;
     int fixed_y = 0;
@@ -39,8 +38,8 @@ static void image_resize_linear_stride(
     const uint32_t src_stride,
     const uint32_t stride
 ) {
-    const float x_ratio = float(src_width) / float(dst_width);
-    const float y_ratio = float(src_height) / float(dst_height);
+    const float x_ratio = (float)(src_width) / (float)(dst_width);
+    const float y_ratio = (float)(src_height) / (float)(dst_height);
     const int step_x = x_ratio * 1024.0f;
     const int step_y = y_ratio * 1024.0f;
     const int stride_step = stride - dst_width;
@@ -60,7 +59,7 @@ static void image_resize_linear_stride(
     }
 }
 
-extern "C" void image_resize_linear_aspect_fill(
+void image_resize_linear_aspect_fill(
     uint32_t* dst,
     const uint32_t dst_width,
     const uint32_t dst_height,
@@ -75,11 +74,11 @@ extern "C" void image_resize_linear_aspect_fill(
         dst[i] = bg_clear;
     }
 
-    const float buffer_aspect = float(src_width) / float(src_height);
-    const float win_aspect = float(dst_width) / float(dst_height);
+    const float buffer_aspect = (float)(src_width) / (float)(src_height);
+    const float win_aspect = (float)(dst_width) / (float)(dst_height);
 
     if (buffer_aspect > win_aspect) {
-        const uint32_t new_height = uint32_t(dst_width / buffer_aspect);
+        const uint32_t new_height = (uint32_t)(dst_width / buffer_aspect);
         const int offset = (new_height - dst_height) / -2;
         image_resize_linear(
             dst + (offset * dst_width),
@@ -87,7 +86,7 @@ extern "C" void image_resize_linear_aspect_fill(
             src, src_width, src_height, src_stride
         );
     } else {
-        const uint32_t new_width = uint32_t(dst_height * buffer_aspect);
+        const uint32_t new_width = (uint32_t)(dst_height * buffer_aspect);
         const int offset = (new_width - dst_width) / -2;
         image_resize_linear_stride(
             dst + offset,
@@ -98,7 +97,7 @@ extern "C" void image_resize_linear_aspect_fill(
     }
 }
 
-extern "C" void image_center(
+void image_center(
     uint32_t* dst,
     const uint32_t dst_width,
     const uint32_t dst_height,
@@ -173,7 +172,7 @@ extern "C" void image_center(
     }
 }
 
-extern "C" void image_upper_left(
+void image_upper_left(
     uint32_t* dst,
     const uint32_t dst_width,
     const uint32_t dst_height,
