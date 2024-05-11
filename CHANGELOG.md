@@ -2,9 +2,18 @@
 
 This project follows semantic versioning.
 
+### v0.26 (2024-05-11)
+
+- [fixed] Lots of formatting & style fixes (Thanks Stefano Incardone!)
+- [fixed] raw-window-handle 0.6 (Thanks Stefano Incardone!)
+- [fixed] Lots of various fixes and cleanups (Thanks Stefano Incardone!)
+- [fixed] repr(C) on Window Struct (Thanks gillet-hernadez!) 
+- [fixed] Switch Linux scalar code from C++ to C (Thanks Speykious!) 
+- [API BREAKAGE] `limit_update_rate` has been removed. Use `set_fps_target` instead. 
+
 ### v0.25 (2023-08-02)
 
-- [fixed] 11: Fix changing window title (Thanks royaltm!)
+- [fixed] Fix changing window title (Thanks royaltm!)
 
 ### v0.24 (2023-02-18)
 
