@@ -7,12 +7,6 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-
       # make sure all code has been formatted with rustfmt
       - run: rustup component add rustfmt
       - name: check rustfmt
@@ -22,29 +16,17 @@ jobs:
           args: -- --check --color always
 
   build_and_test:
-    name: Test
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
+    build:
+      name: Test
+      strategy:
+        matrix:
+          os: [ubuntu-latest, windows-latest, macOS-latest]
+      runs-on: ${{ matrix.os }}
+      steps:
       - if: matrix.os == 'ubuntu-latest'
         run: sudo apt install libwayland-cursor0 libxkbcommon-dev libwayland-dev
-      - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      - name: cargo fetch
-        uses: actions-rs/cargo@v1
-        with:
-          command: fetch
-      - name: cargo test build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --tests
-      - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+      - uses: actions/checkout@v2
+      - name: Build
+        run: cargo build --verbose
+      - name: Run tests
+        run: cargo test --verbose
