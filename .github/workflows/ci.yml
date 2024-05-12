@@ -3,17 +3,23 @@ on: [push, pull_request]
 name: CI
 
 jobs:
-  lint:
-    name: Lint
+  fmt:
     runs-on: ubuntu-latest
+    # Steps represent a sequence of tasks that will be executed as part of the job.
     steps:
-      # make sure all code has been formatted with rustfmt
-      - run: rustup component add rustfmt
-      - name: check rustfmt
-        uses: actions-rs/cargo@v1
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
         with:
-          command: fmt
-          args: -- --check --color always
+          toolchain: stable
+          profile: minimal
+          components: rustfmt
+          override: true
+
+      - name: Check Format
+        run: cargo fmt -- --check
 
   build_and_test:
     name: Test
