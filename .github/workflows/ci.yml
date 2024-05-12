@@ -16,17 +16,16 @@ jobs:
           args: -- --check --color always
 
   build_and_test:
-    build:
-      name: Test
-      strategy:
-        matrix:
-          os: [ubuntu-latest, windows-latest, macOS-latest]
-      runs-on: ${{ matrix.os }}
-      steps:
-      - if: matrix.os == 'ubuntu-latest'
-        run: sudo apt install libwayland-cursor0 libxkbcommon-dev libwayland-dev
-      - uses: actions/checkout@v2
-      - name: Build
-        run: cargo build --verbose
-      - name: Run tests
-        run: cargo test --verbose
+    name: Test
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - if: matrix.os == 'ubuntu-latest'
+      run: sudo apt install libwayland-cursor0 libxkbcommon-dev libwayland-dev
+    - uses: actions/checkout@v2
+    - name: Build
+      run: cargo build --verbose
+    - name: Run tests
+      run: cargo test --verbose
