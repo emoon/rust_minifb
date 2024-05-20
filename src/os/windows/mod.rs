@@ -943,11 +943,8 @@ impl Window {
             while winuser::PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, winuser::PM_REMOVE)
                 != 0
             {
-                let acc_condition = winuser::TranslateAcceleratorW(
-                    msg.hwnd,
-                    self.accel_table,
-                    &mut msg,
-                ) == 0;
+                let acc_condition =
+                    winuser::TranslateAcceleratorW(msg.hwnd, self.accel_table, &mut msg) == 0;
 
                 // Make this code a bit nicer
                 if self.accel_table.is_null() || acc_condition {
