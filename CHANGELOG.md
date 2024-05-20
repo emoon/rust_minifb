@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### v0.27 (2024-05-20)
+
+- [fixed] Temporary fix for struct layout isssue on Windows.
+ 
 ### v0.26 (2024-05-11)
 
 - [fixed] Lots of formatting & style fixes (Thanks Stefano Incardone!)
