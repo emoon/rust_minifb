@@ -4,7 +4,7 @@ This project follows semantic versioning.
 
 ### v0.27 (2024-05-20)
 
-- [fixed] Temporary fix for struct layout isssue on Windows.
+- [fixed] Temporary fix for struct layout issue on Windows.
  
 ### v0.26 (2024-05-11)
 
