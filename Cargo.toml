@@ -27,7 +27,7 @@ cc = "1.0"
 raw-window-handle = "0.6"
 
 [target.'cfg(windows)'.dependencies.winapi]
-version = "0.3"
+version = "0.3.9"
 features = ["winuser", "wingdi", "libloaderapi", "errhandlingapi", "fileapi"]
 
 [features]

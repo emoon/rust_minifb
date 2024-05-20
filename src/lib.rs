@@ -1141,7 +1141,7 @@ pub(crate) fn check_buffer_size(
     buf_stride: usize,
 ) -> Result<()> {
     buf_width = buf_width.max(buf_stride);
-    let buf_size = buffer.len() * std::mem::size_of::<u32>();
+    let buf_size = std::mem::size_of_val(buffer);
     let required_buf_size = buf_width * buf_height * std::mem::size_of::<u32>();
 
     if buf_size < required_buf_size {

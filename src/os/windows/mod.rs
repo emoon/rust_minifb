@@ -256,7 +256,6 @@ unsafe extern "system" fn wnd_proc(
         }
 
         winuser::WM_LBUTTONDOWN => wnd.mouse.state[0] = true,
-
         winuser::WM_LBUTTONUP => wnd.mouse.state[0] = false,
 
         winuser::WM_MOUSEMOVE => {
@@ -266,21 +265,14 @@ unsafe extern "system" fn wnd_proc(
                 winuser::MK_RBUTTON,
             ];
 
-            for i in 0..3 {
-                if (wparam & button_checks[i]) == button_checks[i] {
-                    wnd.mouse.state[i] = true;
-                } else {
-                    wnd.mouse.state[i] = false;
-                }
+            for (i, button) in button_checks.iter().enumerate() {
+                wnd.mouse.state[i] = (wparam & *button) == *button;
             }
         }
 
         winuser::WM_MBUTTONDOWN => wnd.mouse.state[1] = true,
-
         winuser::WM_MBUTTONUP => wnd.mouse.state[1] = false,
-
         winuser::WM_RBUTTONDOWN => wnd.mouse.state[2] = true,
-
         winuser::WM_RBUTTONUP => wnd.mouse.state[2] = false,
 
         winuser::WM_CLOSE => {
@@ -299,7 +291,7 @@ unsafe extern "system" fn wnd_proc(
 
         winuser::WM_COMMAND => {
             if lparam == 0 {
-                wnd.accel_key = (wparam & 0xffff) as usize;
+                wnd.accel_key = wparam & 0xffff;
             }
         }
 
@@ -345,7 +337,7 @@ unsafe extern "system" fn wnd_proc(
             let mut x_offset = 0;
             let mut y_offset = 0;
 
-            let dc = wnd.dc.unwrap();
+            let dc = wnd.dc;
             wingdi::SelectObject(dc, wnd.clear_brush as *mut winapi::ctypes::c_void);
 
             match wnd.draw_params.scale_mode {
@@ -502,9 +494,8 @@ impl Default for DrawParameters {
 
 #[repr(C)]
 pub struct Window {
-    mouse: MouseData,
-    dc: Option<windef::HDC>,
     window: Option<windef::HWND>,
+    dc: windef::HDC,
     clear_brush: windef::HBRUSH,
     is_open: bool,
     scale_factor: i32,
@@ -518,6 +509,7 @@ pub struct Window {
     cursor: CursorStyle,
     cursors: [windef::HCURSOR; 8],
     draw_params: DrawParameters,
+    mouse: MouseData,
 }
 
 impl HasWindowHandle for Window {
@@ -587,11 +579,11 @@ impl Window {
             let mut flags = 0;
 
             if opts.title {
-                flags |= winuser::WS_OVERLAPPEDWINDOW as u32;
+                flags |= winuser::WS_OVERLAPPEDWINDOW;
             }
 
             if opts.resize {
-                flags |= winuser::WS_THICKFRAME as u32 | winuser::WS_MAXIMIZEBOX as u32;
+                flags |= winuser::WS_THICKFRAME | winuser::WS_MAXIMIZEBOX;
             } else {
                 flags &= !winuser::WS_MAXIMIZEBOX;
                 flags &= !winuser::WS_THICKFRAME;
@@ -666,7 +658,7 @@ impl Window {
 
             let window = Window {
                 mouse: MouseData::default(),
-                dc: Some(winuser::GetDC(handle.unwrap())),
+                dc: winuser::GetDC(handle.unwrap()),
                 window: Some(handle.unwrap()),
                 key_handler: KeyHandler::new(),
                 update_rate: UpdateRate::new(),
@@ -953,7 +945,7 @@ impl Window {
             {
                 let acc_condition = winuser::TranslateAcceleratorW(
                     msg.hwnd,
-                    std::mem::transmute(self.accel_table),
+                    self.accel_table,
                     &mut msg,
                 ) == 0;
 
@@ -1424,9 +1416,7 @@ impl Menu {
 impl Drop for Window {
     fn drop(&mut self) {
         unsafe {
-            if self.dc.is_some() {
-                winuser::ReleaseDC(self.window.unwrap(), self.dc.unwrap());
-            }
+            winuser::ReleaseDC(self.window.unwrap(), self.dc);
 
             if self.window.is_some() {
                 winuser::DestroyWindow(self.window.unwrap());

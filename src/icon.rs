@@ -27,7 +27,8 @@ impl FromStr for Icon {
 
         let path = OsStr::new(s)
             .encode_wide()
-            .chain(Some(0).into_iter())
+            //.chain(Some(0).into_iter())
+            .chain(Some(0))
             .collect::<Vec<u16>>();
 
         Ok(Icon::Path(path.as_ptr()))
