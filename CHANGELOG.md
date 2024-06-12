@@ -11,9 +11,9 @@ This project follows semantic versioning.
 - [fixed] Lots of formatting & style fixes (Thanks Stefano Incardone!)
 - [fixed] raw-window-handle 0.6 (Thanks Stefano Incardone!)
 - [fixed] Lots of various fixes and cleanups (Thanks Stefano Incardone!)
-- [fixed] repr(C) on Window Struct (Thanks gillet-hernadez!) 
-- [fixed] Switch Linux scalar code from C++ to C (Thanks Speykious!) 
-- [API BREAKAGE] `limit_update_rate` has been removed. Use `set_fps_target` instead. 
+- [fixed] repr(C) on Window Struct (Thanks gillet-hernadez!)
+- [fixed] Switch Linux scalar code from C++ to C (Thanks Speykious!)
+- [API BREAKAGE] `limit_update_rate` has been removed. Use `set_target_fps` instead.
 
 ### v0.25 (2023-08-02)
 
@@ -21,29 +21,29 @@ This project follows semantic versioning.
 
 ### v0.24 (2023-02-18)
 
-- [fixed] Windows: Unable to use F10 key 
+- [fixed] Windows: Unable to use F10 key
 - [fixed] set byposition flag when removing menus (Thanks piksel!)
-- [fixed] fixed compilation for x11 32-bit mode (Thanks HBehrens!) 
+- [fixed] fixed compilation for x11 32-bit mode (Thanks HBehrens!)
 - [fixed] X11 window names not supporting UTF-8 (Thanks edarogh!)
 - [fixed] `get_window_position` for multiscreen setup on macOS (Thanks AnderasOM!)
-- [fixed] Using minifb on multiple threads under x11 works and doesn't crash (Thanks to konnorandrews for suggestion!)  
+- [fixed] Using minifb on multiple threads under x11 works and doesn't crash (Thanks to konnorandrews for suggestion!)
 - [Added] ARM and AARCH64 Windows Support (Thanks smb123w64gb!)
 
 ### v0.23 (2022-04-19)
 
-- [fixed] wayland: Fix key character callback & Reduce wayland dependencies (Thanks vmedea!) 
+- [fixed] wayland: Fix key character callback & Reduce wayland dependencies (Thanks vmedea!)
 - [fixed] Use coercion on types failing compilation on 64 bit raspbian bullseye (Thanks wtfuzz!)
-- [added] WASM support. Thanks dc740 and tversteeg! See https://github.com/dc740/minifb-async-examples for example. 
+- [added] WASM support. Thanks dc740 and tversteeg! See https://github.com/dc740/minifb-async-examples for example.
 
 ### v0.22 (2022-03-27)
 
-- [fixed] Updated docs to make it a bit more clear that only one of `update_with_buffer` or `update` should be used for updating a window. 
+- [fixed] Updated docs to make it a bit more clear that only one of `update_with_buffer` or `update` should be used for updating a window.
 
 ### v0.21 (2022-03-27)
 
-- [fixed] Holding down a key on x11 would no repeat correctly 
-- [fixed] Windows dependency cleanups (Thanks Arnab Animesh Das!) 
-- [fixed] Fixed mouse button being "stuck" when moved out side of window, released and then moved by in on Windows (Thanks Arnab Animesh Das for bug report!) 
+- [fixed] Holding down a key on x11 would no repeat correctly
+- [fixed] Windows dependency cleanups (Thanks Arnab Animesh Das!)
+- [fixed] Fixed mouse button being "stuck" when moved out side of window, released and then moved by in on Windows (Thanks Arnab Animesh Das for bug report!)
 - [fixed] Memory-map the keymap FD on Wayland to fix EOF error (Thanks Greg Depoire--Ferrer!)
 - [added] getter for window position (Thanks Andreas Neukoetter!)
 - [fixed] Fix clippy lints under windows (Thanks Kevin K!)
@@ -269,4 +269,3 @@ This release adds support for mouse input. See the documentation and the example
 - [added] [get_mouse_pos](http://prodbg.com/minifb/minifb/struct.Window.html#method.get_mouse_pos)
 - [added] [get_mouse_down](http://prodbg.com/minifb/minifb/struct.Window.html#method.get_mouse_down)
 - [added] [get_scroll_wheel](http://prodbg.com/minifb/minifb/struct.Window.html#method.get_scroll_wheel)
-
