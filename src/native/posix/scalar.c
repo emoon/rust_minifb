@@ -90,9 +90,9 @@ void image_resize_linear_aspect_fill(
         const int offset = (new_width - dst_width) / -2;
         image_resize_linear_stride(
             dst + offset,
-            dst_height, dst_width,
+            new_width, dst_height,
             src, src_width, src_height, src_stride,
-            new_width
+            dst_width
         );
     }
 }
