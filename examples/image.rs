@@ -15,7 +15,7 @@ fn main() {
     let mut u8_buffer = unsafe {
         std::slice::from_raw_parts_mut(
             buffer.as_mut_ptr() as *mut u8,
-            buffer.len() * std::mem::size_of::<u32>(),
+            std::mem::size_of_val(&buffer),
         )
     };
 

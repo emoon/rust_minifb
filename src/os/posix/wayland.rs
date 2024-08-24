@@ -220,7 +220,7 @@ impl DisplayInfo {
         let slice = unsafe {
             std::slice::from_raw_parts(
                 frame.as_ptr() as *const u8,
-                frame.len() * std::mem::size_of::<u32>(),
+                std::mem::size_of_val(&frame),
             )
         };
         tempfile
@@ -350,7 +350,7 @@ impl DisplayInfo {
         let slice = unsafe {
             std::slice::from_raw_parts(
                 buffer.as_ptr() as *const u8,
-                buffer.len() * std::mem::size_of::<u32>(),
+                std::mem::size_of_val(buffer),
             )
         };
 
