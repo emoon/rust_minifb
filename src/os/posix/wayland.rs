@@ -218,10 +218,7 @@ impl DisplayInfo {
         // Add a black canvas into the framebuffer
         let frame: Vec<u32> = vec![0xFF00_0000; (size.0 * size.1) as usize];
         let slice = unsafe {
-            std::slice::from_raw_parts(
-                frame.as_ptr() as *const u8,
-                std::mem::size_of_val(&frame),
-            )
+            std::slice::from_raw_parts(frame.as_ptr() as *const u8, std::mem::size_of_val(&frame))
         };
         tempfile
             .write_all(slice)
@@ -348,10 +345,7 @@ impl DisplayInfo {
         fd.seek(SeekFrom::Start(0))?;
 
         let slice = unsafe {
-            std::slice::from_raw_parts(
-                buffer.as_ptr() as *const u8,
-                std::mem::size_of_val(buffer),
-            )
+            std::slice::from_raw_parts(buffer.as_ptr() as *const u8, std::mem::size_of_val(buffer))
         };
 
         fd.write_all(slice)?;
@@ -363,8 +357,7 @@ impl DisplayInfo {
         }
 
         self.surface.attach(Some(buf), 0, 0);
-        self.surface
-            .damage(0, 0, i32::MAX, i32::MAX);
+        self.surface.damage(0, 0, i32::MAX, i32::MAX);
         self.surface.commit();
 
         Ok(())
