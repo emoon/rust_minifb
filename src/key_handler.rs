@@ -6,7 +6,7 @@ use instant::{Duration, Instant};
 #[cfg(not(feature = "web"))]
 use std::time::{Duration, Instant};
 
-use crate::{key, InputCallback, Key, KeyRepeat};
+use crate::{InputCallback, Key, KeyRepeat};
 
 pub struct KeyHandler {
     pub key_callback: Option<Box<dyn InputCallback>>,
@@ -47,7 +47,7 @@ impl KeyHandler {
         for (idx, is_down) in self.keys.iter().enumerate() {
             if *is_down {
                 unsafe {
-                    keys.push(std::mem::transmute::<u8, key::Key>(idx as u8));
+                    keys.push(std::mem::transmute(idx as u8));
                 }
             }
         }
@@ -85,7 +85,7 @@ impl KeyHandler {
         for (idx, is_down) in self.keys.iter().enumerate() {
             if *is_down && self.is_key_index_pressed(idx, repeat) {
                 unsafe {
-                    keys.push(std::mem::transmute::<u8, key::Key>(idx as u8));
+                    keys.push(std::mem::transmute(idx as u8));
                 }
             }
         }
@@ -99,7 +99,7 @@ impl KeyHandler {
         for (idx, is_down) in self.keys.iter().enumerate() {
             if !(*is_down) && self.is_key_index_released(idx) {
                 unsafe {
-                    keys.push(std::mem::transmute::<u8, key::Key>(idx as u8));
+                    keys.push(std::mem::transmute(idx as u8));
                 }
             }
         }

@@ -9,13 +9,13 @@ fn main() {
     decoder.set_transformations(Transformations::ALPHA);
     let mut reader = decoder.read_info().unwrap();
 
-    let mut buffer = vec![0u32; reader.output_buffer_size() / 4];
+    let mut buffer = vec![0u32; reader.output_buffer_size()];
 
     // View of pixels as individual subpixels (avoids allocating a second pixel buffer).
     let mut u8_buffer = unsafe {
         std::slice::from_raw_parts_mut(
             buffer.as_mut_ptr() as *mut u8,
-            std::mem::size_of_val(&buffer),
+            buffer.len() * std::mem::size_of::<u32>(),
         )
     };
 
