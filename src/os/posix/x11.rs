@@ -1200,7 +1200,7 @@ impl Window {
     }
 
     fn update_key_state(&mut self, sym: xlib::KeySym, is_down: bool) {
-        if sym > u32::MAX as xlib::KeySym {
+        if sym > u32::max_value() as xlib::KeySym {
             return;
         }
 

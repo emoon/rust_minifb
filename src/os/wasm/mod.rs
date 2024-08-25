@@ -25,7 +25,12 @@ use web_sys::{window, CanvasRenderingContext2d, HtmlCanvasElement, ImageData};
 #[inline(always)]
 #[allow(dead_code)] // Only used on 32-bit builds currently
 pub fn u32_as_u8<'a>(src: &'a [u32]) -> &'a [u8] {
-    unsafe { std::slice::from_raw_parts(src.as_ptr() as *mut u8, std::mem::size_of_val(&src)) }
+    unsafe {
+        std::slice::from_raw_parts(
+            src.as_ptr() as *mut u8,
+            src.len() * std::mem::size_of::<u32>(),
+        )
+    }
 }
 
 struct MouseState {
