@@ -527,7 +527,7 @@ impl Window {
     /// ```
     #[inline]
     #[deprecated(
-        since = "0.26",
+        since = "0.26.0",
         note = "use `set_target_fps` instead, this function will be removed in the future"
     )]
     pub fn limit_update_rate(&mut self, time: Option<Duration>) {
