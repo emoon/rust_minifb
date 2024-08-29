@@ -20,7 +20,7 @@ use std::{
     time::Duration,
 };
 use wasm_bindgen::{prelude::*, Clamped, JsCast};
-use web_sys::{window, CanvasRenderingContext2d, HtmlCanvasElement, ImageData};
+use web_sys::{window, CanvasRenderingContext2d, HtmlCanvasElement, HtmlElement, ImageData};
 
 #[inline(always)]
 #[allow(dead_code)] // Only used on 32-bit builds currently
@@ -57,7 +57,12 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
+    pub fn new(
+        container: HtmlElement,
+        width: usize,
+        height: usize,
+        opts: WindowOptions,
+    ) -> Result<Window> {
         let window_scale = match opts.scale {
             Scale::X1 => 1,
             Scale::X2 => 2,
@@ -68,17 +73,15 @@ impl Window {
             Scale::FitScreen => 1, //TODO: Resize the canvas and implement this
         };
         let document = window().unwrap().document().unwrap();
-        document.set_title(name);
 
-        // Create a canvas element and place it in the window
+        // Create a canvas element and place it in the window as a child of the container
         let canvas = document
             .create_element("canvas")
             .unwrap()
             .dyn_into::<HtmlCanvasElement>()
             .unwrap();
 
-        let body = document.body().unwrap();
-        body.append_child(&canvas).unwrap();
+        container.append_child(&canvas).unwrap();
 
         canvas.set_width(width as u32);
         canvas.set_height(height as u32);
@@ -183,8 +186,6 @@ impl Window {
             menus: Vec::new(),
         };
 
-        window.set_title(name);
-
         Ok(window)
     }
 
@@ -217,7 +218,16 @@ impl Window {
 
     #[inline]
     pub fn set_cursor_visibility(&mut self, visibility: bool) {
-        //TODO?
+        self.canvas
+            .style()
+            .set_property(
+                "cursor",
+                match visibility {
+                    true => "auto",
+                    false => "none",
+                },
+            )
+            .unwrap_or(());
     }
 
     pub fn update_with_buffer_stride(
@@ -379,7 +389,8 @@ impl Window {
 
     #[inline]
     pub fn is_active(&mut self) -> bool {
-        true
+        let document = window().unwrap().document().unwrap();
+        document.active_element().unwrap_or(return false) == **self.canvas
     }
 
     #[inline]
