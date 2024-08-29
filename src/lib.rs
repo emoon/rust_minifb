@@ -5,7 +5,12 @@
 
 #![deny(missing_debug_implementations)]
 
-#[cfg(not(any(target_os = "macos", target_os = "redox", windows)))]
+#[cfg(not(any(
+    target_os = "macos",
+    target_os = "redox",
+    windows,
+    target_arch = "wasm32"
+)))]
 #[cfg(feature = "wayland")]
 #[macro_use]
 extern crate dlib;

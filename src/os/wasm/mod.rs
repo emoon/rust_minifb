@@ -1,5 +1,5 @@
 // NOTE(stefano): add missing implementations of methods where possible
-#![cfg(target_os = "wasm32")]
+#![cfg(target_arch = "wasm32")]
 
 mod keycodes;
 
