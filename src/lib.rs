@@ -26,6 +26,8 @@ use raw_window_handle::{DisplayHandle, HandleError, HasDisplayHandle, WindowHand
 use std::{ffi::c_void, fmt, time::Duration};
 
 #[cfg(target_arch = "wasm32")]
+use std::panic;
+#[cfg(target_arch = "wasm32")]
 use web_sys::HtmlElement;
 
 #[cfg(target_os = "macos")]
@@ -339,6 +341,8 @@ impl Window {
         height: usize,
         opts: WindowOptions,
     ) -> Result<Window> {
+        panic::set_hook(Box::new(console_error_panic_hook::hook));
+
         use web_sys::HtmlElement;
 
         if opts.transparency && !opts.borderless {
