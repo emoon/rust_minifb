@@ -54,6 +54,7 @@ pub struct Window {
     key_handler: Rc<RefCell<KeyHandler>>,
     menu_counter: MenuHandle,
     menus: Vec<UnixMenu>,
+    raw_handle_id: u32,
 }
 
 impl Window {
@@ -81,6 +82,13 @@ impl Window {
             .create_element("canvas")
             .unwrap()
             .dyn_into::<HtmlCanvasElement>()
+            .unwrap();
+
+        // Raw handle requires to inject an id into the canvas' data attributes.
+        // TODO assign a different ID to each window
+        let raw_handle_id = 0;
+        canvas
+            .set_attribute("data-raw-handle", &raw_handle_id.to_string())
             .unwrap();
 
         let container = document
@@ -192,6 +200,7 @@ impl Window {
             mouse_state,
             menu_counter: MenuHandle(0),
             menus: Vec::new(),
+            raw_handle_id,
         };
 
         Ok(window)
@@ -475,8 +484,7 @@ impl Menu {
 
 impl HasWindowHandle for Window {
     fn window_handle(&self) -> std::result::Result<WindowHandle, HandleError> {
-        // TODO assign a different ID to each window
-        let handle = WebWindowHandle::new(0);
+        let handle = WebWindowHandle::new(self.raw_handle_id);
         let raw_handle = RawWindowHandle::Web(handle);
         unsafe { Ok(WindowHandle::borrow_raw(raw_handle)) }
     }
