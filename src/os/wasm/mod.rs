@@ -220,7 +220,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_rate(&mut self, rate: Option<Duration>) {}
+    pub fn set_rate(&mut self, _rate: Option<Duration>) {}
 
     #[inline]
     pub fn update_rate(&mut self) {}
@@ -231,7 +231,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn topmost(&self, topmost: bool) {
+    pub fn topmost(&self, _topmost: bool) {
         // TODO?
     }
 
@@ -312,10 +312,10 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_icon(&mut self, icon: Icon) {}
+    pub fn set_icon(&mut self, _icon: Icon) {}
 
     #[inline]
-    pub fn set_position(&mut self, x: isize, y: isize) {}
+    pub fn set_position(&mut self, _x: isize, _y: isize) {}
 
     #[inline]
     pub fn get_position(&self) -> (isize, isize) {
@@ -372,7 +372,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_cursor_style(&mut self, cursor: CursorStyle) {}
+    pub fn set_cursor_style(&mut self, _cursor: CursorStyle) {}
 
     #[inline]
     pub fn get_keys(&self) -> Vec<Key> {
@@ -474,7 +474,7 @@ impl Menu {
     }
 
     #[inline]
-    pub fn add_sub_menu(&mut self, name: &str, sub_menu: &Menu) {}
+    pub fn add_sub_menu(&mut self, _name: &str, _sub_menu: &Menu) {}
 
     #[inline]
     fn next_item_handle(&mut self) -> MenuItemHandle {
@@ -499,7 +499,7 @@ impl Menu {
     }
 
     #[inline]
-    pub fn remove_item(&mut self, handle: &MenuItemHandle) {}
+    pub fn remove_item(&mut self, _handle: &MenuItemHandle) {}
 }
 
 impl HasWindowHandle for Window {
