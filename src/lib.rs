@@ -336,14 +336,12 @@ impl Window {
     ///  .expect("Unable to open Window");
     /// ```
     pub fn new(
-        container: HtmlElement,
+        container: &str,
         width: usize,
         height: usize,
         opts: WindowOptions,
     ) -> Result<Window> {
         panic::set_hook(Box::new(console_error_panic_hook::hook));
-
-        use web_sys::HtmlElement;
 
         if opts.transparency && !opts.borderless {
             return Err(Error::WindowCreate(

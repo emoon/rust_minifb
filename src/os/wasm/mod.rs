@@ -57,8 +57,10 @@ pub struct Window {
 }
 
 impl Window {
+    /// Create a new window
+    /// * `container` - The id of a DOM element to use as a container
     pub fn new(
-        container: HtmlElement,
+        container: &str,
         width: usize,
         height: usize,
         opts: WindowOptions,
@@ -79,6 +81,12 @@ impl Window {
             .create_element("canvas")
             .unwrap()
             .dyn_into::<HtmlCanvasElement>()
+            .unwrap();
+
+        let container = document
+            .get_element_by_id(container)
+            .unwrap()
+            .dyn_into::<HtmlElement>()
             .unwrap();
 
         container.append_child(&canvas).unwrap();
