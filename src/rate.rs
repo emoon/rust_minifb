@@ -1,8 +1,8 @@
-#[cfg(feature = "web")]
+#[cfg(target_arch = "wasm32")]
 extern crate instant;
-#[cfg(feature = "web")]
+#[cfg(target_arch = "wasm32")]
 use instant::{Duration, Instant};
-#[cfg(not(feature = "web"))]
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::{Duration, Instant};
 
 pub struct UpdateRate {

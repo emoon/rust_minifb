@@ -32,7 +32,6 @@ features = ["winuser", "wingdi", "libloaderapi", "errhandlingapi", "fileapi"]
 
 [features]
 default = ["wayland", "x11", "dlopen"]
-web = ["wasm-bindgen", "web-sys", "instant/wasm-bindgen", "instant/inaccurate"]
 dlopen = ["wayland-client/dlopen"]
 x11 = ["x11-dl", "libc"]
 wayland = [
@@ -70,13 +69,9 @@ serde = { version = "1.0.136", features = ["derive"] }
 serde_derive = "1.0.123"
 futures = "0.3.12"
 console_error_panic_hook = "0.1.7"
-
 # The `web-sys` crate allows you to interact with the various browser APIs,
 # like the DOM.
-[target.'cfg(target_arch = "wasm32")'.dependencies.web-sys]
-version = "0.3.56"
-optional = true
-features = [
+web-sys = { version = "0.3.56", features = [
   "Blob",
   "CanvasRenderingContext2d",
   "CssStyleDeclaration",
@@ -100,11 +95,7 @@ features = [
   "console",
   'KeyboardEvent',
   'MouseEvent',
-]
-
+] }
 # The `wasm-bindgen` crate provides the bare minimum functionality needed
 # to interact with JavaScript.
-[target.'cfg(target_arch = "wasm32")'.dependencies.wasm-bindgen]
-version = "0.2.79"
-optional = true
-features = ["serde-serialize"]
+wasm-bindgen = { version = "0.2.79", features = ["serde-serialize"] }
