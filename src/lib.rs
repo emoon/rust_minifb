@@ -25,6 +25,11 @@ mod rate;
 use raw_window_handle::{DisplayHandle, HandleError, HasDisplayHandle, WindowHandle};
 use std::{ffi::c_void, fmt, time::Duration};
 
+#[cfg(target_arch = "wasm32")]
+use std::panic;
+#[cfg(target_arch = "wasm32")]
+use web_sys::HtmlElement;
+
 #[cfg(target_os = "macos")]
 use os::macos as imp;
 #[cfg(any(
@@ -258,6 +263,7 @@ impl WindowOptions {
 }
 
 impl Window {
+    #[cfg(not(target_arch = "wasm32"))]
     /// Opens up a new window
     ///
     /// # Examples
@@ -293,6 +299,56 @@ impl Window {
             ));
         }
         imp::Window::new(name, width, height, opts).map(Window)
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    /// Opens up a new window
+    ///
+    /// # Examples
+    ///
+    /// Open up a window with default settings
+    ///
+    /// ```no_run
+    /// # use minifb::*;
+    /// let document = web_sys::window().unwrap().document().unwrap();
+    /// let body = document.body().unwrap();
+    /// let mut window = match Window::new(body, 640, 400, WindowOptions::default()) {
+    ///    Ok(win) => win,
+    ///    Err(err) => {
+    ///        println!("Unable to create window {}", err);
+    ///        return;
+    ///    }
+    ///};
+    /// ```
+    ///
+    /// Open up a window that is resizeable
+    /// TODO: Enable web canvas resizing
+    ///
+    /// ```no_run
+    /// # use minifb::*;
+    /// let document = web_sys::window().unwrap().document().unwrap();
+    /// let body = document.body().unwrap();
+    /// let mut window = Window::new(body, 640, 400,
+    ///     WindowOptions {
+    ///        resize: true,
+    ///        ..WindowOptions::default()
+    ///  })
+    ///  .expect("Unable to open Window");
+    /// ```
+    pub fn new(
+        container: &str,
+        width: usize,
+        height: usize,
+        opts: WindowOptions,
+    ) -> Result<Window> {
+        panic::set_hook(Box::new(console_error_panic_hook::hook));
+
+        if opts.transparency && !opts.borderless {
+            return Err(Error::WindowCreate(
+                "Window transparency requires the borderless property".to_owned(),
+            ));
+        }
+        imp::Window::new(container, width, height, opts).map(Window)
     }
 
     /// Allows you to set a new title of the window after creation
