@@ -515,13 +515,12 @@ pub struct Window {
 impl HasWindowHandle for Window {
     fn window_handle(&self) -> std::result::Result<WindowHandle, HandleError> {
         let raw_hwnd = self.window.unwrap();
-        let hwnd = match NonZeroIsize::new(unsafe { *(raw_hwnd as *const isize) }) {
+        let hwnd = match NonZeroIsize::new(raw_hwnd as isize) {
             Some(hwnd) => hwnd,
             None => unimplemented!("invalid hwnd"),
         };
 
-        let raw_hinstance =
-            unsafe { *(GetWindowLongPtrW(raw_hwnd, GWLP_HINSTANCE) as *const isize) };
+        let raw_hinstance = unsafe { GetWindowLongPtrW(raw_hwnd, GWLP_HINSTANCE) };
         let hinstance = NonZeroIsize::new(raw_hinstance);
 
         let mut handle = Win32WindowHandle::new(hwnd);
