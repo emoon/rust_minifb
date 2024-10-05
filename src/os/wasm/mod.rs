@@ -41,19 +41,25 @@ struct MouseState {
     middle_button: Cell<bool>,
 }
 
+struct Context2D {
+    context: CanvasRenderingContext2d,
+    img_data: ImageData,
+}
+
 // IDEA(stefano): possibly have this contain a "document" field, so not to recompute it every time
 pub struct Window {
     width: u32,
     height: u32,
     bg_color: u32,
     window_scale: usize,
-    img_data: ImageData,
     canvas: HtmlCanvasElement,
-    context: Rc<CanvasRenderingContext2d>,
+    // 2D context is created lazily since its creation preculdes creation of webgl & webgpu contexts.
+    context2d: Option<Context2D>,
     mouse_state: Rc<MouseState>,
     key_handler: Rc<RefCell<KeyHandler>>,
     menu_counter: MenuHandle,
     menus: Vec<UnixMenu>,
+    raw_handle_id: u32,
 }
 
 impl Window {
@@ -83,6 +89,13 @@ impl Window {
             .dyn_into::<HtmlCanvasElement>()
             .unwrap();
 
+        // Raw handle requires to inject an id into the canvas' data attributes.
+        // TODO assign a different ID to each window
+        let raw_handle_id = 0;
+        canvas
+            .set_attribute("data-raw-handle", &raw_handle_id.to_string())
+            .unwrap();
+
         let container = document
             .get_element_by_id(container)
             .unwrap()
@@ -97,15 +110,6 @@ impl Window {
         canvas.set_tab_index(0);
 
         // Create an image buffer
-        let context: CanvasRenderingContext2d = canvas
-            .get_context("2d")
-            .unwrap()
-            .unwrap()
-            .dyn_into::<CanvasRenderingContext2d>()
-            .unwrap();
-        context.set_image_smoothing_enabled(false);
-        let img_data = ImageData::new_with_sw(width as u32, height as u32).unwrap();
-        let context = Rc::new(context);
         let key_handler = Rc::new(RefCell::new(KeyHandler::new()));
         let mouse_struct = MouseState {
             pos: Cell::new(None),
@@ -180,21 +184,31 @@ impl Window {
             closure.forget();
         }
 
-        let mut window = Window {
+        Ok(Window {
             width: width as u32,
             height: height as u32,
             bg_color: 0,
             window_scale,
-            img_data,
             canvas,
-            context: context.clone(),
+            context2d: None,
             key_handler,
             mouse_state,
             menu_counter: MenuHandle(0),
             menus: Vec::new(),
-        };
+            raw_handle_id,
+        })
+    }
 
-        Ok(window)
+    fn create_2d_context(&self) -> CanvasRenderingContext2d {
+        let context: CanvasRenderingContext2d = self
+            .canvas
+            .get_context("2d")
+            .unwrap()
+            .unwrap()
+            .dyn_into::<CanvasRenderingContext2d>()
+            .unwrap();
+        context.set_image_smoothing_enabled(false);
+        context
     }
 
     #[inline]
@@ -204,7 +218,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_rate(&mut self, rate: Option<Duration>) {}
+    pub fn set_rate(&mut self, _rate: Option<Duration>) {}
 
     #[inline]
     pub fn update_rate(&mut self) {}
@@ -215,7 +229,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn topmost(&self, topmost: bool) {
+    pub fn topmost(&self, _topmost: bool) {
         // TODO?
     }
 
@@ -262,12 +276,21 @@ impl Window {
         )?;
         let mut data = u32_as_u8(buffer);
 
-        self.img_data = ImageData::new_with_u8_clamped_array_and_sh(
+        let image_data = ImageData::new_with_u8_clamped_array_and_sh(
             Clamped(&mut data),
             self.width,
             self.height,
         )
         .unwrap();
+
+        if let Some(context2d) = &mut self.context2d {
+            context2d.img_data = image_data;
+        } else {
+            self.context2d = Some(Context2D {
+                context: self.create_2d_context(),
+                img_data: image_data,
+            });
+        }
 
         self.update();
 
@@ -277,16 +300,20 @@ impl Window {
     #[inline]
     pub fn update(&mut self) {
         self.key_handler.borrow_mut().update();
-        self.context
-            .put_image_data(&self.img_data, 0.0, 0.0)
-            .unwrap();
+
+        if let Some(context2d) = &self.context2d {
+            context2d
+                .context
+                .put_image_data(&context2d.img_data, 0.0, 0.0)
+                .unwrap();
+        }
     }
 
     #[inline]
-    pub fn set_icon(&mut self, icon: Icon) {}
+    pub fn set_icon(&mut self, _icon: Icon) {}
 
     #[inline]
-    pub fn set_position(&mut self, x: isize, y: isize) {}
+    pub fn set_position(&mut self, _x: isize, _y: isize) {}
 
     #[inline]
     pub fn get_position(&self) -> (isize, isize) {
@@ -343,7 +370,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_cursor_style(&mut self, cursor: CursorStyle) {}
+    pub fn set_cursor_style(&mut self, _cursor: CursorStyle) {}
 
     #[inline]
     pub fn get_keys(&self) -> Vec<Key> {
@@ -397,8 +424,10 @@ impl Window {
 
     #[inline]
     pub fn is_active(&mut self) -> bool {
-        let document = window().unwrap().document().unwrap();
-        document.active_element().unwrap_or(return false) == **self.canvas
+        window()
+            .and_then(|window| window.document())
+            .and_then(|document| document.active_element())
+            .map_or(false, |element| element == **self.canvas)
     }
 
     #[inline]
@@ -445,7 +474,7 @@ impl Menu {
     }
 
     #[inline]
-    pub fn add_sub_menu(&mut self, name: &str, sub_menu: &Menu) {}
+    pub fn add_sub_menu(&mut self, _name: &str, _sub_menu: &Menu) {}
 
     #[inline]
     fn next_item_handle(&mut self) -> MenuItemHandle {
@@ -470,13 +499,12 @@ impl Menu {
     }
 
     #[inline]
-    pub fn remove_item(&mut self, handle: &MenuItemHandle) {}
+    pub fn remove_item(&mut self, _handle: &MenuItemHandle) {}
 }
 
 impl HasWindowHandle for Window {
     fn window_handle(&self) -> std::result::Result<WindowHandle, HandleError> {
-        // TODO assign a different ID to each window
-        let handle = WebWindowHandle::new(0);
+        let handle = WebWindowHandle::new(self.raw_handle_id);
         let raw_handle = RawWindowHandle::Web(handle);
         unsafe { Ok(WindowHandle::borrow_raw(raw_handle)) }
     }

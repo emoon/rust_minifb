@@ -27,8 +27,6 @@ use std::{ffi::c_void, fmt, time::Duration};
 
 #[cfg(target_arch = "wasm32")]
 use std::panic;
-#[cfg(target_arch = "wasm32")]
-use web_sys::HtmlElement;
 
 #[cfg(target_os = "macos")]
 use os::macos as imp;
