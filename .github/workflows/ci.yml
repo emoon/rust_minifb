@@ -36,4 +36,4 @@ jobs:
       - name: Run tests
         run: cargo test --verbose
       - name: Check wasm build
-        run: cargo check --target wasm32-unknown-unknown --no-default-features --features web
+        run: cargo check --target wasm32-unknown-unknown --no-default-features
