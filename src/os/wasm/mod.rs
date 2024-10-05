@@ -184,7 +184,7 @@ impl Window {
             closure.forget();
         }
 
-        let mut window = Window {
+        Ok(Window {
             width: width as u32,
             height: height as u32,
             bg_color: 0,
@@ -196,9 +196,7 @@ impl Window {
             menu_counter: MenuHandle(0),
             menus: Vec::new(),
             raw_handle_id,
-        };
-
-        Ok(window)
+        })
     }
 
     fn create_2d_context(&self) -> CanvasRenderingContext2d {
@@ -426,8 +424,10 @@ impl Window {
 
     #[inline]
     pub fn is_active(&mut self) -> bool {
-        let document = window().unwrap().document().unwrap();
-        document.active_element().unwrap_or(return false) == **self.canvas
+        window()
+            .and_then(|window| window.document())
+            .and_then(|document| document.active_element())
+            .map_or(false, |element| element == **self.canvas)
     }
 
     #[inline]

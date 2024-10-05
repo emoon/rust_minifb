@@ -5,11 +5,13 @@ use instant::{Duration, Instant};
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::{Duration, Instant};
 
+#[cfg_attr(target_arch = "wasm32", allow(unused))]
 pub struct UpdateRate {
     target_rate: Option<Duration>,
     prev_time: Instant,
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(unused))]
 impl UpdateRate {
     pub fn new() -> UpdateRate {
         UpdateRate {
