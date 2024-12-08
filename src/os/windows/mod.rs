@@ -27,8 +27,7 @@ use winapi::{
         fileapi::GetFullPathNameW,
         libloaderapi, wingdi,
         winuser::{
-            self, GetWindowLongPtrW, GWLP_HINSTANCE, ICON_BIG, ICON_SMALL, IMAGE_ICON,
-            LR_DEFAULTSIZE, LR_LOADFROMFILE, WM_SETICON,
+            self, ICON_BIG, ICON_SMALL, IMAGE_ICON, LR_DEFAULTSIZE, LR_LOADFROMFILE, WM_SETICON,
         },
     },
 };
@@ -494,7 +493,8 @@ impl Default for DrawParameters {
 
 #[repr(C)]
 pub struct Window {
-    window: Option<windef::HWND>,
+    hwnd: windef::HWND,
+    hinstance: minwindef::HINSTANCE,
     dc: windef::HDC,
     clear_brush: windef::HBRUSH,
     is_open: bool,
@@ -514,17 +514,9 @@ pub struct Window {
 
 impl HasWindowHandle for Window {
     fn window_handle(&self) -> std::result::Result<WindowHandle, HandleError> {
-        let raw_hwnd = self.window.unwrap();
-        let hwnd = match NonZeroIsize::new(raw_hwnd as isize) {
-            Some(hwnd) => hwnd,
-            None => unimplemented!("invalid hwnd"),
-        };
-
-        let raw_hinstance = unsafe { GetWindowLongPtrW(raw_hwnd, GWLP_HINSTANCE) };
-        let hinstance = NonZeroIsize::new(raw_hinstance);
-
+        let hwnd = NonZeroIsize::new(self.hwnd as isize).ok_or(HandleError::Unavailable)?;
         let mut handle = Win32WindowHandle::new(hwnd);
-        handle.hinstance = hinstance;
+        handle.hinstance = NonZeroIsize::new(self.hinstance as _);
 
         let raw_handle = RawWindowHandle::Win32(handle);
         unsafe { Ok(WindowHandle::borrow_raw(raw_handle)) }
@@ -546,35 +538,12 @@ impl Window {
         height: usize,
         opts: WindowOptions,
         scale_factor: i32,
-    ) -> Option<windef::HWND> {
-        unsafe {
-            let class_name = to_wstring("minifb_window");
-            let class = winuser::WNDCLASSW {
-                style: winuser::CS_HREDRAW | winuser::CS_VREDRAW | winuser::CS_OWNDC,
-                lpfnWndProc: Some(wnd_proc),
-                cbClsExtra: 0,
-                cbWndExtra: 0,
-                hInstance: libloaderapi::GetModuleHandleA(std::ptr::null()),
-                hIcon: std::ptr::null_mut(),
-                hCursor: winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_ARROW),
-                hbrBackground: std::ptr::null_mut(),
-                lpszMenuName: std::ptr::null(),
-                lpszClassName: class_name.as_ptr(),
-            };
+    ) -> Option<(windef::HWND, minwindef::HINSTANCE)> {
+        let hinstance = unsafe { libloaderapi::GetModuleHandleA(std::ptr::null()) };
 
-            if winuser::RegisterClassW(&class) == 0 {
-                // ignore the "Class already exists" error for multiple windows
-                if errhandlingapi::GetLastError() as u32 != 1410 {
-                    println!(
-                        "Unable to register class, error {}",
-                        errhandlingapi::GetLastError() as u32
-                    );
-                    return None;
-                }
-            }
-
-            let window_name = to_wstring(name);
-
+        let class_name = to_wstring("minifb_window");
+        let window_name = to_wstring(name);
+        let flags = {
             let mut flags = 0;
 
             if opts.title {
@@ -602,6 +571,34 @@ impl Window {
                 flags = winuser::WS_VISIBLE | winuser::WS_POPUP;
             }
 
+            flags
+        };
+
+        let handle = unsafe {
+            let class = winuser::WNDCLASSW {
+                style: winuser::CS_HREDRAW | winuser::CS_VREDRAW | winuser::CS_OWNDC,
+                lpfnWndProc: Some(wnd_proc),
+                cbClsExtra: 0,
+                cbWndExtra: 0,
+                hInstance: hinstance,
+                hIcon: std::ptr::null_mut(),
+                hCursor: winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_ARROW),
+                hbrBackground: std::ptr::null_mut(),
+                lpszMenuName: std::ptr::null(),
+                lpszClassName: class_name.as_ptr(),
+            };
+
+            if winuser::RegisterClassW(&class) == 0 {
+                // ignore the "Class already exists" error for multiple windows
+                if errhandlingapi::GetLastError() as u32 != 1410 {
+                    println!(
+                        "Unable to register class, error {}",
+                        errhandlingapi::GetLastError() as u32
+                    );
+                    return None;
+                }
+            }
+
             let new_width = width * scale_factor as usize;
             let new_height = height * scale_factor as usize;
 
@@ -613,11 +610,10 @@ impl Window {
             };
 
             winuser::AdjustWindowRect(&mut rect, flags, 0);
-
             rect.right -= rect.left;
             rect.bottom -= rect.top;
 
-            let handle = winuser::CreateWindowExW(
+            winuser::CreateWindowExW(
                 0,
                 class_name.as_ptr(),
                 window_name.as_ptr(),
@@ -630,35 +626,36 @@ impl Window {
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
+            )
+        };
+
+        if handle.is_null() {
+            println!(
+                "Unable to create window, error {}",
+                unsafe { errhandlingapi::GetLastError() } as u32
             );
-            if handle.is_null() {
-                println!(
-                    "Unable to create window, error {}",
-                    errhandlingapi::GetLastError() as u32
-                );
-                return None;
-            }
-
-            winuser::ShowWindow(handle, winuser::SW_NORMAL);
-
-            Some(handle)
+            None
+        } else {
+            unsafe { winuser::ShowWindow(handle, winuser::SW_NORMAL) };
+            Some((handle, hinstance))
         }
     }
 
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
+        let scale_factor = Self::get_scale_factor(width, height, opts.scale);
+
+        let Some((window_handle, hinstance)) =
+            Self::open_window(name, width, height, opts, scale_factor)
+        else {
+            return Err(Error::WindowCreate("Unable to create Window".to_owned()));
+        };
+
         unsafe {
-            let scale_factor = Self::get_scale_factor(width, height, opts.scale);
-
-            let handle = Self::open_window(name, width, height, opts, scale_factor);
-
-            if handle.is_none() {
-                return Err(Error::WindowCreate("Unable to create Window".to_owned()));
-            }
-
             let window = Window {
                 mouse: MouseData::default(),
-                dc: winuser::GetDC(handle.unwrap()),
-                window: Some(handle.unwrap()),
+                dc: winuser::GetDC(window_handle),
+                hwnd: window_handle,
+                hinstance,
                 key_handler: KeyHandler::new(),
                 update_rate: UpdateRate::new(),
                 is_open: true,
@@ -698,7 +695,7 @@ impl Window {
     pub fn set_title(&mut self, title: &str) {
         unsafe {
             let title_name = to_wstring(title);
-            winuser::SetWindowTextW(self.window.unwrap(), title_name.as_ptr());
+            winuser::SetWindowTextW(self.hwnd, title_name.as_ptr());
         }
     }
 
@@ -734,35 +731,33 @@ impl Window {
                     LR_DEFAULTSIZE | LR_LOADFROMFILE,
                 );
 
-                if let Some(handle) = self.window {
-                    winapi::um::winuser::SendMessageW(
-                        handle,
-                        WM_SETICON,
-                        ICON_SMALL as WPARAM,
-                        icon as LPARAM,
-                    );
+                winapi::um::winuser::SendMessageW(
+                    self.hwnd,
+                    WM_SETICON,
+                    ICON_SMALL as WPARAM,
+                    icon as LPARAM,
+                );
 
-                    winapi::um::winuser::SendMessageW(
-                        handle,
-                        WM_SETICON,
-                        ICON_BIG as WPARAM,
-                        icon as LPARAM,
-                    );
-                }
+                winapi::um::winuser::SendMessageW(
+                    self.hwnd,
+                    WM_SETICON,
+                    ICON_BIG as WPARAM,
+                    icon as LPARAM,
+                );
             }
         }
     }
 
     #[inline]
     pub fn get_window_handle(&self) -> *mut c_void {
-        self.window.unwrap() as *mut c_void
+        self.hwnd as *mut c_void
     }
 
     #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
         unsafe {
             winuser::SetWindowPos(
-                self.window.unwrap(),
+                self.hwnd,
                 std::ptr::null_mut(),
                 x as i32,
                 y as i32,
@@ -784,7 +779,7 @@ impl Window {
                 top: 0,
                 bottom: 0,
             };
-            if winuser::GetWindowRect(self.window.unwrap(), &mut rect) != 0 {
+            if winuser::GetWindowRect(self.hwnd, &mut rect) != 0 {
                 x = rect.left;
                 y = rect.top;
             }
@@ -796,7 +791,7 @@ impl Window {
     pub fn topmost(&self, topmost: bool) {
         unsafe {
             winuser::SetWindowPos(
-                self.window.unwrap(),
+                self.hwnd,
                 if topmost {
                     winuser::HWND_TOPMOST
                 } else {
@@ -979,7 +974,7 @@ impl Window {
         buf_height: usize,
         buf_stride: usize,
     ) -> Result<()> {
-        let window = self.window.unwrap();
+        let window = self.hwnd;
 
         self.generic_update(window);
 
@@ -1002,24 +997,17 @@ impl Window {
 
     #[inline]
     pub fn update(&mut self) {
-        let window = self.window.unwrap();
-
-        self.generic_update(window);
-        self.message_loop(window);
+        self.generic_update(self.hwnd);
+        self.message_loop(self.hwnd);
     }
 
     #[inline]
     pub fn is_active(&mut self) -> bool {
-        match self.window {
-            Some(hwnd) => {
-                let active = unsafe { winapi::um::winuser::GetActiveWindow() };
-                !active.is_null() && active == hwnd
-            }
-            None => false,
-        }
+        let active = unsafe { winapi::um::winuser::GetActiveWindow() };
+        !active.is_null() && active == self.hwnd
     }
 
-    unsafe fn get_scale_factor(width: usize, height: usize, scale: Scale) -> i32 {
+    fn get_scale_factor(width: usize, height: usize, scale: Scale) -> i32 {
         let factor: i32 = match scale {
             Scale::X1 => 1,
             Scale::X2 => 2,
@@ -1028,8 +1016,8 @@ impl Window {
             Scale::X16 => 16,
             Scale::X32 => 32,
             Scale::FitScreen => {
-                let screen_x = winuser::GetSystemMetrics(winuser::SM_CXSCREEN) as i32;
-                let screen_y = winuser::GetSystemMetrics(winuser::SM_CYSCREEN) as i32;
+                let screen_x = unsafe { winuser::GetSystemMetrics(winuser::SM_CXSCREEN) } as i32;
+                let screen_y = unsafe { winuser::GetSystemMetrics(winuser::SM_CYSCREEN) } as i32;
 
                 let mut scale = 1i32;
 
@@ -1092,7 +1080,7 @@ impl Window {
 
     pub fn add_menu(&mut self, menu: &Menu) -> MenuHandle {
         unsafe {
-            let window = self.window.unwrap();
+            let window = self.hwnd;
             let mut main_menu = winuser::GetMenu(window);
 
             if main_menu.is_null() {
@@ -1123,7 +1111,7 @@ impl Window {
     }
 
     pub fn remove_menu(&mut self, handle: MenuHandle) {
-        let window = self.window.unwrap();
+        let window = self.hwnd;
         let main_menu = unsafe { winuser::GetMenu(window) };
         for i in 0..self.menus.len() {
             if self.menus[i].menu_handle == handle.0 as windef::HMENU {
@@ -1133,7 +1121,7 @@ impl Window {
                         i as minwindef::UINT,
                         winuser::MF_BYPOSITION,
                     );
-                    winuser::DrawMenuBar(self.window.unwrap());
+                    winuser::DrawMenuBar(self.hwnd);
                 }
                 self.menus.swap_remove(i);
                 return;
@@ -1412,11 +1400,8 @@ impl Menu {
 impl Drop for Window {
     fn drop(&mut self) {
         unsafe {
-            winuser::ReleaseDC(self.window.unwrap(), self.dc);
-
-            if self.window.is_some() {
-                winuser::DestroyWindow(self.window.unwrap());
-            }
+            winuser::ReleaseDC(self.hwnd, self.dc);
+            winuser::DestroyWindow(self.hwnd);
         }
     }
 }
