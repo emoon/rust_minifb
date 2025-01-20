@@ -2,6 +2,13 @@
 
 This project follows semantic versioning.
 
+### v0.28 (2025-01-20)
+
+- [fixed] raw window handle and related fixes to get wgpu working. (Thanks Wumpf!) 
+- [fixed] Various example fixes. 
+- [fixed] Various WASM improvements. (Thanks augustkline!)
+- [fixed] Various changelog and doc fixes. (Thanks Chubercik!) 
+
 ### v0.27 (2024-05-20)
 
 - [fixed] Temporary fix for struct layout issue on Windows.
