@@ -37,10 +37,12 @@ use wayland_client::{
     Attached, Display, EventQueue, GlobalManager, Main,
 };
 use wayland_protocols::{
+    /*
     unstable::xdg_decoration::v1::client::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1,
     xdg_shell::client::{
         xdg_surface::XdgSurface, xdg_toplevel::XdgToplevel, xdg_wm_base::XdgWmBase,
     },
+    */
 };
 
 use super::xkb_ffi;
