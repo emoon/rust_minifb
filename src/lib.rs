@@ -859,7 +859,7 @@ impl Window {
 
     /// Returns if this windows is the current active one
     #[inline]
-    pub fn is_active(&mut self) -> bool {
+    pub fn is_active(&self) -> bool {
         self.0.is_active()
     }
 

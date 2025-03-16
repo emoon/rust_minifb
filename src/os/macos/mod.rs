@@ -181,7 +181,7 @@ extern "C" {
     fn mfb_set_cursor_visibility(window: *mut c_void, visibility: bool);
     fn mfb_should_close(window: *mut c_void) -> i32;
     fn mfb_get_screen_size() -> u32;
-    fn mfb_is_active(window: *mut c_void) -> u32;
+    fn mfb_is_active(window: *const c_void) -> u32;
     fn mfb_add_menu(window: *mut c_void, menu: *mut c_void) -> u64;
     fn mfb_add_sub_menu(parent_menu: *mut c_void, name: *const c_char, menu: *mut c_void);
     fn mfb_active_menu(window: *mut c_void) -> i32;
@@ -574,7 +574,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn is_active(&mut self) -> bool {
+    pub fn is_active(&self) -> bool {
         unsafe { mfb_is_active(self.window_handle) == 0 }
     }
 

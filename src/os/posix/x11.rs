@@ -818,7 +818,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn is_active(&mut self) -> bool {
+    pub fn is_active(&self) -> bool {
         self.active
     }
 

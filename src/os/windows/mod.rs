@@ -1002,7 +1002,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn is_active(&mut self) -> bool {
+    pub fn is_active(&self) -> bool {
         let active = unsafe { winapi::um::winuser::GetActiveWindow() };
         !active.is_null() && active == self.hwnd
     }
