@@ -324,7 +324,7 @@ impl Window {
         }
     }
 
-    pub fn is_active(&mut self) -> bool {
+    pub fn is_active(&self) -> bool {
         match self {
             #[cfg(feature = "x11")]
             Window::X11(w) => w.is_active(),

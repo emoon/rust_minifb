@@ -423,7 +423,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn is_active(&mut self) -> bool {
+    pub fn is_active(&self) -> bool {
         window()
             .and_then(|window| window.document())
             .and_then(|document| document.active_element())
