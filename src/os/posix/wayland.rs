@@ -776,6 +776,8 @@ impl Window {
             self.should_close = true;
         }
 
+        self.key_handler.update();
+
         for event in self.input.iter_keyboard_events() {
             use wayland_client::protocol::wl_keyboard::Event;
 
@@ -951,8 +953,6 @@ impl Window {
                 _ => {}
             }
         }
-
-        self.key_handler.update();
     }
 
     fn handle_key(
