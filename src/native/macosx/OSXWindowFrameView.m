@@ -375,6 +375,30 @@ uint32_t upper_power_of_two(uint32_t v) {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+- (void)otherMouseDown:(NSEvent*)event {
+    (void)event;
+    OSXWindow* window = (OSXWindow*)[self window];
+
+    NSInteger button = [event buttonNumber];
+    if (button == 3 || button == 4) {
+        window->shared_data->mouse_state[button] = 1;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+- (void)otherMouseUp:(NSEvent*)event {
+    (void)event;
+    OSXWindow* window = (OSXWindow*)[self window];
+
+    NSInteger button = [event buttonNumber];
+    if (button == 3 || button == 4) {
+        window->shared_data->mouse_state[button] = 0;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 - (void)scrollWheel:(NSEvent *)event {
     OSXWindow* window = (OSXWindow*)[self window];
     window->shared_data->scroll_x = [event deltaX];

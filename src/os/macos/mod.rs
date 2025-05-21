@@ -462,6 +462,8 @@ impl Window {
             MouseButton::Left => self.shared_data.state[0] > 0,
             MouseButton::Middle => self.shared_data.state[1] > 0,
             MouseButton::Right => self.shared_data.state[2] > 0,
+            MouseButton::Back => self.shared_data.state[3] > 0,
+            MouseButton::Forward => self.shared_data.state[4] > 0,
         }
     }
 

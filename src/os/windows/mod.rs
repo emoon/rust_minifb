@@ -27,7 +27,8 @@ use winapi::{
         fileapi::GetFullPathNameW,
         libloaderapi, wingdi,
         winuser::{
-            self, ICON_BIG, ICON_SMALL, IMAGE_ICON, LR_DEFAULTSIZE, LR_LOADFROMFILE, WM_SETICON,
+            self, GET_XBUTTON_WPARAM, ICON_BIG, ICON_SMALL, IMAGE_ICON, LR_DEFAULTSIZE,
+            LR_LOADFROMFILE, WM_SETICON,
         },
     },
 };
@@ -273,6 +274,15 @@ unsafe extern "system" fn wnd_proc(
         winuser::WM_MBUTTONUP => wnd.mouse.state[1] = false,
         winuser::WM_RBUTTONDOWN => wnd.mouse.state[2] = true,
         winuser::WM_RBUTTONUP => wnd.mouse.state[2] = false,
+
+        winuser::WM_XBUTTONDOWN => {
+            let button = GET_XBUTTON_WPARAM(wparam); // XBUTTON1 or XBUTTON2
+            wnd.mouse.state[2 + button as usize] = true;
+        }
+        winuser::WM_XBUTTONUP => {
+            let button = GET_XBUTTON_WPARAM(wparam); // XBUTTON1 or XBUTTON2
+            wnd.mouse.state[2 + button as usize] = false;
+        }
 
         winuser::WM_CLOSE => {
             wnd.is_open = false;
@@ -836,6 +846,8 @@ impl Window {
             MouseButton::Left => self.mouse.state[0],
             MouseButton::Middle => self.mouse.state[1],
             MouseButton::Right => self.mouse.state[2],
+            MouseButton::Back => self.mouse.state[3],
+            MouseButton::Forward => self.mouse.state[4],
         }
     }
 

@@ -93,6 +93,10 @@ pub enum MouseButton {
     Middle,
     /// Right mouse button
     Right,
+    /// Back mouse button
+    Back,
+    /// Forward mouse button
+    Forward,
 }
 
 /// The different modes that can be used to decide how mouse coordinates should be handled
