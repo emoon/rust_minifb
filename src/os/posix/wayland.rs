@@ -209,7 +209,7 @@ impl DisplayInfo {
             Format::Xrgb8888
         };
 
-        // Retrive shm buffer for writing
+        // Retrieve shm buffer for writing
         let mut buf_pool = BufferPool::new(shm.clone(), format);
         let (mut tempfile, buffer) = buf_pool
             .get_buffer(size)
