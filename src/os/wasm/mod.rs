@@ -53,7 +53,7 @@ pub struct Window {
     bg_color: u32,
     window_scale: usize,
     canvas: HtmlCanvasElement,
-    // 2D context is created lazily since its creation preculdes creation of webgl & webgpu contexts.
+    // 2D context is created lazily since its creation precludes creation of webgl & webgpu contexts.
     context2d: Option<Context2D>,
     mouse_state: Rc<MouseState>,
     key_handler: Rc<RefCell<KeyHandler>>,

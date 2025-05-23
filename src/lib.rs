@@ -57,11 +57,11 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// much higher resolution which would result in that the window is very small.
 #[derive(Clone, Copy, Debug)]
 pub enum Scale {
-    /// This mode checks your current screen resolution and will caluclate the largest window size
+    /// This mode checks your current screen resolution and will calculate the largest window size
     /// that can be used within that limit and resize it. Useful if you have a small buffer to
     /// display on a high resolution screen.
     FitScreen,
-    /// 1X scale (which means leave the corrdinates sent into Window::new untouched)
+    /// 1X scale (which means leave the coordinates sent into Window::new untouched)
     X1,
     /// 2X window scale (Example: 320 x 200 -> 640 x 400)
     X2,
@@ -84,7 +84,7 @@ pub enum KeyRepeat {
     No,
 }
 
-/// The various mouse buttons that are availible
+/// The various mouse buttons that are available
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum MouseButton {
     /// Left mouse button
@@ -102,7 +102,7 @@ pub enum MouseMode {
     Pass,
     /// Clamp the mouse coordinates within the window
     Clamp,
-    /// Discared if the mouse is outside the window
+    /// Discard if the mouse is outside the window
     Discard,
 }
 
@@ -145,11 +145,11 @@ pub enum CursorStyle {
     Crosshair,
     /// Closed hand which useful for dragging things, may use default hand on unsupported OSes.
     ClosedHand,
-    /// Open hand which useful for indicating drangable things, may use default hand on unsupported OSes.
+    /// Open hand which useful for indicating draggable things, may use default hand on unsupported OSes.
     OpenHand,
-    /// Rezining left-rigth direction
+    /// Resizing left-right direction
     ResizeLeftRight,
-    /// Rezining up-down direction
+    /// Resizing up-down direction
     ResizeUpDown,
     /// Resize in all directions
     ResizeAll,
@@ -207,7 +207,7 @@ pub enum ScaleMode {
 }
 
 /// WindowOptions is creation settings for the window. By default the settings are defined for
-/// displayng a 32-bit buffer (no scaling of window is possible)
+/// displaying a 32-bit buffer (no scaling of window is possible)
 #[derive(Clone, Copy, Debug)]
 pub struct WindowOptions {
     /// If the window should be borderless (default: false)
@@ -279,7 +279,7 @@ impl Window {
     ///};
     /// ```
     ///
-    /// Open up a window that is resizeable
+    /// Open up a window that is resizable
     ///
     /// ```no_run
     /// # use minifb::*;
@@ -319,7 +319,7 @@ impl Window {
     ///};
     /// ```
     ///
-    /// Open up a window that is resizeable
+    /// Open up a window that is resizable
     /// TODO: Enable web canvas resizing
     ///
     /// ```no_run
@@ -394,7 +394,7 @@ impl Window {
     }
 
     /// Returns the native handle for a window which is an opaque pointer/handle which
-    /// dependens on the current operating system:
+    /// depends on the current operating system:
     ///
     /// ```text
     /// Windows HWND
@@ -863,13 +863,13 @@ impl Window {
         self.0.is_active()
     }
 
-    /// Set input callback to recive callback on char input
+    /// Set input callback to receive callback on char input
     #[inline]
     pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>) {
         self.0.set_input_callback(callback)
     }
 
-    /// This allows adding menus to your windows. As menus behaves a bit diffrently depending on
+    /// This allows adding menus to your windows. As menus behaves a bit differently depending on
     /// Operating system here is how it works.
     ///
     /// ```text
@@ -1104,7 +1104,7 @@ impl MenuItem<'_> {
         }
     }
 
-    /// Sets a shortcut key and modifer (and returns itself)
+    /// Sets a shortcut key and modifier (and returns itself)
     ///
     /// # Examples
     ///

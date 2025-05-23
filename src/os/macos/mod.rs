@@ -95,7 +95,7 @@ static KEY_MAPPINGS: [Key; 128] = [
     /* 4b */ Key::Unknown,
     /* 4c */ Key::Enter,
     /* 4d */ Key::Unknown,
-    /* 4e */ Key::Unknown, // Subtrackt
+    /* 4e */ Key::Unknown, // Subtract
     /* 4f */ Key::Unknown, // F18
     /* 50 */ Key::Unknown, // F19
     /* 51 */ Key::Equal,
