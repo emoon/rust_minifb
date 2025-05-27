@@ -160,6 +160,8 @@ impl DisplayInfo {
                     conv_depth = pix_fmt.bits_per_pixel;
                 }
             }
+
+            (self.lib.XFree)(formats as _);
         }
 
         if conv_depth != 32 {
@@ -237,6 +239,7 @@ impl DisplayInfo {
 impl Drop for DisplayInfo {
     fn drop(&mut self) {
         unsafe {
+            (self.lib.XFreeGC)(self.display, self.gc);
             (self.lib.XCloseDisplay)(self.display);
         }
     }
