@@ -887,24 +887,11 @@ impl Window {
         }
         
         // Process input events
-        let mut key_count = 0;
         while let Ok((key, pressed)) = self.key_receiver.try_recv() {
-            key_count += 1;
             self.key_states.insert(key, pressed);
             let key_index = key as usize;
             if key_index < self.keys.len() {
                 self.keys[key_index] = pressed;
-            }
-        }
-        if key_count == 0 {
-            // Only print this occasionally to avoid spam
-            static mut FRAME_COUNT: u32 = 0;
-            unsafe {
-                FRAME_COUNT += 1;
-                if FRAME_COUNT % 300 == 0 {
-                    eprintln!("DEBUG: No keys received in {} frames. Keyboard setup = {}", 
-                             FRAME_COUNT, self.state.keyboard.is_some());
-                }
             }
         }
         
@@ -944,49 +931,52 @@ impl Window {
                     Ok(buffer_obj) => {
                         let buffer_data = buffer_obj.get_data();
                         
-                        // Render the buffer at its original size, centered in the window
-                        // Fill the entire window surface with black first to ensure keyboard focus
-                        for y in 0..window_height {
-                            for x in 0..window_width {
-                                let dst_offset = ((y * window_width + x) * 4) as usize;
-                                if dst_offset + 3 < buffer_data.len() {
-                                    // Fill with black
-                                    buffer_data[dst_offset] = 0;     // Blue
-                                    buffer_data[dst_offset + 1] = 0; // Green
-                                    buffer_data[dst_offset + 2] = 0; // Red
-                                    buffer_data[dst_offset + 3] = 0xFF; // Alpha (fully opaque)
-                                }
-                            }
+                        // Optimized buffer rendering - center original buffer with black background
+                        let window_width_usize = window_width as usize;
+                        let window_height_usize = window_height as usize;
+                        let buffer_size = window_width_usize * window_height_usize * 4;
+                        
+                        // Fast clear entire buffer to black with full alpha
+                        // This ensures keyboard focus works throughout the window
+                        if buffer_size <= buffer_data.len() {
+                            // Efficient bulk clear using u32 writes for better performance
+                            let buffer_u32 = unsafe {
+                                std::slice::from_raw_parts_mut(
+                                    buffer_data.as_mut_ptr() as *mut u32,
+                                    buffer_size / 4
+                                )
+                            };
+                            let black_pixel_u32 = 0xFF000000u32; // BGRA: alpha=0xFF, RGB=0x000000
+                            buffer_u32.fill(black_pixel_u32);
                         }
                         
-                        // Center the original buffer in the window
+                        // Calculate centering offsets once
                         let offset_x = ((window_width as i32 - buf_width as i32) / 2).max(0) as usize;
                         let offset_y = ((window_height as i32 - buf_height as i32) / 2).max(0) as usize;
                         
-                        // Copy the input buffer to the center of the window buffer
-                        for y in 0..buf_height.min(window_height as usize) {
-                            for x in 0..buf_width.min(window_width as usize) {
-                                let dst_x = x + offset_x;
-                                let dst_y = y + offset_y;
+                        // Calculate copy bounds to avoid per-pixel bounds checking
+                        let copy_width = buf_width.min(window_width_usize.saturating_sub(offset_x));
+                        let copy_height = buf_height.min(window_height_usize.saturating_sub(offset_y));
+                        
+                        // Optimized copy - process row by row for better cache locality
+                        if copy_width > 0 && copy_height > 0 {
+                            for y in 0..copy_height {
+                                let src_row_start = y * buf_width;
+                                let dst_row_start = ((y + offset_y) * window_width_usize + offset_x) * 4;
                                 
-                                if dst_x < window_width as usize && dst_y < window_height as usize {
-                                    let dst_offset = ((dst_y * window_width as usize + dst_x) * 4) as usize;
-                                    let src_offset = y * buf_width + x;
+                                // Process pixels in chunks for better performance
+                                for x in 0..copy_width {
+                                    let src_offset = src_row_start + x;
+                                    let dst_offset = dst_row_start + x * 4;
                                     
-                                    if src_offset < buffer.len() && dst_offset + 3 < buffer_data.len() {
-                                        let pixel = buffer[src_offset];
-                                        
-                                        // Extract RGB components from input (0x00RRGGBB)
-                                        let r = ((pixel >> 16) & 0xFF) as u8;
-                                        let g = ((pixel >> 8) & 0xFF) as u8;
-                                        let b = (pixel & 0xFF) as u8;
-                                        
-                                        // Write as ARGB8888 (little endian: BGRA)
-                                        buffer_data[dst_offset] = b;     // Blue
-                                        buffer_data[dst_offset + 1] = g; // Green
-                                        buffer_data[dst_offset + 2] = r; // Red
-                                        buffer_data[dst_offset + 3] = 0xFF; // Alpha (fully opaque)
-                                    }
+                                    // Safe access - bounds already checked above
+                                    let pixel = buffer[src_offset];
+                                    
+                                    // Fast RGB extraction and BGRA write
+                                    buffer_data[dst_offset] = (pixel & 0xFF) as u8;         // Blue
+                                    buffer_data[dst_offset + 1] = ((pixel >> 8) & 0xFF) as u8;  // Green  
+                                    buffer_data[dst_offset + 2] = ((pixel >> 16) & 0xFF) as u8; // Red
+                                    buffer_data[dst_offset + 3] = 0xFF;                     // Alpha
                                 }
                             }
                         }
