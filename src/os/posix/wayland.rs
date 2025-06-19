@@ -254,6 +254,7 @@ struct WaylandState {
     configured: bool,
     closed: bool,
     active: bool,
+    resize_allowed: bool,
     
     // Cursor state
     cursor_theme: Option<CursorTheme>,
@@ -270,6 +271,7 @@ impl WaylandState {
             buffer_pool: BufferPool::new(),
             scale_factor: 1,
             cursor_serial: None,
+            resize_allowed: true, // Default to true, will be set during window creation
             ..Default::default()
         }
     }
@@ -567,7 +569,7 @@ impl Dispatch<XdgToplevel, ()> for WaylandState {
     ) {
         match event {
             xdg_toplevel::Event::Configure { width, height, .. } => {
-                if width > 0 && height > 0 {
+                if width > 0 && height > 0 && state.resize_allowed {
                     state.width = width;
                     state.height = height;
                 }
@@ -645,6 +647,9 @@ pub struct Window {
     
     // Update rate
     update_rate: Option<Duration>,
+    
+    // Window properties
+    resize_allowed: bool,
 }
 
 impl Window {
@@ -713,6 +718,7 @@ impl Window {
         state.mouse_pos_sender = Some(mouse_pos_sender);
         state.width = scaled_width as i32;
         state.height = scaled_height as i32;
+        state.resize_allowed = opts.resize;
         
         // Get registry and bind globals
         let registry = display.get_registry(&qh, ());
@@ -744,6 +750,11 @@ impl Window {
             
             xdg_toplevel.set_title(name.to_string());
             xdg_toplevel.set_min_size(scaled_width as i32, scaled_height as i32);
+            
+            // If resize is disabled, also set max size to prevent resizing
+            if !opts.resize {
+                xdg_toplevel.set_max_size(scaled_width as i32, scaled_height as i32);
+            }
             
             // Set up decorations if available
             if let Some(decoration_manager) = &state.decoration_manager {
@@ -797,6 +808,7 @@ impl Window {
             bg_color: 0,
             cursor_visible: true,
             update_rate: None,
+            resize_allowed: opts.resize,
         })
     }
     
@@ -1000,7 +1012,8 @@ impl Window {
         }
         
         // Check if the window was resized by the compositor and update our dimensions
-        if self.state.width != self.width || self.state.height != self.height {
+        // Only allow this if resizing is enabled
+        if self.resize_allowed && (self.state.width != self.width || self.state.height != self.height) {
             self.width = self.state.width;
             self.height = self.state.height;
         }
