@@ -12,13 +12,12 @@ use super::common::{
     image_center, image_resize_linear, image_resize_linear_aspect_fill, image_upper_left, Menu,
 };
 use crate::{
-    check_buffer_size, key_handler::KeyHandler, CursorStyle, Error,
-    InputCallback, Key, KeyRepeat, MenuHandle, MouseButton, MouseMode, Result, Scale,
-    ScaleMode, UnixMenu, WindowOptions,
+    check_buffer_size, key_handler::KeyHandler, CursorStyle, Error, InputCallback, Key, KeyRepeat,
+    MenuHandle, MouseButton, MouseMode, Result, Scale, ScaleMode, UnixMenu, WindowOptions,
 };
 use raw_window_handle::{
-    DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, WindowHandle,
-    WaylandDisplayHandle, WaylandWindowHandle,
+    DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, WaylandDisplayHandle,
+    WaylandWindowHandle, WindowHandle,
 };
 
 use wayland_client::{
@@ -50,51 +49,120 @@ use wayland_protocols::xdg::{
 
 use wayland_cursor::CursorTheme;
 
-
 const BUFFER_COUNT: usize = 2;
 
 // Key mapping from Linux keycodes to minifb Keys
 fn linux_keycode_to_key(keycode: u32) -> Key {
     match keycode {
         // Letters
-        30 => Key::A, 48 => Key::B, 46 => Key::C, 32 => Key::D, 18 => Key::E,
-        33 => Key::F, 34 => Key::G, 35 => Key::H, 23 => Key::I, 36 => Key::J,
-        37 => Key::K, 38 => Key::L, 50 => Key::M, 49 => Key::N, 24 => Key::O,
-        25 => Key::P, 16 => Key::Q, 19 => Key::R, 31 => Key::S, 20 => Key::T,
-        22 => Key::U, 47 => Key::V, 17 => Key::W, 45 => Key::X, 21 => Key::Y,
+        30 => Key::A,
+        48 => Key::B,
+        46 => Key::C,
+        32 => Key::D,
+        18 => Key::E,
+        33 => Key::F,
+        34 => Key::G,
+        35 => Key::H,
+        23 => Key::I,
+        36 => Key::J,
+        37 => Key::K,
+        38 => Key::L,
+        50 => Key::M,
+        49 => Key::N,
+        24 => Key::O,
+        25 => Key::P,
+        16 => Key::Q,
+        19 => Key::R,
+        31 => Key::S,
+        20 => Key::T,
+        22 => Key::U,
+        47 => Key::V,
+        17 => Key::W,
+        45 => Key::X,
+        21 => Key::Y,
         44 => Key::Z,
-        
+
         // Numbers
-        11 => Key::Key0, 2 => Key::Key1, 3 => Key::Key2, 4 => Key::Key3, 5 => Key::Key4,
-        6 => Key::Key5, 7 => Key::Key6, 8 => Key::Key7, 9 => Key::Key8, 10 => Key::Key9,
-        
+        11 => Key::Key0,
+        2 => Key::Key1,
+        3 => Key::Key2,
+        4 => Key::Key3,
+        5 => Key::Key4,
+        6 => Key::Key5,
+        7 => Key::Key6,
+        8 => Key::Key7,
+        9 => Key::Key8,
+        10 => Key::Key9,
+
         // Function keys
-        59 => Key::F1, 60 => Key::F2, 61 => Key::F3, 62 => Key::F4, 63 => Key::F5,
-        64 => Key::F6, 65 => Key::F7, 66 => Key::F8, 67 => Key::F9, 68 => Key::F10,
-        87 => Key::F11, 88 => Key::F12,
-        
-        // Special keys  
-        108 => Key::Down, 105 => Key::Left, 106 => Key::Right, 103 => Key::Up,
-        1 => Key::Escape, 14 => Key::Backspace, 111 => Key::Delete, 107 => Key::End,
-        28 => Key::Enter, 102 => Key::Home, 110 => Key::Insert, 104 => Key::PageUp,
-        109 => Key::PageDown, 119 => Key::Pause, 57 => Key::Space, 15 => Key::Tab,
-        
+        59 => Key::F1,
+        60 => Key::F2,
+        61 => Key::F3,
+        62 => Key::F4,
+        63 => Key::F5,
+        64 => Key::F6,
+        65 => Key::F7,
+        66 => Key::F8,
+        67 => Key::F9,
+        68 => Key::F10,
+        87 => Key::F11,
+        88 => Key::F12,
+
+        // Special keys
+        108 => Key::Down,
+        105 => Key::Left,
+        106 => Key::Right,
+        103 => Key::Up,
+        1 => Key::Escape,
+        14 => Key::Backspace,
+        111 => Key::Delete,
+        107 => Key::End,
+        28 => Key::Enter,
+        102 => Key::Home,
+        110 => Key::Insert,
+        104 => Key::PageUp,
+        109 => Key::PageDown,
+        119 => Key::Pause,
+        57 => Key::Space,
+        15 => Key::Tab,
+
         // Keypad
-        82 => Key::NumPad0, 79 => Key::NumPad1, 80 => Key::NumPad2, 81 => Key::NumPad3,
-        75 => Key::NumPad4, 76 => Key::NumPad5, 77 => Key::NumPad6, 71 => Key::NumPad7,
-        72 => Key::NumPad8, 73 => Key::NumPad9, 83 => Key::NumPadDot, 98 => Key::NumPadSlash,
-        55 => Key::NumPadAsterisk, 74 => Key::NumPadMinus, 78 => Key::NumPadPlus,
+        82 => Key::NumPad0,
+        79 => Key::NumPad1,
+        80 => Key::NumPad2,
+        81 => Key::NumPad3,
+        75 => Key::NumPad4,
+        76 => Key::NumPad5,
+        77 => Key::NumPad6,
+        71 => Key::NumPad7,
+        72 => Key::NumPad8,
+        73 => Key::NumPad9,
+        83 => Key::NumPadDot,
+        98 => Key::NumPadSlash,
+        55 => Key::NumPadAsterisk,
+        74 => Key::NumPadMinus,
+        78 => Key::NumPadPlus,
         96 => Key::NumPadEnter,
-        
+
         // Modifiers
-        42 | 54 => Key::LeftShift, 29 | 97 => Key::LeftCtrl, 56 | 100 => Key::LeftAlt,
-        125 => Key::LeftSuper, 58 => Key::CapsLock,
-        
+        42 | 54 => Key::LeftShift,
+        29 | 97 => Key::LeftCtrl,
+        56 | 100 => Key::LeftAlt,
+        125 => Key::LeftSuper,
+        58 => Key::CapsLock,
+
         // Punctuation
-        12 => Key::Minus, 13 => Key::Equal, 26 => Key::LeftBracket, 27 => Key::RightBracket,
-        43 => Key::Backslash, 39 => Key::Semicolon, 40 => Key::Apostrophe,
-        51 => Key::Comma, 52 => Key::Period, 53 => Key::Slash,
-        
+        12 => Key::Minus,
+        13 => Key::Equal,
+        26 => Key::LeftBracket,
+        27 => Key::RightBracket,
+        43 => Key::Backslash,
+        39 => Key::Semicolon,
+        40 => Key::Apostrophe,
+        51 => Key::Comma,
+        52 => Key::Period,
+        53 => Key::Slash,
+
         _ => Key::Unknown,
     }
 }
@@ -110,9 +178,11 @@ struct Buffer {
 
 impl Buffer {
     fn new(size: usize) -> Result<Buffer> {
-        let file = tempfile::tempfile().map_err(|e| Error::WindowCreate(format!("Failed to create temp file: {}", e)))?;
-        file.set_len(size as u64).map_err(|e| Error::WindowCreate(format!("Failed to set file size: {}", e)))?;
-        
+        let file = tempfile::tempfile()
+            .map_err(|e| Error::WindowCreate(format!("Failed to create temp file: {}", e)))?;
+        file.set_len(size as u64)
+            .map_err(|e| Error::WindowCreate(format!("Failed to set file size: {}", e)))?;
+
         let data = unsafe {
             libc::mmap(
                 std::ptr::null_mut(),
@@ -174,7 +244,13 @@ impl BufferPool {
         }
     }
 
-    fn get_buffer(&mut self, width: i32, height: i32, shm: &WlShm, qh: &QueueHandle<WaylandState>) -> Result<&mut Buffer> {
+    fn get_buffer(
+        &mut self,
+        width: i32,
+        height: i32,
+        shm: &WlShm,
+        qh: &QueueHandle<WaylandState>,
+    ) -> Result<&mut Buffer> {
         if self.width != width || self.height != height {
             self.resize(width, height, shm, qh)?;
         }
@@ -196,10 +272,16 @@ impl BufferPool {
         Err(Error::WindowCreate("No available buffers".to_string()))
     }
 
-    fn resize(&mut self, width: i32, height: i32, shm: &WlShm, qh: &QueueHandle<WaylandState>) -> Result<()> {
+    fn resize(
+        &mut self,
+        width: i32,
+        height: i32,
+        shm: &WlShm,
+        qh: &QueueHandle<WaylandState>,
+    ) -> Result<()> {
         self.width = width;
         self.height = height;
-        
+
         // Clear existing buffers
         self.buffers.clear();
 
@@ -209,13 +291,13 @@ impl BufferPool {
         // Create new buffers
         for _ in 0..BUFFER_COUNT {
             let mut buffer = Buffer::new(size)?;
-            
+
             let pool = shm.create_pool(buffer.file.as_fd(), size as i32, qh, ());
             let wl_buffer = pool.create_buffer(0, width, height, stride, Format::Argb8888, qh, ());
-            
+
             buffer.pool = Some(pool);
             buffer.buffer = Some(wl_buffer);
-            
+
             self.buffers.push(buffer);
         }
 
@@ -234,19 +316,19 @@ struct WaylandState {
     pointer: Option<WlPointer>,
     xdg_wm_base: Option<XdgWmBase>,
     decoration_manager: Option<ZxdgDecorationManagerV1>,
-    
+
     // Window state
     surface: Option<WlSurface>,
     xdg_surface: Option<XdgSurface>,
     xdg_toplevel: Option<XdgToplevel>,
     decoration: Option<ZxdgToplevelDecorationV1>,
-    
+
     // Input state
     key_sender: Option<mpsc::Sender<(Key, bool)>>,
     mouse_sender: Option<mpsc::Sender<(MouseButton, bool)>>,
     scroll_sender: Option<mpsc::Sender<(f32, f32)>>,
     mouse_pos_sender: Option<mpsc::Sender<(f32, f32)>>,
-    
+
     // Window state
     width: i32,
     height: i32,
@@ -255,12 +337,12 @@ struct WaylandState {
     closed: bool,
     active: bool,
     resize_allowed: bool,
-    
+
     // Cursor state
     cursor_theme: Option<CursorTheme>,
     cursor_surface: Option<WlSurface>,
     cursor_serial: Option<u32>,
-    
+
     // Buffer management
     buffer_pool: BufferPool,
 }
@@ -288,31 +370,40 @@ impl Dispatch<WlRegistry, ()> for WaylandState {
         qh: &QueueHandle<Self>,
     ) {
         match event {
-            wl_registry::Event::Global { name, interface, version } => {
-                match interface.as_str() {
-                    "wl_compositor" => {
-                        let compositor = registry.bind::<WlCompositor, _, _>(name, version.min(4), qh, ());
-                        state.compositor = Some(compositor);
-                    }
-                    "wl_shm" => {
-                        let shm = registry.bind::<WlShm, _, _>(name, version.min(1), qh, ());
-                        state.shm = Some(shm);
-                    }
-                    "wl_seat" => {
-                        let seat = registry.bind::<WlSeat, _, _>(name, version.min(7), qh, ());
-                        state.seat = Some(seat);
-                    }
-                    "xdg_wm_base" => {
-                        let xdg_wm_base = registry.bind::<XdgWmBase, _, _>(name, version.min(2), qh, ());
-                        state.xdg_wm_base = Some(xdg_wm_base);
-                    }
-                    "zxdg_decoration_manager_v1" => {
-                        let decoration_manager = registry.bind::<ZxdgDecorationManagerV1, _, _>(name, version.min(1), qh, ());
-                        state.decoration_manager = Some(decoration_manager);
-                    }
-                    _ => {}
+            wl_registry::Event::Global {
+                name,
+                interface,
+                version,
+            } => match interface.as_str() {
+                "wl_compositor" => {
+                    let compositor =
+                        registry.bind::<WlCompositor, _, _>(name, version.min(4), qh, ());
+                    state.compositor = Some(compositor);
                 }
-            }
+                "wl_shm" => {
+                    let shm = registry.bind::<WlShm, _, _>(name, version.min(1), qh, ());
+                    state.shm = Some(shm);
+                }
+                "wl_seat" => {
+                    let seat = registry.bind::<WlSeat, _, _>(name, version.min(7), qh, ());
+                    state.seat = Some(seat);
+                }
+                "xdg_wm_base" => {
+                    let xdg_wm_base =
+                        registry.bind::<XdgWmBase, _, _>(name, version.min(2), qh, ());
+                    state.xdg_wm_base = Some(xdg_wm_base);
+                }
+                "zxdg_decoration_manager_v1" => {
+                    let decoration_manager = registry.bind::<ZxdgDecorationManagerV1, _, _>(
+                        name,
+                        version.min(1),
+                        qh,
+                        (),
+                    );
+                    state.decoration_manager = Some(decoration_manager);
+                }
+                _ => {}
+            },
             wl_registry::Event::GlobalRemove { .. } => {}
             _ => {}
         }
@@ -437,7 +528,11 @@ impl Dispatch<WlKeyboard, ()> for WaylandState {
         _: &QueueHandle<Self>,
     ) {
         match event {
-            wl_keyboard::Event::Key { key, state: key_state, .. } => {
+            wl_keyboard::Event::Key {
+                key,
+                state: key_state,
+                ..
+            } => {
                 if let Some(sender) = &state.key_sender {
                     let pressed = matches!(key_state, WEnum::Value(wl_keyboard::KeyState::Pressed));
                     let key_enum = linux_keycode_to_key(key);
@@ -450,7 +545,11 @@ impl Dispatch<WlKeyboard, ()> for WaylandState {
             wl_keyboard::Event::Leave { .. } => {
                 state.active = false;
             }
-            wl_keyboard::Event::Keymap { format: _, fd: _, size: _ } => {
+            wl_keyboard::Event::Keymap {
+                format: _,
+                fd: _,
+                size: _,
+            } => {
                 // Handle keymap - for now just acknowledge it
             }
             wl_keyboard::Event::RepeatInfo { rate: _, delay: _ } => {
@@ -472,10 +571,16 @@ impl Dispatch<WlPointer, ()> for WaylandState {
         _: &QueueHandle<Self>,
     ) {
         match event {
-            wl_pointer::Event::Button { button, state: button_state, serial, .. } => {
+            wl_pointer::Event::Button {
+                button,
+                state: button_state,
+                serial,
+                ..
+            } => {
                 state.cursor_serial = Some(serial);
                 if let Some(sender) = &state.mouse_sender {
-                    let pressed = matches!(button_state, WEnum::Value(wl_pointer::ButtonState::Pressed));
+                    let pressed =
+                        matches!(button_state, WEnum::Value(wl_pointer::ButtonState::Pressed));
                     let mouse_button = match button {
                         272 => MouseButton::Left,
                         273 => MouseButton::Right,
@@ -498,12 +603,21 @@ impl Dispatch<WlPointer, ()> for WaylandState {
                     }
                 }
             }
-            wl_pointer::Event::Motion { surface_x, surface_y, .. } => {
+            wl_pointer::Event::Motion {
+                surface_x,
+                surface_y,
+                ..
+            } => {
                 if let Some(sender) = &state.mouse_pos_sender {
                     let _ = sender.send((surface_x as f32, surface_y as f32));
                 }
             }
-            wl_pointer::Event::Enter { serial, surface_x, surface_y, .. } => {
+            wl_pointer::Event::Enter {
+                serial,
+                surface_x,
+                surface_y,
+                ..
+            } => {
                 state.active = true;
                 state.cursor_serial = Some(serial);
                 if let Some(sender) = &state.mouse_pos_sender {
@@ -612,13 +726,13 @@ pub struct Window {
     connection: Connection,
     event_queue: EventQueue<WaylandState>,
     state: WaylandState,
-    
+
     // Input channels
     key_receiver: mpsc::Receiver<(Key, bool)>,
     mouse_receiver: mpsc::Receiver<(MouseButton, bool)>,
     scroll_receiver: mpsc::Receiver<(f32, f32)>,
     mouse_pos_receiver: mpsc::Receiver<(f32, f32)>,
-    
+
     // Window properties
     width: i32,        // Actual window width (scaled)
     height: i32,       // Actual window height (scaled)
@@ -626,7 +740,7 @@ pub struct Window {
     buf_height: i32,   // Original buffer height (unscaled)
     scale_factor: i32, // Scale factor applied to window
     scale_mode: ScaleMode,
-    
+
     // Input state
     keys: [bool; 512],
     key_states: std::collections::HashMap<Key, bool>,
@@ -635,19 +749,19 @@ pub struct Window {
     scroll_y: f32,
     mouse_x: f32,
     mouse_y: f32,
-    
+
     // Callbacks
     key_handler: KeyHandler,
-    
+
     // Background color
     bg_color: u32,
-    
+
     // Cursor visibility
     cursor_visible: bool,
-    
+
     // Update rate
     update_rate: Option<Duration>,
-    
+
     // Window properties
     resize_allowed: bool,
 }
@@ -693,24 +807,24 @@ impl Window {
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
         let connection = Connection::connect_to_env()
             .map_err(|e| Error::WindowCreate(format!("Failed to connect to Wayland: {}", e)))?;
-        
+
         let display = connection.display();
         let mut event_queue = connection.new_event_queue();
         let qh = event_queue.handle();
-        
+
         // Apply scale factor to window dimensions like X11 does
         // For Wayland, use reasonable default screen dimensions (1920x1080) for scale calculation
         // since we don't have easy access to actual screen size during initial setup
         let scale_factor = Self::get_scale_factor(width, height, 1920, 1080, opts.scale);
         let scaled_width = width * scale_factor;
         let scaled_height = height * scale_factor;
-        
+
         // Create channels for input events
         let (key_sender, key_receiver) = mpsc::channel();
         let (mouse_sender, mouse_receiver) = mpsc::channel();
         let (scroll_sender, scroll_receiver) = mpsc::channel();
         let (mouse_pos_sender, mouse_pos_receiver) = mpsc::channel();
-        
+
         let mut state = WaylandState::new();
         state.key_sender = Some(key_sender);
         state.mouse_sender = Some(mouse_sender);
@@ -719,15 +833,16 @@ impl Window {
         state.width = scaled_width as i32;
         state.height = scaled_height as i32;
         state.resize_allowed = opts.resize;
-        
+
         // Get registry and bind globals
         let registry = display.get_registry(&qh, ());
         state.registry = Some(registry);
-        
+
         // Initial roundtrip to get globals
-        event_queue.roundtrip(&mut state)
+        event_queue
+            .roundtrip(&mut state)
             .map_err(|e| Error::WindowCreate(format!("Failed to roundtrip: {}", e)))?;
-        
+
         // Initialize cursor theme and surface
         if let (Some(compositor), Some(shm)) = (&state.compositor, &state.shm) {
             match CursorTheme::load(&connection, shm.clone(), 24) {
@@ -747,42 +862,44 @@ impl Window {
             let surface = compositor.create_surface(&qh, ());
             let xdg_surface = xdg_wm_base.get_xdg_surface(&surface, &qh, ());
             let xdg_toplevel = xdg_surface.get_toplevel(&qh, ());
-            
+
             xdg_toplevel.set_title(name.to_string());
             xdg_toplevel.set_min_size(scaled_width as i32, scaled_height as i32);
-            
+
             // If resize is disabled, also set max size to prevent resizing
             if !opts.resize {
                 xdg_toplevel.set_max_size(scaled_width as i32, scaled_height as i32);
             }
-            
+
             // Set up decorations if available
             if let Some(decoration_manager) = &state.decoration_manager {
                 let decoration = decoration_manager.get_toplevel_decoration(&xdg_toplevel, &qh, ());
                 decoration.set_mode(zxdg_toplevel_decoration_v1::Mode::ServerSide);
                 state.decoration = Some(decoration);
             }
-            
+
             state.surface = Some(surface);
             state.xdg_surface = Some(xdg_surface);
             state.xdg_toplevel = Some(xdg_toplevel);
-            
+
             // Surface must be committed after creating XDG surface
             if let Some(surface) = &state.surface {
                 surface.commit();
             }
         }
-        
+
         // Wait for initial configure
         while !state.configured {
-            event_queue.blocking_dispatch(&mut state)
+            event_queue
+                .blocking_dispatch(&mut state)
                 .map_err(|e| Error::WindowCreate(format!("Failed to dispatch events: {}", e)))?;
         }
-        
+
         // Additional roundtrip to ensure everything is set up
-        event_queue.roundtrip(&mut state)
+        event_queue
+            .roundtrip(&mut state)
             .map_err(|e| Error::WindowCreate(format!("Failed to complete setup: {}", e)))?;
-        
+
         Ok(Window {
             connection,
             event_queue,
@@ -811,16 +928,20 @@ impl Window {
             resize_allowed: opts.resize,
         })
     }
-    
+
     pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
-        self.update_with_buffer_stride(buffer, self.buf_width as usize, self.buf_height as usize, self.buf_width as usize)
+        self.update_with_buffer_stride(
+            buffer,
+            self.buf_width as usize,
+            self.buf_height as usize,
+            self.buf_width as usize,
+        )
     }
-    
-    
+
     pub fn is_open(&self) -> bool {
         !self.state.closed
     }
-    
+
     pub fn get_keys(&self) -> Vec<Key> {
         let mut keys = Vec::new();
         for (i, &pressed) in self.keys.iter().enumerate() {
@@ -833,16 +954,16 @@ impl Window {
         }
         keys
     }
-    
+
     pub fn get_keys_pressed(&self, _repeat: KeyRepeat) -> Vec<Key> {
         // For now, just return currently pressed keys
         self.get_keys()
     }
-    
+
     pub fn is_key_down(&self, key: Key) -> bool {
         self.key_states.get(&key).copied().unwrap_or(false)
     }
-    
+
     pub fn get_mouse_down(&self, button: MouseButton) -> bool {
         let index = match button {
             MouseButton::Left => 0,
@@ -851,7 +972,7 @@ impl Window {
         };
         self.mouse_buttons[index]
     }
-    
+
     pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         let s = self.scale_factor as f32;
         let w = self.width as f32;
@@ -859,21 +980,21 @@ impl Window {
 
         mode.get_pos(self.mouse_x, self.mouse_y, s, w, h)
     }
-    
+
     pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
         Some((self.scroll_x, self.scroll_y))
     }
-    
+
     pub fn set_cursor_style(&mut self, cursor: CursorStyle) {
         if !self.cursor_visible {
             return;
         }
-        
+
         let serial = match self.state.cursor_serial {
             Some(s) => s,
             None => return, // No serial available
         };
-        
+
         let cursor_name = match cursor {
             CursorStyle::Arrow => "default",
             CursorStyle::Ibeam => "text",
@@ -884,21 +1005,23 @@ impl Window {
             CursorStyle::ResizeLeftRight => "ew-resize",
             CursorStyle::ResizeAll => "all-scroll",
         };
-        
-        if let (Some(cursor_theme), Some(pointer), Some(cursor_surface)) = 
-            (&mut self.state.cursor_theme, &self.state.pointer, &self.state.cursor_surface) {
-            
+
+        if let (Some(cursor_theme), Some(pointer), Some(cursor_surface)) = (
+            &mut self.state.cursor_theme,
+            &self.state.pointer,
+            &self.state.cursor_surface,
+        ) {
             if let Some(cursor_img) = cursor_theme.get_cursor(cursor_name) {
                 let image = &cursor_img[0]; // Use Index trait to get first image
                 cursor_surface.attach(Some(image), 0, 0);
                 cursor_surface.damage(0, 0, 32, 32);
                 cursor_surface.commit();
-                
+
                 pointer.set_cursor(serial, Some(cursor_surface), 0, 0);
             }
         }
     }
-    
+
     pub fn get_window_handle(&self) -> *mut c_void {
         if let Some(surface) = &self.state.surface {
             surface as *const _ as *mut c_void
@@ -938,67 +1061,73 @@ impl Window {
             xdg_toplevel.set_title(title.to_string());
         }
     }
-    
+
     pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>) {
         self.key_handler.set_input_callback(callback);
     }
-    
+
     pub fn is_active(&self) -> bool {
         self.state.active
     }
-    
+
     pub fn get_size(&self) -> (usize, usize) {
         (self.width as usize, self.height as usize)
     }
-    
+
     pub fn get_position(&self) -> (isize, isize) {
         // Wayland doesn't provide a way to get window position
         // This is by design for security and compositing reasons
         (0, 0)
     }
-    
+
     pub fn set_position(&mut self, _x: isize, _y: isize) {
         // Wayland doesn't allow clients to set their own position
         // This is handled by the compositor for security and consistency
     }
-    
+
     pub fn topmost(&mut self, _topmost: bool) {
         // Wayland doesn't provide a direct way to control window stacking
         // This is managed by the compositor
     }
-    
+
     pub fn set_background_color(&mut self, color: u32) {
         // Store background color for use during rendering
         // This will be used when clearing/filling the buffer
         self.bg_color = color;
     }
-    
+
     pub fn add_menu(&mut self, _menu: &Menu) -> MenuHandle {
         // Wayland doesn't provide native menu support at the protocol level
         // Menus are typically implemented by the application itself
         MenuHandle(0)
     }
-    
+
     pub fn get_posix_menus(&self) -> Option<&Vec<UnixMenu>> {
         // Wayland doesn't provide native menu support
         None
     }
-    
+
     pub fn remove_menu(&mut self, _handle: MenuHandle) {
         // Wayland doesn't provide native menu support
     }
-    
+
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
         // Wayland doesn't provide native menu support
         None
     }
-    
-    pub fn update_with_buffer_stride(&mut self, buffer: &[u32], buf_width: usize, buf_height: usize, _buf_stride: usize) -> Result<()> {
+
+    pub fn update_with_buffer_stride(
+        &mut self,
+        buffer: &[u32],
+        buf_width: usize,
+        buf_height: usize,
+        _buf_stride: usize,
+    ) -> Result<()> {
         check_buffer_size(buffer, buf_width, buf_height, buf_width)?;
-        
+
         // Don't override window dimensions with buffer dimensions
         // The window size should be controlled by the compositor, not the buffer size
-        
+
         // Process events first to handle input and buffer releases
         // Use roundtrip every few frames to ensure we read new events
         static mut FRAME_COUNT: u32 = 0;
@@ -1006,22 +1135,28 @@ impl Window {
             FRAME_COUNT += 1;
             if FRAME_COUNT % 3 == 0 {
                 // Every 3rd frame, do a full roundtrip to read new events
-                self.event_queue.roundtrip(&mut self.state)
+                self.event_queue
+                    .roundtrip(&mut self.state)
                     .map_err(|e| Error::UpdateFailed(format!("Failed to roundtrip: {}", e)))?;
             } else {
                 // Other frames, just dispatch what's already queued
-                self.event_queue.dispatch_pending(&mut self.state)
-                    .map_err(|e| Error::UpdateFailed(format!("Failed to dispatch events: {}", e)))?;
+                self.event_queue
+                    .dispatch_pending(&mut self.state)
+                    .map_err(|e| {
+                        Error::UpdateFailed(format!("Failed to dispatch events: {}", e))
+                    })?;
             }
         }
-        
+
         // Check if the window was resized by the compositor and update our dimensions
         // Only allow this if resizing is enabled
-        if self.resize_allowed && (self.state.width != self.width || self.state.height != self.height) {
+        if self.resize_allowed
+            && (self.state.width != self.width || self.state.height != self.height)
+        {
             self.width = self.state.width;
             self.height = self.state.height;
         }
-        
+
         // Process input events
         while let Ok((key, pressed)) = self.key_receiver.try_recv() {
             self.key_states.insert(key, pressed);
@@ -1030,7 +1165,7 @@ impl Window {
                 self.keys[key_index] = pressed;
             }
         }
-        
+
         while let Ok((button, pressed)) = self.mouse_receiver.try_recv() {
             let index = match button {
                 MouseButton::Left => 0,
@@ -1039,39 +1174,44 @@ impl Window {
             };
             self.mouse_buttons[index] = pressed;
         }
-        
+
         while let Ok((scroll_x, scroll_y)) = self.scroll_receiver.try_recv() {
             self.scroll_x = scroll_x;
             self.scroll_y = scroll_y;
         }
-        
+
         while let Ok((mouse_x, mouse_y)) = self.mouse_pos_receiver.try_recv() {
             self.mouse_x = mouse_x;
             self.mouse_y = mouse_y;
         }
-        
+
         // Check if we have necessary objects and update buffer
         let has_surface_and_shm = self.state.surface.is_some() && self.state.shm.is_some();
         if has_surface_and_shm {
             let qh = self.event_queue.handle();
-            
+
             // Use the actual window dimensions for the buffer
             let window_width = self.width;
             let window_height = self.height;
-            
+
             // Retry buffer allocation if the first attempt fails
             let mut retries = 0;
             while retries < 5 {
-                match self.state.buffer_pool.get_buffer(window_width, window_height, 
-                                                        self.state.shm.as_ref().unwrap(), &qh) {
+                match self.state.buffer_pool.get_buffer(
+                    window_width,
+                    window_height,
+                    self.state.shm.as_ref().unwrap(),
+                    &qh,
+                ) {
                     Ok(buffer_obj) => {
                         let buffer_data = buffer_obj.get_data();
-                        
+
                         // Create intermediate RGBA buffer for scaling operations
                         let window_width_usize = window_width as usize;
                         let window_height_usize = window_height as usize;
-                        let mut draw_buffer: Vec<u32> = vec![0; window_width_usize * window_height_usize];
-                        
+                        let mut draw_buffer: Vec<u32> =
+                            vec![0; window_width_usize * window_height_usize];
+
                         // Apply scaling based on scale mode (like X11's raw_blit_buffer)
                         unsafe {
                             match self.scale_mode {
@@ -1124,7 +1264,7 @@ impl Window {
                                 }
                             }
                         }
-                        
+
                         // Convert scaled RGBA buffer to BGRA format for Wayland
                         for (i, &pixel) in draw_buffer.iter().enumerate() {
                             let offset = i * 4;
@@ -1133,15 +1273,15 @@ impl Window {
                                 let r = ((pixel >> 16) & 0xFF) as u8;
                                 let g = ((pixel >> 8) & 0xFF) as u8;
                                 let b = (pixel & 0xFF) as u8;
-                                
+
                                 // Write as ARGB8888 (little endian: BGRA)
-                                buffer_data[offset] = b;     // Blue
+                                buffer_data[offset] = b; // Blue
                                 buffer_data[offset + 1] = g; // Green
                                 buffer_data[offset + 2] = r; // Red
                                 buffer_data[offset + 3] = 0xFF; // Alpha (fully opaque)
                             }
                         }
-                        
+
                         // Attach and commit
                         if let Some(wl_buffer) = &buffer_obj.buffer {
                             let surface = self.state.surface.as_ref().unwrap();
@@ -1149,7 +1289,7 @@ impl Window {
                             surface.damage_buffer(0, 0, window_width, window_height);
                             surface.commit();
                             buffer_obj.busy = true;
-                            
+
                             // Ensure compositor processes the frame
                             let _ = self.connection.flush();
                         }
@@ -1159,7 +1299,7 @@ impl Window {
                         // Try to process more events to release buffers
                         let _ = self.event_queue.dispatch_pending(&mut self.state);
                         retries += 1;
-                        
+
                         // If we're out of retries, just continue - we'll try again next frame
                         if retries >= 5 {
                             break;
@@ -1168,17 +1308,17 @@ impl Window {
                 }
             }
         }
-        
+
         // Additional dispatch to ensure frame is sent to compositor
         let _ = self.event_queue.dispatch_pending(&mut self.state);
-        
+
         Ok(())
     }
-    
+
     pub fn update(&mut self) {
         // Process events
         let _ = self.event_queue.dispatch_pending(&mut self.state);
-        
+
         // Process input events
         while let Ok((key, pressed)) = self.key_receiver.try_recv() {
             self.key_states.insert(key, pressed);
@@ -1187,7 +1327,7 @@ impl Window {
                 self.keys[key_index] = pressed;
             }
         }
-        
+
         while let Ok((button, pressed)) = self.mouse_receiver.try_recv() {
             let index = match button {
                 MouseButton::Left => 0,
@@ -1196,47 +1336,47 @@ impl Window {
             };
             self.mouse_buttons[index] = pressed;
         }
-        
+
         while let Ok((scroll_x, scroll_y)) = self.scroll_receiver.try_recv() {
             self.scroll_x = scroll_x;
             self.scroll_y = scroll_y;
         }
-        
+
         while let Ok((mouse_x, mouse_y)) = self.mouse_pos_receiver.try_recv() {
             self.mouse_x = mouse_x;
             self.mouse_y = mouse_y;
         }
     }
-    
+
     pub fn set_rate(&mut self, rate: Option<Duration>) {
         // Store the desired update rate
         self.update_rate = rate;
     }
-    
+
     pub fn update_rate(&mut self) {
         // Rate limiting is handled by the application
         // This is a no-op in Wayland as frame timing is controlled by the compositor
     }
-    
+
     pub fn set_key_repeat_delay(&mut self, delay: f32) {
         self.key_handler.set_key_repeat_delay(delay);
     }
-    
+
     pub fn set_key_repeat_rate(&mut self, rate: f32) {
         self.key_handler.set_key_repeat_rate(rate);
     }
-    
+
     pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
         self.key_handler.is_key_pressed(key, repeat)
     }
-    
+
     pub fn is_key_released(&self, key: Key) -> bool {
         self.key_handler.is_key_released(key)
     }
-    
+
     pub fn set_cursor_visibility(&mut self, visibility: bool) {
         self.cursor_visible = visibility;
-        
+
         // If we have a pointer and serial, apply cursor visibility immediately
         if let (Some(pointer), Some(serial)) = (&self.state.pointer, self.state.cursor_serial) {
             if visibility {
@@ -1248,20 +1388,26 @@ impl Window {
             }
         }
     }
-    
+
     pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
         // Return mouse position without scaling
-        mode.get_pos(self.mouse_x, self.mouse_y, 1.0, self.width as f32, self.height as f32)
+        mode.get_pos(
+            self.mouse_x,
+            self.mouse_y,
+            1.0,
+            self.width as f32,
+            self.height as f32,
+        )
     }
-    
+
     pub fn limit_update_rate(&mut self, rate: Option<Duration>) {
         self.update_rate = rate;
     }
-    
+
     pub fn get_keys_released(&self) -> Vec<Key> {
         self.key_handler.get_keys_released()
     }
-    
+
     pub fn set_target_fps(&mut self, fps: u64) {
         if fps > 0 {
             let frame_time = Duration::from_secs(1) / fps as u32;
