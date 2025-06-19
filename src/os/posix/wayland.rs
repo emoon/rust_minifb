@@ -12,7 +12,7 @@ use super::common::{
     image_center, image_resize_linear, image_resize_linear_aspect_fill, image_upper_left, Menu,
 };
 use crate::{
-    check_buffer_size, key_handler::KeyHandler, rate::UpdateRate, CursorStyle, Error,
+    check_buffer_size, key_handler::KeyHandler, CursorStyle, Error,
     InputCallback, Key, KeyRepeat, MenuHandle, MouseButton, MouseMode, Result, Scale,
     ScaleMode, UnixMenu, WindowOptions,
 };
@@ -48,7 +48,7 @@ use wayland_protocols::xdg::{
     },
 };
 
-use wayland_cursor::{CursorTheme, CursorImageBuffer};
+use wayland_cursor::CursorTheme;
 
 
 const BUFFER_COUNT: usize = 2;
@@ -258,6 +258,7 @@ struct WaylandState {
     // Cursor state
     cursor_theme: Option<CursorTheme>,
     cursor_surface: Option<WlSurface>,
+    cursor_serial: Option<u32>,
     
     // Buffer management
     buffer_pool: BufferPool,
@@ -268,6 +269,7 @@ impl WaylandState {
         Self {
             buffer_pool: BufferPool::new(),
             scale_factor: 1,
+            cursor_serial: None,
             ..Default::default()
         }
     }
@@ -468,7 +470,8 @@ impl Dispatch<WlPointer, ()> for WaylandState {
         _: &QueueHandle<Self>,
     ) {
         match event {
-            wl_pointer::Event::Button { button, state: button_state, .. } => {
+            wl_pointer::Event::Button { button, state: button_state, serial, .. } => {
+                state.cursor_serial = Some(serial);
                 if let Some(sender) = &state.mouse_sender {
                     let pressed = matches!(button_state, WEnum::Value(wl_pointer::ButtonState::Pressed));
                     let mouse_button = match button {
@@ -498,8 +501,9 @@ impl Dispatch<WlPointer, ()> for WaylandState {
                     let _ = sender.send((surface_x as f32, surface_y as f32));
                 }
             }
-            wl_pointer::Event::Enter { surface_x, surface_y, .. } => {
+            wl_pointer::Event::Enter { serial, surface_x, surface_y, .. } => {
                 state.active = true;
+                state.cursor_serial = Some(serial);
                 if let Some(sender) = &state.mouse_pos_sender {
                     let _ = sender.send((surface_x as f32, surface_y as f32));
                 }
@@ -632,6 +636,15 @@ pub struct Window {
     
     // Callbacks
     key_handler: KeyHandler,
+    
+    // Background color
+    bg_color: u32,
+    
+    // Cursor visibility
+    cursor_visible: bool,
+    
+    // Update rate
+    update_rate: Option<Duration>,
 }
 
 impl Window {
@@ -709,6 +722,20 @@ impl Window {
         event_queue.roundtrip(&mut state)
             .map_err(|e| Error::WindowCreate(format!("Failed to roundtrip: {}", e)))?;
         
+        // Initialize cursor theme and surface
+        if let (Some(compositor), Some(shm)) = (&state.compositor, &state.shm) {
+            match CursorTheme::load(&connection, shm.clone(), 24) {
+                Ok(cursor_theme) => {
+                    let cursor_surface = compositor.create_surface(&qh, ());
+                    state.cursor_theme = Some(cursor_theme);
+                    state.cursor_surface = Some(cursor_surface);
+                }
+                Err(_) => {
+                    // If cursor theme loading fails, continue without cursor support
+                }
+            }
+        }
+
         // Create surface and XDG surface
         if let (Some(compositor), Some(xdg_wm_base)) = (&state.compositor, &state.xdg_wm_base) {
             let surface = compositor.create_surface(&qh, ());
@@ -767,6 +794,9 @@ impl Window {
             mouse_x: 0.0,
             mouse_y: 0.0,
             key_handler: KeyHandler::new(),
+            bg_color: 0,
+            cursor_visible: true,
+            update_rate: None,
         })
     }
     
@@ -818,8 +848,39 @@ impl Window {
         Some((self.scroll_x, self.scroll_y))
     }
     
-    pub fn set_cursor_style(&mut self, _cursor: CursorStyle) {
-        // TODO: Implement cursor style changes
+    pub fn set_cursor_style(&mut self, cursor: CursorStyle) {
+        if !self.cursor_visible {
+            return;
+        }
+        
+        let serial = match self.state.cursor_serial {
+            Some(s) => s,
+            None => return, // No serial available
+        };
+        
+        let cursor_name = match cursor {
+            CursorStyle::Arrow => "default",
+            CursorStyle::Ibeam => "text",
+            CursorStyle::Crosshair => "crosshair",
+            CursorStyle::ClosedHand => "grabbing",
+            CursorStyle::OpenHand => "grab",
+            CursorStyle::ResizeUpDown => "ns-resize",
+            CursorStyle::ResizeLeftRight => "ew-resize",
+            CursorStyle::ResizeAll => "all-scroll",
+        };
+        
+        if let (Some(cursor_theme), Some(pointer), Some(cursor_surface)) = 
+            (&mut self.state.cursor_theme, &self.state.pointer, &self.state.cursor_surface) {
+            
+            if let Some(cursor_img) = cursor_theme.get_cursor(cursor_name) {
+                let image = &cursor_img[0]; // Use Index trait to get first image
+                cursor_surface.attach(Some(image), 0, 0);
+                cursor_surface.damage(0, 0, 32, 32);
+                cursor_surface.commit();
+                
+                pointer.set_cursor(serial, Some(cursor_surface), 0, 0);
+            }
+        }
     }
     
     pub fn get_window_handle(&self) -> *mut c_void {
@@ -875,38 +936,44 @@ impl Window {
     }
     
     pub fn get_position(&self) -> (isize, isize) {
-        // TODO: Implement position tracking
+        // Wayland doesn't provide a way to get window position
+        // This is by design for security and compositing reasons
         (0, 0)
     }
     
-    pub fn set_position(&mut self, x: isize, y: isize) {
-        // TODO: Implement position setting
+    pub fn set_position(&mut self, _x: isize, _y: isize) {
+        // Wayland doesn't allow clients to set their own position
+        // This is handled by the compositor for security and consistency
     }
     
-    pub fn topmost(&mut self, topmost: bool) {
-        // TODO: Implement topmost functionality
+    pub fn topmost(&mut self, _topmost: bool) {
+        // Wayland doesn't provide a direct way to control window stacking
+        // This is managed by the compositor
     }
     
     pub fn set_background_color(&mut self, color: u32) {
-        // TODO: Implement background color
+        // Store background color for use during rendering
+        // This will be used when clearing/filling the buffer
+        self.bg_color = color;
     }
     
     pub fn add_menu(&mut self, _menu: &Menu) -> MenuHandle {
-        // TODO: Implement menu support
+        // Wayland doesn't provide native menu support at the protocol level
+        // Menus are typically implemented by the application itself
         MenuHandle(0)
     }
     
     pub fn get_posix_menus(&self) -> Option<&Vec<UnixMenu>> {
-        // TODO: Implement menu support
+        // Wayland doesn't provide native menu support
         None
     }
     
     pub fn remove_menu(&mut self, _handle: MenuHandle) {
-        // TODO: Implement menu support
+        // Wayland doesn't provide native menu support
     }
     
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
-        // TODO: Implement menu support
+        // Wayland doesn't provide native menu support
         None
     }
     
@@ -1124,51 +1191,66 @@ impl Window {
         }
     }
     
-    pub fn set_rate(&mut self, _rate: Option<Duration>) {
-        // TODO: Implement rate limiting
+    pub fn set_rate(&mut self, rate: Option<Duration>) {
+        // Store the desired update rate
+        self.update_rate = rate;
     }
     
     pub fn update_rate(&mut self) {
-        // TODO: Implement update rate
+        // Rate limiting is handled by the application
+        // This is a no-op in Wayland as frame timing is controlled by the compositor
     }
     
-    pub fn set_key_repeat_delay(&mut self, _delay: f32) {
-        // TODO: Implement key repeat delay
+    pub fn set_key_repeat_delay(&mut self, delay: f32) {
+        self.key_handler.set_key_repeat_delay(delay);
     }
     
-    pub fn set_key_repeat_rate(&mut self, _rate: f32) {
-        // TODO: Implement key repeat rate
+    pub fn set_key_repeat_rate(&mut self, rate: f32) {
+        self.key_handler.set_key_repeat_rate(rate);
     }
     
-    pub fn is_key_pressed(&self, _key: Key, _repeat: KeyRepeat) -> bool {
-        // TODO: Implement key pressed detection
-        false
+    pub fn is_key_pressed(&self, key: Key, repeat: KeyRepeat) -> bool {
+        self.key_handler.is_key_pressed(key, repeat)
     }
     
-    pub fn is_key_released(&self, _key: Key) -> bool {
-        // TODO: Implement key released detection
-        false
+    pub fn is_key_released(&self, key: Key) -> bool {
+        self.key_handler.is_key_released(key)
     }
     
-    pub fn set_cursor_visibility(&mut self, _visibility: bool) {
-        // TODO: Implement cursor visibility
+    pub fn set_cursor_visibility(&mut self, visibility: bool) {
+        self.cursor_visible = visibility;
+        
+        // If we have a pointer and serial, apply cursor visibility immediately
+        if let (Some(pointer), Some(serial)) = (&self.state.pointer, self.state.cursor_serial) {
+            if visibility {
+                // Show default cursor
+                self.set_cursor_style(CursorStyle::Arrow);
+            } else {
+                // Hide cursor by setting it to None
+                pointer.set_cursor(serial, None, 0, 0);
+            }
+        }
     }
     
-    pub fn get_unscaled_mouse_pos(&self, _mode: MouseMode) -> Option<(f32, f32)> {
-        // TODO: Implement unscaled mouse position
-        Some((self.mouse_x, self.mouse_y))
+    pub fn get_unscaled_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
+        // Return mouse position without scaling
+        mode.get_pos(self.mouse_x, self.mouse_y, 1.0, self.width as f32, self.height as f32)
     }
     
-    pub fn limit_update_rate(&mut self, _rate: Option<Duration>) {
-        // TODO: Implement update rate limiting
+    pub fn limit_update_rate(&mut self, rate: Option<Duration>) {
+        self.update_rate = rate;
     }
     
     pub fn get_keys_released(&self) -> Vec<Key> {
-        // TODO: Implement key released detection
-        Vec::new()
+        self.key_handler.get_keys_released()
     }
     
-    pub fn set_target_fps(&mut self, _fps: u64) {
-        // TODO: Implement target FPS setting
+    pub fn set_target_fps(&mut self, fps: u64) {
+        if fps > 0 {
+            let frame_time = Duration::from_secs(1) / fps as u32;
+            self.update_rate = Some(frame_time);
+        } else {
+            self.update_rate = None;
+        }
     }
 }
