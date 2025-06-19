@@ -8,11 +8,13 @@ use std::{
     time::Duration,
 };
 
-use super::common::Menu;
+use super::common::{
+    image_center, image_resize_linear, image_resize_linear_aspect_fill, image_upper_left, Menu,
+};
 use crate::{
     check_buffer_size, key_handler::KeyHandler, rate::UpdateRate, CursorStyle, Error,
-    InputCallback, Key, KeyRepeat, MenuHandle, MouseButton, MouseMode, Result,
-    UnixMenu, WindowOptions,
+    InputCallback, Key, KeyRepeat, MenuHandle, MouseButton, MouseMode, Result, Scale,
+    ScaleMode, UnixMenu, WindowOptions,
 };
 use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, WindowHandle,
@@ -612,9 +614,12 @@ pub struct Window {
     mouse_pos_receiver: mpsc::Receiver<(f32, f32)>,
     
     // Window properties
-    width: i32,
-    height: i32,
-    scale_factor: f32,
+    width: i32,        // Actual window width (scaled)
+    height: i32,       // Actual window height (scaled)
+    buf_width: i32,    // Original buffer width (unscaled)
+    buf_height: i32,   // Original buffer height (unscaled)
+    scale_factor: i32, // Scale factor applied to window
+    scale_mode: ScaleMode,
     
     // Input state
     keys: [bool; 512],
@@ -630,6 +635,43 @@ pub struct Window {
 }
 
 impl Window {
+    fn get_scale_factor(
+        width: usize,
+        height: usize,
+        screen_width: usize,
+        screen_height: usize,
+        scale: Scale,
+    ) -> usize {
+        match scale {
+            Scale::X1 => 1,
+            Scale::X2 => 2,
+            Scale::X4 => 4,
+            Scale::X8 => 8,
+            Scale::X16 => 16,
+            Scale::X32 => 32,
+            Scale::FitScreen => {
+                let mut scale = 1;
+
+                loop {
+                    let w = width * (scale + 1);
+                    let h = height * (scale + 1);
+
+                    if w >= screen_width || h >= screen_height {
+                        break;
+                    }
+
+                    scale *= 2;
+                }
+
+                if scale >= 32 {
+                    32
+                } else {
+                    scale
+                }
+            }
+        }
+    }
+
     pub fn new(name: &str, width: usize, height: usize, opts: WindowOptions) -> Result<Window> {
         let connection = Connection::connect_to_env()
             .map_err(|e| Error::WindowCreate(format!("Failed to connect to Wayland: {}", e)))?;
@@ -637,6 +679,13 @@ impl Window {
         let display = connection.display();
         let mut event_queue = connection.new_event_queue();
         let qh = event_queue.handle();
+        
+        // Apply scale factor to window dimensions like X11 does
+        // For Wayland, use reasonable default screen dimensions (1920x1080) for scale calculation
+        // since we don't have easy access to actual screen size during initial setup
+        let scale_factor = Self::get_scale_factor(width, height, 1920, 1080, opts.scale);
+        let scaled_width = width * scale_factor;
+        let scaled_height = height * scale_factor;
         
         // Create channels for input events
         let (key_sender, key_receiver) = mpsc::channel();
@@ -649,8 +698,8 @@ impl Window {
         state.mouse_sender = Some(mouse_sender);
         state.scroll_sender = Some(scroll_sender);
         state.mouse_pos_sender = Some(mouse_pos_sender);
-        state.width = width as i32;
-        state.height = height as i32;
+        state.width = scaled_width as i32;
+        state.height = scaled_height as i32;
         
         // Get registry and bind globals
         let registry = display.get_registry(&qh, ());
@@ -667,7 +716,7 @@ impl Window {
             let xdg_toplevel = xdg_surface.get_toplevel(&qh, ());
             
             xdg_toplevel.set_title(name.to_string());
-            xdg_toplevel.set_min_size(width as i32, height as i32);
+            xdg_toplevel.set_min_size(scaled_width as i32, scaled_height as i32);
             
             // Set up decorations if available
             if let Some(decoration_manager) = &state.decoration_manager {
@@ -704,9 +753,12 @@ impl Window {
             mouse_receiver,
             scroll_receiver,
             mouse_pos_receiver,
-            width: width as i32,
-            height: height as i32,
-            scale_factor: 1.0,
+            width: scaled_width as i32,
+            height: scaled_height as i32,
+            buf_width: width as i32,
+            buf_height: height as i32,
+            scale_factor: scale_factor as i32,
+            scale_mode: opts.scale_mode,
             keys: [false; 512],
             key_states: HashMap::new(),
             mouse_buttons: [false; 8],
@@ -719,7 +771,7 @@ impl Window {
     }
     
     pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
-        self.update_with_buffer_stride(buffer, self.width as usize, self.height as usize, self.width as usize)
+        self.update_with_buffer_stride(buffer, self.buf_width as usize, self.buf_height as usize, self.buf_width as usize)
     }
     
     
@@ -931,53 +983,78 @@ impl Window {
                     Ok(buffer_obj) => {
                         let buffer_data = buffer_obj.get_data();
                         
-                        // Optimized buffer rendering - center original buffer with black background
+                        // Create intermediate RGBA buffer for scaling operations
                         let window_width_usize = window_width as usize;
                         let window_height_usize = window_height as usize;
-                        let buffer_size = window_width_usize * window_height_usize * 4;
+                        let mut draw_buffer: Vec<u32> = vec![0; window_width_usize * window_height_usize];
                         
-                        // Fast clear entire buffer to black with full alpha
-                        // This ensures keyboard focus works throughout the window
-                        if buffer_size <= buffer_data.len() {
-                            // Efficient bulk clear using u32 writes for better performance
-                            let buffer_u32 = unsafe {
-                                std::slice::from_raw_parts_mut(
-                                    buffer_data.as_mut_ptr() as *mut u32,
-                                    buffer_size / 4
-                                )
-                            };
-                            let black_pixel_u32 = 0xFF000000u32; // BGRA: alpha=0xFF, RGB=0x000000
-                            buffer_u32.fill(black_pixel_u32);
+                        // Apply scaling based on scale mode (like X11's raw_blit_buffer)
+                        unsafe {
+                            match self.scale_mode {
+                                ScaleMode::Stretch => {
+                                    image_resize_linear(
+                                        draw_buffer.as_mut_ptr(),
+                                        window_width as u32,
+                                        window_height as u32,
+                                        buffer.as_ptr(),
+                                        buf_width as u32,
+                                        buf_height as u32,
+                                        buf_width as u32,
+                                    );
+                                }
+                                ScaleMode::AspectRatioStretch => {
+                                    image_resize_linear_aspect_fill(
+                                        draw_buffer.as_mut_ptr(),
+                                        window_width as u32,
+                                        window_height as u32,
+                                        buffer.as_ptr(),
+                                        buf_width as u32,
+                                        buf_height as u32,
+                                        buf_width as u32,
+                                        0, // background color
+                                    );
+                                }
+                                ScaleMode::Center => {
+                                    image_center(
+                                        draw_buffer.as_mut_ptr(),
+                                        window_width as u32,
+                                        window_height as u32,
+                                        buffer.as_ptr(),
+                                        buf_width as u32,
+                                        buf_height as u32,
+                                        buf_width as u32,
+                                        0, // background color
+                                    );
+                                }
+                                ScaleMode::UpperLeft => {
+                                    image_upper_left(
+                                        draw_buffer.as_mut_ptr(),
+                                        window_width as u32,
+                                        window_height as u32,
+                                        buffer.as_ptr(),
+                                        buf_width as u32,
+                                        buf_height as u32,
+                                        buf_width as u32,
+                                        0, // background color
+                                    );
+                                }
+                            }
                         }
                         
-                        // Calculate centering offsets once
-                        let offset_x = ((window_width as i32 - buf_width as i32) / 2).max(0) as usize;
-                        let offset_y = ((window_height as i32 - buf_height as i32) / 2).max(0) as usize;
-                        
-                        // Calculate copy bounds to avoid per-pixel bounds checking
-                        let copy_width = buf_width.min(window_width_usize.saturating_sub(offset_x));
-                        let copy_height = buf_height.min(window_height_usize.saturating_sub(offset_y));
-                        
-                        // Optimized copy - process row by row for better cache locality
-                        if copy_width > 0 && copy_height > 0 {
-                            for y in 0..copy_height {
-                                let src_row_start = y * buf_width;
-                                let dst_row_start = ((y + offset_y) * window_width_usize + offset_x) * 4;
+                        // Convert scaled RGBA buffer to BGRA format for Wayland
+                        for (i, &pixel) in draw_buffer.iter().enumerate() {
+                            let offset = i * 4;
+                            if offset + 3 < buffer_data.len() {
+                                // Extract RGB components from scaled buffer (0x00RRGGBB)
+                                let r = ((pixel >> 16) & 0xFF) as u8;
+                                let g = ((pixel >> 8) & 0xFF) as u8;
+                                let b = (pixel & 0xFF) as u8;
                                 
-                                // Process pixels in chunks for better performance
-                                for x in 0..copy_width {
-                                    let src_offset = src_row_start + x;
-                                    let dst_offset = dst_row_start + x * 4;
-                                    
-                                    // Safe access - bounds already checked above
-                                    let pixel = buffer[src_offset];
-                                    
-                                    // Fast RGB extraction and BGRA write
-                                    buffer_data[dst_offset] = (pixel & 0xFF) as u8;         // Blue
-                                    buffer_data[dst_offset + 1] = ((pixel >> 8) & 0xFF) as u8;  // Green  
-                                    buffer_data[dst_offset + 2] = ((pixel >> 16) & 0xFF) as u8; // Red
-                                    buffer_data[dst_offset + 3] = 0xFF;                     // Alpha
-                                }
+                                // Write as ARGB8888 (little endian: BGRA)
+                                buffer_data[offset] = b;     // Blue
+                                buffer_data[offset + 1] = g; // Green
+                                buffer_data[offset + 2] = r; // Red
+                                buffer_data[offset + 3] = 0xFF; // Alpha (fully opaque)
                             }
                         }
                         
