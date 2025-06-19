@@ -26,13 +26,8 @@ fn main() {
 
     let mut size = (0, 0);
 
+    let mut frame_count = 0;
     while window.is_open() && !window.is_key_down(Key::Escape) {
-        let new_size = window.get_size();
-        if new_size != size {
-            size = new_size;
-            buffer.resize(size.0 * size.1, 0);
-        }
-
         for pixel in buffer.iter_mut() {
             noise = seed;
             noise >>= 3;
@@ -46,8 +41,6 @@ fn main() {
             *pixel = (noise << 16) | (noise << 8) | noise;
         }
 
-        window
-            .update_with_buffer(&buffer, new_size.0, new_size.1)
-            .unwrap();
+        window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
     }
 }

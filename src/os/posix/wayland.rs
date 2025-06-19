@@ -71,7 +71,7 @@ fn linux_keycode_to_key(keycode: u32) -> Key {
         64 => Key::F6, 65 => Key::F7, 66 => Key::F8, 67 => Key::F9, 68 => Key::F10,
         87 => Key::F11, 88 => Key::F12,
         
-        // Special keys
+        // Special keys  
         108 => Key::Down, 105 => Key::Left, 106 => Key::Right, 103 => Key::Up,
         1 => Key::Escape, 14 => Key::Backspace, 111 => Key::Delete, 107 => Key::End,
         28 => Key::Enter, 102 => Key::Home, 110 => Key::Insert, 104 => Key::PageUp,
@@ -439,10 +439,16 @@ impl Dispatch<WlKeyboard, ()> for WaylandState {
                 }
             }
             wl_keyboard::Event::Enter { .. } => {
-                // Keyboard focus gained - window is now active
+                state.active = true;
             }
             wl_keyboard::Event::Leave { .. } => {
-                // Keyboard focus lost
+                state.active = false;
+            }
+            wl_keyboard::Event::Keymap { format: _, fd: _, size: _ } => {
+                // Handle keymap - for now just acknowledge it
+            }
+            wl_keyboard::Event::RepeatInfo { rate: _, delay: _ } => {
+                // Handle key repeat configuration
             }
             _ => {}
         }
@@ -855,24 +861,50 @@ impl Window {
     pub fn update_with_buffer_stride(&mut self, buffer: &[u32], buf_width: usize, buf_height: usize, _buf_stride: usize) -> Result<()> {
         check_buffer_size(buffer, buf_width, buf_height, buf_width)?;
         
-        // Update internal dimensions if they changed
-        if buf_width as i32 != self.width || buf_height as i32 != self.height {
-            self.width = buf_width as i32;
-            self.height = buf_height as i32;
-            self.state.width = buf_width as i32;
-            self.state.height = buf_height as i32;
-        }
+        // Don't override window dimensions with buffer dimensions
+        // The window size should be controlled by the compositor, not the buffer size
         
         // Process events first to handle input and buffer releases
-        self.event_queue.dispatch_pending(&mut self.state)
-            .map_err(|e| Error::UpdateFailed(format!("Failed to dispatch events: {}", e)))?;
+        // Use roundtrip every few frames to ensure we read new events
+        static mut FRAME_COUNT: u32 = 0;
+        unsafe {
+            FRAME_COUNT += 1;
+            if FRAME_COUNT % 3 == 0 {
+                // Every 3rd frame, do a full roundtrip to read new events
+                self.event_queue.roundtrip(&mut self.state)
+                    .map_err(|e| Error::UpdateFailed(format!("Failed to roundtrip: {}", e)))?;
+            } else {
+                // Other frames, just dispatch what's already queued
+                self.event_queue.dispatch_pending(&mut self.state)
+                    .map_err(|e| Error::UpdateFailed(format!("Failed to dispatch events: {}", e)))?;
+            }
+        }
+        
+        // Check if the window was resized by the compositor and update our dimensions
+        if self.state.width != self.width || self.state.height != self.height {
+            self.width = self.state.width;
+            self.height = self.state.height;
+        }
         
         // Process input events
+        let mut key_count = 0;
         while let Ok((key, pressed)) = self.key_receiver.try_recv() {
+            key_count += 1;
             self.key_states.insert(key, pressed);
             let key_index = key as usize;
             if key_index < self.keys.len() {
                 self.keys[key_index] = pressed;
+            }
+        }
+        if key_count == 0 {
+            // Only print this occasionally to avoid spam
+            static mut FRAME_COUNT: u32 = 0;
+            unsafe {
+                FRAME_COUNT += 1;
+                if FRAME_COUNT % 300 == 0 {
+                    eprintln!("DEBUG: No keys received in {} frames. Keyboard setup = {}", 
+                             FRAME_COUNT, self.state.keyboard.is_some());
+                }
             }
         }
         
@@ -900,28 +932,62 @@ impl Window {
         if has_surface_and_shm {
             let qh = self.event_queue.handle();
             
+            // Use the actual window dimensions for the buffer
+            let window_width = self.width;
+            let window_height = self.height;
+            
             // Retry buffer allocation if the first attempt fails
             let mut retries = 0;
             while retries < 5 {
-                match self.state.buffer_pool.get_buffer(self.width, self.height, 
+                match self.state.buffer_pool.get_buffer(window_width, window_height, 
                                                         self.state.shm.as_ref().unwrap(), &qh) {
                     Ok(buffer_obj) => {
                         let buffer_data = buffer_obj.get_data();
                         
-                        // Convert from minifb format (0x00RRGGBB) to ARGB8888 format (0xAARRGGBB)
-                        for (i, &pixel) in buffer.iter().enumerate() {
-                            let offset = i * 4;
-                            if offset + 3 < buffer_data.len() {
-                                // Extract RGB components from input (0x00RRGGBB)
-                                let r = ((pixel >> 16) & 0xFF) as u8;
-                                let g = ((pixel >> 8) & 0xFF) as u8;
-                                let b = (pixel & 0xFF) as u8;
+                        // Render the buffer at its original size, centered in the window
+                        // Fill the entire window surface with black first to ensure keyboard focus
+                        for y in 0..window_height {
+                            for x in 0..window_width {
+                                let dst_offset = ((y * window_width + x) * 4) as usize;
+                                if dst_offset + 3 < buffer_data.len() {
+                                    // Fill with black
+                                    buffer_data[dst_offset] = 0;     // Blue
+                                    buffer_data[dst_offset + 1] = 0; // Green
+                                    buffer_data[dst_offset + 2] = 0; // Red
+                                    buffer_data[dst_offset + 3] = 0xFF; // Alpha (fully opaque)
+                                }
+                            }
+                        }
+                        
+                        // Center the original buffer in the window
+                        let offset_x = ((window_width as i32 - buf_width as i32) / 2).max(0) as usize;
+                        let offset_y = ((window_height as i32 - buf_height as i32) / 2).max(0) as usize;
+                        
+                        // Copy the input buffer to the center of the window buffer
+                        for y in 0..buf_height.min(window_height as usize) {
+                            for x in 0..buf_width.min(window_width as usize) {
+                                let dst_x = x + offset_x;
+                                let dst_y = y + offset_y;
                                 
-                                // Write as ARGB8888 (little endian: BGRA)
-                                buffer_data[offset] = b;     // Blue
-                                buffer_data[offset + 1] = g; // Green
-                                buffer_data[offset + 2] = r; // Red
-                                buffer_data[offset + 3] = 0xFF; // Alpha (fully opaque)
+                                if dst_x < window_width as usize && dst_y < window_height as usize {
+                                    let dst_offset = ((dst_y * window_width as usize + dst_x) * 4) as usize;
+                                    let src_offset = y * buf_width + x;
+                                    
+                                    if src_offset < buffer.len() && dst_offset + 3 < buffer_data.len() {
+                                        let pixel = buffer[src_offset];
+                                        
+                                        // Extract RGB components from input (0x00RRGGBB)
+                                        let r = ((pixel >> 16) & 0xFF) as u8;
+                                        let g = ((pixel >> 8) & 0xFF) as u8;
+                                        let b = (pixel & 0xFF) as u8;
+                                        
+                                        // Write as ARGB8888 (little endian: BGRA)
+                                        buffer_data[dst_offset] = b;     // Blue
+                                        buffer_data[dst_offset + 1] = g; // Green
+                                        buffer_data[dst_offset + 2] = r; // Red
+                                        buffer_data[dst_offset + 3] = 0xFF; // Alpha (fully opaque)
+                                    }
+                                }
                             }
                         }
                         
@@ -929,7 +995,7 @@ impl Window {
                         if let Some(wl_buffer) = &buffer_obj.buffer {
                             let surface = self.state.surface.as_ref().unwrap();
                             surface.attach(Some(wl_buffer), 0, 0);
-                            surface.damage_buffer(0, 0, self.width, self.height);
+                            surface.damage_buffer(0, 0, window_width, window_height);
                             surface.commit();
                             buffer_obj.busy = true;
                             
