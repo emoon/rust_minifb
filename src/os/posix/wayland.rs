@@ -852,8 +852,12 @@ impl Window {
         self.mouse_buttons[index]
     }
     
-    pub fn get_mouse_pos(&self, _mode: MouseMode) -> Option<(f32, f32)> {
-        Some((self.mouse_x, self.mouse_y))
+    pub fn get_mouse_pos(&self, mode: MouseMode) -> Option<(f32, f32)> {
+        let s = self.scale_factor as f32;
+        let w = self.width as f32;
+        let h = self.height as f32;
+
+        mode.get_pos(self.mouse_x, self.mouse_y, s, w, h)
     }
     
     pub fn get_scroll_wheel(&self) -> Option<(f32, f32)> {
