@@ -1200,14 +1200,21 @@ pub(crate) fn check_buffer_size(
     buf_stride: usize,
 ) -> Result<()> {
     buf_width = buf_width.max(buf_stride);
-    let buf_size = std::mem::size_of_val(buffer);
-    let required_buf_size = buf_width * buf_height * std::mem::size_of::<u32>();
+    let buf_size = buffer.len() * std::mem::size_of::<u32>();
+    let required_buf_size = buf_width
+        .checked_mul(buf_height)
+        .and_then(|v| v.checked_mul(std::mem::size_of::<u32>()))
+        .ok_or(Error::UpdateFailed("Buffer size too large".to_string()))?;
 
-    if buf_size < required_buf_size {
+    if buf_size == 0 {
+        Err(Error::UpdateFailed(
+            "Update failed because input buffer is empty".to_string(),
+        ))
+    } else if buf_size < required_buf_size {
         let err = format!(
-            "Update failed because input buffer is too small. Required size for {} ({} stride) x {} buffer is {}
-            bytes but the size of the input buffer has the size {} bytes",
-            buf_width, buf_stride, buf_height, required_buf_size, buf_size);
+        "Update failed because input buffer is too small. Required size for {} ({} stride) x {} buffer is {} bytes but input buffer is {} bytes",
+        buf_width, buf_stride, buf_height, required_buf_size, buf_size
+    );
         Err(Error::UpdateFailed(err))
     } else {
         Ok(())
