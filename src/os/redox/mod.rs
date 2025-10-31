@@ -153,6 +153,8 @@ impl Window {
             MouseButton::Left => self.mouse_state.0,
             MouseButton::Middle => self.mouse_state.1,
             MouseButton::Right => self.mouse_state.2,
+            MouseButton::Back => unimplemented!("Back button is not supported"),
+            MouseButton::Forward => unimplemented!("Forward button is not supported"),
         }
     }
 

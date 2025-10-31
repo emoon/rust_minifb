@@ -27,9 +27,11 @@ use x11_dl::{
     },
 };
 
-// NOTE: the x11-dl crate does not define Button6 or Button7
+// NOTE: the x11-dl crate does not define Button6, Button7, Button8, and Button9
 const Button6: c_uint = xlib::Button5 + 1;
 const Button7: c_uint = xlib::Button5 + 2;
+const Button8: c_uint = xlib::Button5 + 3;
+const Button9: c_uint = xlib::Button5 + 4;
 
 #[repr(C)]
 struct MwmHints {
@@ -272,7 +274,7 @@ pub struct Window {
     mouse_y: f32,
     scroll_x: f32,
     scroll_y: f32,
-    buttons: [u8; 3],
+    buttons: [u8; 5],
     prev_cursor: CursorStyle,
     active: bool,
 
@@ -490,7 +492,7 @@ impl Window {
                 scroll_y: 0.0,
                 bg_color: 0,
                 scale_mode: opts.scale_mode,
-                buttons: [0, 0, 0],
+                buttons: [0, 0, 0, 0, 0],
                 prev_cursor: CursorStyle::Arrow,
                 should_close: false,
                 active: false,
@@ -734,6 +736,8 @@ impl Window {
             MouseButton::Left => self.buttons[0] > 0,
             MouseButton::Middle => self.buttons[1] > 0,
             MouseButton::Right => self.buttons[2] > 0,
+            MouseButton::Back => self.buttons[3] > 0,
+            MouseButton::Forward => self.buttons[4] > 0,
         }
     }
 
@@ -1178,6 +1182,16 @@ impl Window {
             }
             xlib::Button3 => {
                 self.buttons[2] = if is_down { 1 } else { 0 };
+                return;
+            }
+
+            Button8 => {
+                self.buttons[3] = if is_down { 1 } else { 0 };
+                return;
+            }
+
+            Button9 => {
+                self.buttons[4] = if is_down { 1 } else { 0 };
                 return;
             }
 

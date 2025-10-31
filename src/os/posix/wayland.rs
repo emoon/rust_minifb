@@ -53,6 +53,8 @@ const KEY_XKB_OFFSET: u32 = 8;
 const KEY_MOUSE_BTN1: u32 = 272;
 const KEY_MOUSE_BTN2: u32 = 273;
 const KEY_MOUSE_BTN3: u32 = 274;
+const KEY_MOUSE_BTN8: u32 = 275;
+const KEY_MOUSE_BTN9: u32 = 276;
 
 type ToplevelResolution = Rc<RefCell<Option<(i32, i32)>>>;
 type ToplevelClosed = Rc<RefCell<bool>>;
@@ -621,6 +623,8 @@ impl Window {
             MouseButton::Left => self.buttons[0],
             MouseButton::Right => self.buttons[1],
             MouseButton::Middle => self.buttons[2],
+            MouseButton::Back => self.buttons[3],
+            MouseButton::Forward => self.buttons[4],
         }
     }
 
@@ -892,10 +896,14 @@ impl Window {
                         KEY_MOUSE_BTN2 => self.buttons[1] = pressed,
                         // Middle mouse button
                         KEY_MOUSE_BTN3 => self.buttons[2] = pressed,
-                        _ => {
+                        // Back mouse button
+                        KEY_MOUSE_BTN8 => self.buttons[3] = pressed,
+                        // Forward mouse button
+                        KEY_MOUSE_BTN9 => self.buttons[4] = pressed,
+                        _ => (
                             // TODO: handle more mouse buttons (see: linux/input-event-codes.h from
                             // the Linux kernel)
-                        }
+                        ),
                     }
 
                     if self.pointer_visibility {

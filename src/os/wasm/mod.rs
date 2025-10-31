@@ -39,6 +39,8 @@ struct MouseState {
     left_button: Cell<bool>,
     right_button: Cell<bool>,
     middle_button: Cell<bool>,
+    back_button: Cell<bool>,
+    forward_button: Cell<bool>,
 }
 
 struct Context2D {
@@ -117,6 +119,8 @@ impl Window {
             left_button: Cell::new(false),
             right_button: Cell::new(false),
             middle_button: Cell::new(false),
+            back_button: Cell::new(false),
+            forward_button: Cell::new(false),
         };
         let mouse_state = Rc::new(mouse_struct);
         {
@@ -149,6 +153,8 @@ impl Window {
                     0 => mouse_state.left_button.set(true),
                     1 => mouse_state.middle_button.set(true),
                     2 => mouse_state.right_button.set(true),
+                    3 => mouse_state.back_button.set(true),
+                    4 => mouse_state.forward_button.set(true),
                     _ => (),
                 }
             }) as Box<dyn FnMut(_)>);
@@ -177,6 +183,8 @@ impl Window {
                     0 => mouse_state.left_button.set(false),
                     1 => mouse_state.middle_button.set(false),
                     2 => mouse_state.right_button.set(false),
+                    3 => mouse_state.back_button.set(false),
+                    4 => mouse_state.forward_button.set(false),
                     _ => (),
                 }
             }) as Box<dyn FnMut(_)>);
@@ -361,6 +369,8 @@ impl Window {
             MouseButton::Left => self.mouse_state.left_button.get(),
             MouseButton::Middle => self.mouse_state.middle_button.get(),
             MouseButton::Right => self.mouse_state.right_button.get(),
+            MouseButton::Back => self.mouse_state.back_button.get(),
+            MouseButton::Forward => self.mouse_state.forward_button.get(),
         }
     }
 
