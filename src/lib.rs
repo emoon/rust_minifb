@@ -183,13 +183,13 @@ impl fmt::Debug for Window {
 }
 
 impl HasWindowHandle for Window {
-    fn window_handle(&self) -> std::result::Result<WindowHandle, HandleError> {
+    fn window_handle(&self) -> std::result::Result<WindowHandle<'_>, HandleError> {
         self.0.window_handle()
     }
 }
 
 impl HasDisplayHandle for Window {
-    fn display_handle(&self) -> std::result::Result<DisplayHandle, HandleError> {
+    fn display_handle(&self) -> std::result::Result<DisplayHandle<'_>, HandleError> {
         self.0.display_handle()
     }
 }
@@ -1044,7 +1044,7 @@ impl Menu {
     /// # ;
     /// ```
     #[inline]
-    pub fn add_item(&mut self, name: &str, id: usize) -> MenuItem {
+    pub fn add_item(&mut self, name: &str, id: usize) -> MenuItem<'_> {
         MenuItem {
             id,
             label: name.to_owned(),
@@ -1100,7 +1100,7 @@ impl Clone for MenuItem<'_> {
 
 impl MenuItem<'_> {
     /// Creates a new menu item
-    pub fn new(name: &str, id: usize) -> MenuItem {
+    pub fn new(name: &str, id: usize) -> MenuItem<'_> {
         MenuItem {
             id,
             label: name.to_owned(),
@@ -1204,7 +1204,7 @@ pub(crate) fn check_buffer_size(
     buf_stride: usize,
 ) -> Result<()> {
     buf_width = buf_width.max(buf_stride);
-    let buf_size = buffer.len() * std::mem::size_of::<u32>();
+    let buf_size = std::mem::size_of_val(buffer);
     let required_buf_size = buf_width
         .checked_mul(buf_height)
         .and_then(|v| v.checked_mul(std::mem::size_of::<u32>()))

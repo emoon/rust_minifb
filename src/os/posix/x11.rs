@@ -287,7 +287,7 @@ pub struct Window {
 }
 
 impl HasWindowHandle for Window {
-    fn window_handle(&self) -> std::result::Result<WindowHandle, HandleError> {
+    fn window_handle(&self) -> std::result::Result<WindowHandle<'_>, HandleError> {
         let handle = XlibWindowHandle::new(self.handle);
         let raw_handle = RawWindowHandle::Xlib(handle);
         unsafe { Ok(WindowHandle::borrow_raw(raw_handle)) }
@@ -295,7 +295,7 @@ impl HasWindowHandle for Window {
 }
 
 impl HasDisplayHandle for Window {
-    fn display_handle(&self) -> std::result::Result<DisplayHandle, HandleError> {
+    fn display_handle(&self) -> std::result::Result<DisplayHandle<'_>, HandleError> {
         let raw_display = self.d.display as *mut c_void;
         let display = NonNull::new(raw_display);
         let handle = XlibDisplayHandle::new(display, self.d.screen);

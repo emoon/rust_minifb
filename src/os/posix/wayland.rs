@@ -425,12 +425,12 @@ impl WaylandInput {
     }
 
     #[inline]
-    fn iter_keyboard_events(&self) -> mpsc::TryIter<wl_keyboard::Event> {
+    fn iter_keyboard_events(&self) -> mpsc::TryIter<'_, wl_keyboard::Event> {
         self.kb_events.try_iter()
     }
 
     #[inline]
-    fn iter_pointer_events(&self) -> mpsc::TryIter<wl_pointer::Event> {
+    fn iter_pointer_events(&self) -> mpsc::TryIter<'_,wl_pointer::Event> {
         self.pt_events.try_iter()
     }
 }
@@ -926,7 +926,7 @@ impl Window {
                         _ => {}
                     }
                 }
-                Event::Frame {} => {
+                Event::Frame => {
                     // TODO
                 }
                 Event::AxisSource { axis_source } => {
@@ -1261,7 +1261,7 @@ impl Window {
 }
 
 impl HasWindowHandle for Window {
-    fn window_handle(&self) -> std::result::Result<WindowHandle, HandleError> {
+    fn window_handle(&self) -> std::result::Result<WindowHandle<'_>, HandleError> {
         let raw_display_surface = self.display.surface.as_ref().c_ptr() as *mut c_void;
         let display_surface = match NonNull::new(raw_display_surface) {
             Some(display_surface) => display_surface,
@@ -1275,7 +1275,7 @@ impl HasWindowHandle for Window {
 }
 
 impl HasDisplayHandle for Window {
-    fn display_handle(&self) -> std::result::Result<DisplayHandle, HandleError> {
+    fn display_handle(&self) -> std::result::Result<DisplayHandle<'_>, HandleError> {
         let raw_display = self
             .display
             .attached_display

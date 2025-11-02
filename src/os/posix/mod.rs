@@ -371,7 +371,7 @@ impl Window {
 }
 
 impl HasWindowHandle for Window {
-    fn window_handle(&self) -> std::result::Result<WindowHandle, HandleError> {
+    fn window_handle(&self) -> std::result::Result<WindowHandle<'_>, HandleError> {
         match self {
             #[cfg(feature = "x11")]
             Window::X11(w) => w.window_handle(),
@@ -382,7 +382,7 @@ impl HasWindowHandle for Window {
 }
 
 impl HasDisplayHandle for Window {
-    fn display_handle(&self) -> std::result::Result<DisplayHandle, HandleError> {
+    fn display_handle(&self) -> std::result::Result<DisplayHandle<'_>, HandleError> {
         match self {
             #[cfg(feature = "x11")]
             Window::X11(w) => w.display_handle(),
