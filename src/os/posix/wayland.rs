@@ -430,7 +430,7 @@ impl WaylandInput {
     }
 
     #[inline]
-    fn iter_pointer_events(&self) -> mpsc::TryIter<'_,wl_pointer::Event> {
+    fn iter_pointer_events(&self) -> mpsc::TryIter<'_, wl_pointer::Event> {
         self.pt_events.try_iter()
     }
 }
