@@ -631,6 +631,14 @@ impl Window {
         }
     }
 
+    #[inline]
+    pub fn get_fps(&mut self) -> usize {
+        match self.0.get_rate() {
+            Some(rate) => (1.0 / rate.as_secs_f32()) as usize,
+            _ => 0,
+        }
+    }
+
     /// Returns the current size of the window
     ///
     /// # Examples

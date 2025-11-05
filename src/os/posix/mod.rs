@@ -225,6 +225,15 @@ impl Window {
         }
     }
 
+    pub fn get_rate(&self) -> Option<Duration> {
+        match self {
+            #[cfg(feature = "x11")]
+            Window::X11(w) => w.get_rate(),
+            #[cfg(feature = "wayland")]
+            Window::Wayland(w) => w.get_rate(),
+        }
+    }
+
     pub fn update_rate(&mut self) {
         match self {
             #[cfg(feature = "x11")]

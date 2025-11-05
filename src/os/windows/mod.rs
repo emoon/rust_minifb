@@ -871,6 +871,11 @@ impl Window {
     }
 
     #[inline]
+    pub fn get_rate(&self) -> Option<Duration> {
+        self.update_rate.get_rate()
+    }
+
+    #[inline]
     pub fn update_rate(&mut self) {
         self.update_rate.update();
     }
