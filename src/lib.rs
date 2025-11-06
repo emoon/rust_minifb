@@ -631,6 +631,16 @@ impl Window {
         }
     }
 
+    /// Returns the current fps of the window
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use minifb::*;
+    /// # let mut window = Window::new("Test", 640, 400, WindowOptions::default()).unwrap();
+    /// let fps = window.get_fps();
+    /// println!("fps {}", fps);
+    /// ```
     #[inline]
     pub fn get_fps(&mut self) -> usize {
         match self.0.get_rate() {
