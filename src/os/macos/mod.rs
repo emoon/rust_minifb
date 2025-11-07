@@ -345,8 +345,8 @@ impl Window {
     }
 
     #[inline]
-    pub fn get_rate(&self) -> Option<Duration> {
-        self.update_rate.get_rate()
+    pub fn get_delta_time(&self) -> Option<Duration> {
+        self.update_rate.get_delta_time()
     }
 
     #[inline]

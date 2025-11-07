@@ -229,7 +229,7 @@ impl Window {
     pub fn set_rate(&mut self, _rate: Option<Duration>) {}
 
     #[inline]
-    pub fn get_rate(&self) -> Option<Duration> {
+    pub fn get_delta_time(&self) -> Option<Duration> {
         None
     }
 

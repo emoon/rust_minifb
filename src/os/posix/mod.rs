@@ -225,12 +225,12 @@ impl Window {
         }
     }
 
-    pub fn get_rate(&self) -> Option<Duration> {
+    pub fn get_delta_time(&self) -> Option<Duration> {
         match self {
             #[cfg(feature = "x11")]
-            Window::X11(w) => w.get_rate(),
+            Window::X11(w) => w.get_delta_time(),
             #[cfg(feature = "wayland")]
-            Window::Wayland(w) => w.get_rate(),
+            Window::Wayland(w) => w.get_delta_time(),
         }
     }
 
