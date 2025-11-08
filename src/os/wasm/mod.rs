@@ -229,6 +229,11 @@ impl Window {
     pub fn set_rate(&mut self, _rate: Option<Duration>) {}
 
     #[inline]
+    pub fn get_delta_time(&self) -> Option<Duration> {
+        None
+    }
+
+    #[inline]
     pub fn update_rate(&mut self) {}
 
     #[inline]

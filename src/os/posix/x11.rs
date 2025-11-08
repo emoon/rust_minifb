@@ -770,6 +770,11 @@ impl Window {
     }
 
     #[inline]
+    pub fn get_delta_time(&self) -> Option<Duration> {
+        self.update_rate.get_delta_time()
+    }
+
+    #[inline]
     pub fn update_rate(&mut self) {
         self.update_rate.update();
     }

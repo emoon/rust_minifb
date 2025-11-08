@@ -673,6 +673,11 @@ impl Window {
     }
 
     #[inline]
+    pub fn get_delta_time(&self) -> Option<Duration> {
+        self.update_rate.get_delta_time()
+    }
+
+    #[inline]
     pub fn set_key_repeat_rate(&mut self, rate: f32) {
         self.key_handler.set_key_repeat_delay(rate);
     }

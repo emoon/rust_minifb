@@ -225,6 +225,15 @@ impl Window {
         }
     }
 
+    pub fn get_delta_time(&self) -> Option<Duration> {
+        match self {
+            #[cfg(feature = "x11")]
+            Window::X11(w) => w.get_delta_time(),
+            #[cfg(feature = "wayland")]
+            Window::Wayland(w) => w.get_delta_time(),
+        }
+    }
+
     pub fn update_rate(&mut self) {
         match self {
             #[cfg(feature = "x11")]
