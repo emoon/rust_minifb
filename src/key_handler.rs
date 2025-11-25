@@ -1,10 +1,4 @@
-#[cfg(target_arch = "wasm32")]
-extern crate instant;
-
-#[cfg(target_arch = "wasm32")]
-use instant::{Duration, Instant};
-#[cfg(not(target_arch = "wasm32"))]
-use std::time::{Duration, Instant};
+use web_time::{Duration, Instant};
 
 use crate::{InputCallback, Key, KeyRepeat};
 
