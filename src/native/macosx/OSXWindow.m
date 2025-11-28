@@ -5,7 +5,36 @@
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+- (id)initWithContentRect:(NSRect)contentRect
+                styleMask:(NSWindowStyleMask)style
+                  backing:(NSBackingStoreType)backingStoreType
+                    defer:(BOOL)flag {
+    self = [super initWithContentRect:contentRect styleMask:style backing:backingStoreType defer:flag];
+    if (self) {
+        // Install keyUp monitor to handle keyUp events when Command is pressed
+        __block OSXWindow* blockSelf = self;
+        keyUpMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyUp
+                                                              handler:^NSEvent*(NSEvent* event)
+        {
+            if ([event modifierFlags] & NSEventModifierFlagCommand)
+            {
+                if ([event window] == blockSelf)
+                    [blockSelf sendEvent:event];
+            }
+            return event;
+        }];
+    }
+    return self;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 - (void)dealloc {
+    if (keyUpMonitor) {
+        [NSEvent removeMonitor:keyUpMonitor];
+        keyUpMonitor = nil;
+    }
+    
     [[NSNotificationCenter defaultCenter]
         removeObserver:self];
     [super dealloc];
