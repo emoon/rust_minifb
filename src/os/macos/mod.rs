@@ -82,23 +82,23 @@ static KEY_MAPPINGS: [Key; 128] = [
     /* 3e */ Key::RightCtrl,
     /* 3f */ Key::Unknown, // Function
     /* 40 */ Key::Unknown, // F17
-    /* 41 */ Key::Unknown, // Decimal
+    /* 41 */ Key::NumPadDot,      // Decimal
     /* 42 */ Key::Unknown,
-    /* 43 */ Key::Unknown, // Multiply
+    /* 43 */ Key::NumPadAsterisk, // Multiply
     /* 44 */ Key::Unknown,
-    /* 45 */ Key::Unknown, // Add
+    /* 45 */ Key::NumPadPlus,     // Add
     /* 46 */ Key::Unknown,
-    /* 47 */ Key::NumLock, // Really KeypadClear...
-    /* 48 */ Key::Unknown, // VolumeUp
-    /* 49 */ Key::Unknown, // VolumeDown
-    /* 4a */ Key::Unknown, // Mute
-    /* 4b */ Key::Unknown,
-    /* 4c */ Key::Enter,
+    /* 47 */ Key::NumLock,        // Really KeypadClear...
+    /* 48 */ Key::Unknown,        // VolumeUp
+    /* 49 */ Key::Unknown,        // VolumeDown
+    /* 4a */ Key::Unknown,        // Mute
+    /* 4b */ Key::NumPadSlash,    // Divide
+    /* 4c */ Key::NumPadEnter,    // Enter
     /* 4d */ Key::Unknown,
-    /* 4e */ Key::Unknown, // Subtract
-    /* 4f */ Key::Unknown, // F18
-    /* 50 */ Key::Unknown, // F19
-    /* 51 */ Key::Equal,
+    /* 4e */ Key::NumPadMinus,    // Subtract
+    /* 4f */ Key::Unknown,        // F18
+    /* 50 */ Key::Unknown,        // F19
+    /* 51 */ Key::Equal,          // Equal
     /* 52 */ Key::NumPad0,
     /* 53 */ Key::NumPad1,
     /* 54 */ Key::NumPad2,
