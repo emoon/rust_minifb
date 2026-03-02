@@ -840,14 +840,15 @@ impl Window {
                 let mut scale = 1;
 
                 loop {
-                    let w = width * (scale + 1);
-                    let h = height * (scale + 1);
+                    let next_scale = scale * 2;
+                    let w = width * next_scale;
+                    let h = height * next_scale;
 
-                    if w >= screen_width || h >= screen_height {
+                    if w > screen_width || h > screen_height {
                         break;
                     }
 
-                    scale *= 2;
+                    scale = next_scale;
                 }
 
                 if scale >= 32 {
