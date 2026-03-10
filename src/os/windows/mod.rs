@@ -1109,7 +1109,7 @@ impl Window {
 
             winuser::AppendMenuW(
                 main_menu,
-                MF_POPUP | MF_GRAYED,
+                MF_POPUP,
                 menu.menu_handle as basetsd::UINT_PTR,
                 menu.name.as_ptr(),
             );
