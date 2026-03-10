@@ -3,8 +3,8 @@
 use crate::{
     check_buffer_size, error::Error, icon::Icon, key_handler::KeyHandler, rate::UpdateRate,
     CursorStyle, InputCallback, Key, KeyRepeat, MenuHandle, MenuItem, MenuItemHandle, MouseButton,
-    MouseMode, Result, Scale, ScaleMode, WindowOptions, MENU_KEY_ALT, MENU_KEY_CTRL,
-    MENU_KEY_SHIFT, MENU_KEY_WIN,
+    MouseMode, Result, Scale, ScaleMode, WindowOptions, MENU_ID_SEPARATOR, MENU_KEY_ALT,
+    MENU_KEY_CTRL, MENU_KEY_SHIFT, MENU_KEY_WIN,
 };
 use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
@@ -14,6 +14,7 @@ use std::{
     ffi::{c_int, c_void, OsStr},
     num::NonZeroIsize,
     os::windows::ffi::OsStrExt,
+    ptr::null,
     time::Duration,
 };
 use winapi::{
@@ -28,7 +29,7 @@ use winapi::{
         libloaderapi, wingdi,
         winuser::{
             self, GET_XBUTTON_WPARAM, ICON_BIG, ICON_SMALL, IMAGE_ICON, LR_DEFAULTSIZE,
-            LR_LOADFROMFILE, WM_SETICON,
+            MF_ENABLED, MF_GRAYED, MF_SEPARATOR, LR_LOADFROMFILE, WM_SETICON,
         },
     },
 };
@@ -1380,19 +1381,28 @@ impl Menu {
             match vk_accel.0 {
                 0 => {
                     let item_name = to_wstring(&menu_item.label);
-                    winuser::AppendMenuW(
-                        self.menu_handle,
-                        0x10,
-                        menu_item.id as basetsd::UINT_PTR,
-                        item_name.as_ptr(),
-                    );
+                    if menu_item.id == MENU_ID_SEPARATOR {
+                        winuser::AppendMenuW(
+                            self.menu_handle,
+                            MF_SEPARATOR,
+                            0 as basetsd::UINT_PTR,
+                            null(),
+                        );
+                    } else {
+                        winuser::AppendMenuW(
+                            self.menu_handle,
+                            0x10 | if menu_item.enabled { MF_ENABLED } else { MF_GRAYED },
+                            menu_item.id as basetsd::UINT_PTR,
+                            item_name.as_ptr(),
+                        );
+                    }
                 }
                 _ => {
                     let menu_name = Self::format_name(menu_item, vk_accel.1);
                     let w_name = to_wstring(&menu_name);
                     winuser::AppendMenuW(
                         self.menu_handle,
-                        0x10,
+                        0x10 | if menu_item.enabled { MF_ENABLED } else { MF_GRAYED },
                         menu_item.id as basetsd::UINT_PTR,
                         w_name.as_ptr(),
                     );
