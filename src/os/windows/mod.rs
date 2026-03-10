@@ -1382,19 +1382,19 @@ impl Menu {
                 0 => {
                     let item_name = to_wstring(&menu_item.label);
                     if menu_item.id == MENU_ID_SEPARATOR {
-                        winuser::AppendMenuW(
-                            self.menu_handle,
-                            MF_SEPARATOR,
-                            0 as basetsd::UINT_PTR,
-                            null(),
-                        );
-                    } else {
-                        winuser::AppendMenuW(
-                            self.menu_handle,
-                            0x10 | if menu_item.enabled { MF_ENABLED } else { MF_GRAYED },
-                            menu_item.id as basetsd::UINT_PTR,
-                            item_name.as_ptr(),
-                        );
+                        winuser::AppendMenuW(
+                            self.menu_handle,
+                            MF_SEPARATOR,
+                            0 as basetsd::UINT_PTR,
+                            null(),
+                        );
+                    } else {
+                        winuser::AppendMenuW(
+                            self.menu_handle,
+                            0x10 | if menu_item.enabled { MF_ENABLED } else { MF_GRAYED },
+                            menu_item.id as basetsd::UINT_PTR,
+                            item_name.as_ptr(),
+                        );
                     }
                 }
                 _ => {
