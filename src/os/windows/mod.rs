@@ -29,7 +29,7 @@ use winapi::{
         libloaderapi, wingdi,
         winuser::{
             self, GET_XBUTTON_WPARAM, ICON_BIG, ICON_SMALL, IMAGE_ICON, LR_DEFAULTSIZE,
-            MF_ENABLED, MF_GRAYED, MF_SEPARATOR, LR_LOADFROMFILE, WM_SETICON,
+            MF_ENABLED, MF_GRAYED, MF_POPUP, MF_SEPARATOR, LR_LOADFROMFILE, WM_SETICON,
         },
     },
 };
@@ -1109,7 +1109,7 @@ impl Window {
 
             winuser::AppendMenuW(
                 main_menu,
-                0x10,
+                MF_POPUP,
                 menu.menu_handle as basetsd::UINT_PTR,
                 menu.name.as_ptr(),
             );
@@ -1295,7 +1295,7 @@ impl Menu {
             let menu_name = to_wstring(name);
             winuser::AppendMenuW(
                 self.menu_handle,
-                0x10,
+                MF_POPUP,
                 menu.menu_handle as basetsd::UINT_PTR,
                 menu_name.as_ptr(),
             );
@@ -1391,7 +1391,7 @@ impl Menu {
                     } else {
                         winuser::AppendMenuW(
                             self.menu_handle,
-                            0x10 | if menu_item.enabled { MF_ENABLED } else { MF_GRAYED },
+                            MF_POPUP | if menu_item.enabled { MF_ENABLED } else { MF_GRAYED },
                             menu_item.id as basetsd::UINT_PTR,
                             item_name.as_ptr(),
                         );
@@ -1402,7 +1402,7 @@ impl Menu {
                     let w_name = to_wstring(&menu_name);
                     winuser::AppendMenuW(
                         self.menu_handle,
-                        0x10 | if menu_item.enabled { MF_ENABLED } else { MF_GRAYED },
+                        MF_POPUP | if menu_item.enabled { MF_ENABLED } else { MF_GRAYED },
                         menu_item.id as basetsd::UINT_PTR,
                         w_name.as_ptr(),
                     );
