@@ -1147,21 +1147,21 @@ impl Window {
         }
     }
 
-    pub fn enable_menu(&mut self, handle: MenuHandle, index: usize, enabled: bool) {
-        let window = self.hwnd;
-        let main_menu = unsafe { winuser::GetMenu(window) };
-        for i in 0..self.menus.len() {
-            if self.menus[i].menu_handle == handle.0 as windef::HMENU {
-                unsafe {
-                    winuser::EnableMenuItem(
-                        main_menu,
-                        index as basetsd::UINT32,
-                        winuser::MF_BYPOSITION | if enabled { MF_ENABLED } else { MF_GRAYED },
-                    );
-                }
-                return;
-            }
-        }
+    pub fn enable_menu(&mut self, handle: Option<MenuHandle>, index: usize, enabled: bool) {
+        let window = self.hwnd;
+        let main_menu = unsafe { winuser::GetMenu(window) };
+        for i in 0..self.menus.len() {
+            if self.menus[i].menu_handle == handle.0 as windef::HMENU {
+                unsafe {
+                    winuser::EnableMenuItem(
+                        handle.map_or(main_menu, |raw| raw.0),
+                        index as basetsd::UINT32,
+                        winuser::MF_BYPOSITION | if enabled { MF_ENABLED } else { MF_GRAYED },
+                    );
+                }
+                return;
+            }
+        }
     }
 
     #[inline]
@@ -1438,16 +1438,6 @@ impl Menu {
     #[inline]
     pub fn remove_item(&mut self, _item: &MenuItemHandle) {
         unimplemented!();
-    }
-    
-    pub fn enable_menu(&mut self, menu_item: &MenuItem, enabled: bool) {
-        unsafe {
-            winuser::EnableMenuItem(
-                self.menu_handle,
-                menu_item.id as basetsd::UINT_PTR,
-                if enabled { MF_ENABLED } else { MF_GRAYED },
-            );
-        }
     }
 }
 
