@@ -1076,6 +1076,12 @@ impl Menu {
     pub fn remove_item(&mut self, item: &MenuItemHandle) {
         self.0.remove_item(item)
     }
+
+    /// Enables or disables an item from the menu
+    #[inline]
+    pub fn enable_menu(&mut self, item: &MenuItem, enabled: bool) {
+        self.0.enable_menu(item, enabled)
+    }
 }
 
 /// Holds info about each item in a menu
