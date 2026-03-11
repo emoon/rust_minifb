@@ -1423,7 +1423,12 @@ impl Menu {
                     } else {
                         winuser::AppendMenuW(
                             self.menu_handle,
-                            MF_POPUP | if menu_item.enabled { MF_ENABLED } else { MF_GRAYED },
+                            MF_POPUP
+                                | if menu_item.enabled {
+                                    MF_ENABLED
+                                } else {
+                                    MF_GRAYED
+                                },
                             menu_item.id as basetsd::UINT_PTR,
                             item_name.as_ptr(),
                         );
@@ -1434,7 +1439,12 @@ impl Menu {
                     let w_name = to_wstring(&menu_name);
                     winuser::AppendMenuW(
                         self.menu_handle,
-                        MF_POPUP | if menu_item.enabled { MF_ENABLED } else { MF_GRAYED },
+                        MF_POPUP
+                            | if menu_item.enabled {
+                                MF_ENABLED
+                            } else {
+                                MF_GRAYED
+                            },
                         menu_item.id as basetsd::UINT_PTR,
                         w_name.as_ptr(),
                     );
