@@ -1147,6 +1147,23 @@ impl Window {
         }
     }
 
+    pub fn enable_menu(&mut self, handle: MenuHandle, index: usize, enabled: bool) {
+        let window = self.hwnd;
+        let main_menu = unsafe { winuser::GetMenu(window) };
+        for i in 0..self.menus.len() {
+            if self.menus[i].menu_handle == handle.0 as windef::HMENU {
+                unsafe {
+                    winuser::EnableMenuItem(
+                        main_menu,
+                        index as basetsd::UINT32,
+                        winuser::MF_BYPOSITION | if enabled { MF_ENABLED } else { MF_GRAYED },
+                    );
+                }
+                return;
+            }
+        }
+    }
+
     #[inline]
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
         if self.accel_key == INVALID_ACCEL {
