@@ -1147,6 +1147,38 @@ impl Window {
         }
     }
 
+    /// Enables or disables a menu item.
+    ///
+    /// If handle is None the main menu bar is used
+    pub fn enable_menu(&mut self, handle: Option<MenuHandle>, position: usize, enabled: bool) {
+        let window = self.hwnd;
+        let main_menu = unsafe { winuser::GetMenu(window) };
+        match handle {
+            None => unsafe {
+                winuser::EnableMenuItem(
+                    main_menu,
+                    index as basetsd::UINT32,
+                    winuser::MF_BYPOSITION | if enabled { MF_ENABLED } else { MF_GRAYED },
+                );
+            },
+            Some(menuhandle) => {
+                for i in 0..self.menus.len() {
+                    if self.menus[i].menu_handle == menuhandle.0 as windef::HMENU {
+                        unsafe {
+                            winuser::EnableMenuItem(
+                                menuhandle.0 as windef::HMENU,
+                                position as basetsd::UINT32,
+                                winuser::MF_BYPOSITION
+                                    | if enabled { MF_ENABLED } else { MF_GRAYED },
+                            );
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
     #[inline]
     pub fn is_menu_pressed(&mut self) -> Option<usize> {
         if self.accel_key == INVALID_ACCEL {

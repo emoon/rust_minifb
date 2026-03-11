@@ -915,6 +915,13 @@ impl Window {
         self.0.remove_menu(handle)
     }
 
+    
+    /// Enable or disable a menu item
+    #[inline]
+    pub fn enable_menu(&mut self, handle: Option<MenuHandle>, index: usize, enabled: bool) {
+        self.0.enable_menu(handle, index, enabled)
+    }
+
     /// Get POSIX menus. Will only return menus on POSIX-like OSes like Linux or BSD
     /// otherwise ```None```
     #[cfg(any(target_os = "macos", target_os = "windows", target_arch = "wasm32"))]
