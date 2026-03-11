@@ -1295,7 +1295,7 @@ impl Menu {
             let menu_name = to_wstring(name);
             winuser::AppendMenuW(
                 self.menu_handle,
-                MF_POPUP | MF_GRAYED,
+                MF_POPUP,
                 menu.menu_handle as basetsd::UINT_PTR,
                 menu_name.as_ptr(),
             );
@@ -1421,6 +1421,16 @@ impl Menu {
     #[inline]
     pub fn remove_item(&mut self, _item: &MenuItemHandle) {
         unimplemented!();
+    }
+    
+    pub fn enable_menu(&mut self, menu_item: &MenuItem, enabled: bool) {
+        unsafe {
+            winuser::EnableMenuItem(
+                self.menu_handle,
+                menu_item.id as basetsd::UINT_PTR,
+                if enabled { MF_ENABLED } else { MF_GRAYED },
+            );
+        }
     }
 }
 
