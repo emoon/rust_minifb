@@ -1157,7 +1157,7 @@ impl Window {
             None => unsafe {
                 winuser::EnableMenuItem(
                     main_menu,
-                    index as basetsd::UINT32,
+                    position as basetsd::UINT32,
                     winuser::MF_BYPOSITION | if enabled { MF_ENABLED } else { MF_GRAYED },
                 );
             },
