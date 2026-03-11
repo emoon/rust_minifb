@@ -917,6 +917,7 @@ impl Window {
 
     
     /// Enable or disable a menu item
+    #[cfg(target_os = "windows")]
     #[inline]
     pub fn enable_menu(&mut self, handle: Option<MenuHandle>, index: usize, enabled: bool) {
         self.0.enable_menu(handle, index, enabled)
