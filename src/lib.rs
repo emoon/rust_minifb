@@ -915,7 +915,6 @@ impl Window {
         self.0.remove_menu(handle)
     }
 
-    
     /// Enable or disable a menu item
     #[cfg(target_os = "windows")]
     #[inline]
