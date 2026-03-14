@@ -3,8 +3,8 @@
 use crate::{
     check_buffer_size, error::Error, icon::Icon, key_handler::KeyHandler, rate::UpdateRate,
     CursorStyle, InputCallback, Key, KeyRepeat, MenuHandle, MenuItem, MenuItemHandle, MouseButton,
-    MouseMode, Result, Scale, ScaleMode, WindowOptions, MENU_KEY_ALT, MENU_KEY_CTRL,
-    MENU_KEY_SHIFT, MENU_KEY_WIN,
+    MouseMode, Result, Scale, ScaleMode, WindowOptions, MENU_ID_SEPARATOR, MENU_KEY_ALT,
+    MENU_KEY_CTRL, MENU_KEY_SHIFT, MENU_KEY_WIN,
 };
 use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
@@ -14,6 +14,7 @@ use std::{
     ffi::{c_int, c_void, OsStr},
     num::NonZeroIsize,
     os::windows::ffi::OsStrExt,
+    ptr::null,
     time::Duration,
 };
 use winapi::{
@@ -28,7 +29,7 @@ use winapi::{
         libloaderapi, wingdi,
         winuser::{
             self, GET_XBUTTON_WPARAM, ICON_BIG, ICON_SMALL, IMAGE_ICON, LR_DEFAULTSIZE,
-            LR_LOADFROMFILE, WM_SETICON,
+            LR_LOADFROMFILE, MF_ENABLED, MF_GRAYED, MF_POPUP, MF_SEPARATOR, WM_SETICON,
         },
     },
 };
@@ -1108,7 +1109,7 @@ impl Window {
 
             winuser::AppendMenuW(
                 main_menu,
-                0x10,
+                MF_POPUP,
                 menu.menu_handle as basetsd::UINT_PTR,
                 menu.name.as_ptr(),
             );
@@ -1142,6 +1143,38 @@ impl Window {
                 }
                 self.menus.swap_remove(i);
                 return;
+            }
+        }
+    }
+
+    /// Enables or disables a menu item.
+    ///
+    /// If handle is None the main menu bar is used
+    pub fn enable_menu(&mut self, handle: Option<MenuHandle>, position: usize, enabled: bool) {
+        let window = self.hwnd;
+        let main_menu = unsafe { winuser::GetMenu(window) };
+        match handle {
+            None => unsafe {
+                winuser::EnableMenuItem(
+                    main_menu,
+                    position as basetsd::UINT32,
+                    winuser::MF_BYPOSITION | if enabled { MF_ENABLED } else { MF_GRAYED },
+                );
+            },
+            Some(menuhandle) => {
+                for i in 0..self.menus.len() {
+                    if self.menus[i].menu_handle == menuhandle.0 as windef::HMENU {
+                        unsafe {
+                            winuser::EnableMenuItem(
+                                menuhandle.0 as windef::HMENU,
+                                position as basetsd::UINT32,
+                                winuser::MF_BYPOSITION
+                                    | if enabled { MF_ENABLED } else { MF_GRAYED },
+                            );
+                        }
+                        return;
+                    }
+                }
             }
         }
     }
@@ -1294,7 +1327,7 @@ impl Menu {
             let menu_name = to_wstring(name);
             winuser::AppendMenuW(
                 self.menu_handle,
-                0x10,
+                MF_POPUP,
                 menu.menu_handle as basetsd::UINT_PTR,
                 menu_name.as_ptr(),
             );
@@ -1380,19 +1413,38 @@ impl Menu {
             match vk_accel.0 {
                 0 => {
                     let item_name = to_wstring(&menu_item.label);
-                    winuser::AppendMenuW(
-                        self.menu_handle,
-                        0x10,
-                        menu_item.id as basetsd::UINT_PTR,
-                        item_name.as_ptr(),
-                    );
+                    if menu_item.id == MENU_ID_SEPARATOR {
+                        winuser::AppendMenuW(
+                            self.menu_handle,
+                            MF_SEPARATOR,
+                            0 as basetsd::UINT_PTR,
+                            null(),
+                        );
+                    } else {
+                        winuser::AppendMenuW(
+                            self.menu_handle,
+                            MF_POPUP
+                                | if menu_item.enabled {
+                                    MF_ENABLED
+                                } else {
+                                    MF_GRAYED
+                                },
+                            menu_item.id as basetsd::UINT_PTR,
+                            item_name.as_ptr(),
+                        );
+                    }
                 }
                 _ => {
                     let menu_name = Self::format_name(menu_item, vk_accel.1);
                     let w_name = to_wstring(&menu_name);
                     winuser::AppendMenuW(
                         self.menu_handle,
-                        0x10,
+                        MF_POPUP
+                            | if menu_item.enabled {
+                                MF_ENABLED
+                            } else {
+                                MF_GRAYED
+                            },
                         menu_item.id as basetsd::UINT_PTR,
                         w_name.as_ptr(),
                     );
