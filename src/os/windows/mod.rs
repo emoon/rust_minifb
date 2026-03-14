@@ -29,7 +29,7 @@ use winapi::{
         libloaderapi, wingdi,
         winuser::{
             self, GET_XBUTTON_WPARAM, ICON_BIG, ICON_SMALL, IMAGE_ICON, LR_DEFAULTSIZE,
-            MF_ENABLED, MF_GRAYED, MF_POPUP, MF_SEPARATOR, LR_LOADFROMFILE, WM_SETICON,
+            LR_LOADFROMFILE, MF_ENABLED, MF_GRAYED, MF_POPUP, MF_SEPARATOR, WM_SETICON,
         },
     },
 };
