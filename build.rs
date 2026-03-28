@@ -32,7 +32,7 @@ fn main() {
 
     if target.contains("darwin") {
         cc::Build::new()
-            .flag("-mmacosx-version-min=10.10")
+            .flag("-mmacosx-version-min=10.11")
             .file("src/native/macosx/MacMiniFB.m")
             .file("src/native/macosx/OSXWindow.m")
             .file("src/native/macosx/OSXWindowFrameView.m")
