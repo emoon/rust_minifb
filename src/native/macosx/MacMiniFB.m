@@ -252,6 +252,7 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
     view.device = g_metal_device;
     view.delegate = viewController;
     view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    view.enableSetNeedsDisplay = YES;
     view.paused = YES;
     [window.contentView addSubview:view];
 
@@ -524,6 +525,7 @@ int mfb_update_with_buffer(void* window, void* buffer, uint32_t buf_width, uint3
     int state = generic_update(win);
     MTKView* view = (MTKView*)win->metal_view;
     [view draw];
+    win->draw_parameters->buffer = NULL;
 
     return state;
 }
