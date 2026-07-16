@@ -51,6 +51,7 @@ void build_submenu(NSMenu* menu, MenuDesc* desc);
     @public int prev_cursor;
     @public MenuData* menu_data;
     @public void* frame_view;
+    @public void* metal_view;
     @public id keyUpMonitor;
 }
 @end
