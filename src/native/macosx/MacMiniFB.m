@@ -252,7 +252,6 @@ void* mfb_open(const char* name, int width, int height, uint32_t flags, int scal
     view.device = g_metal_device;
     view.delegate = viewController;
     view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-    view.enableSetNeedsDisplay = YES;
     view.paused = YES;
     [window.contentView addSubview:view];
 
