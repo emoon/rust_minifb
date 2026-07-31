@@ -233,7 +233,9 @@ unsafe extern "C" fn key_callback(window: *mut c_void, key: i32, state: i32) {
 
     let s = state == 1;
 
-    if key > 128 {
+    // KEY_MAPPINGS is length 128 (indices 0..127). key == 128 was
+    // previously treated as in-bounds and panicked on index.
+    if key < 0 || key >= 128 {
         (*win).key_handler.set_key_state(Key::Unknown, s);
     } else {
         (*win)
