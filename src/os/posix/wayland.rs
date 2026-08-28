@@ -1252,16 +1252,25 @@ impl Window {
         buf_height: usize,
         buf_stride: usize,
     ) -> Result<()> {
-        check_buffer_size(buffer, buf_width, buf_height, buf_stride)?;
+        let result = (|| {
+            check_buffer_size(buffer, buf_width, buf_height, buf_stride)?;
+            unsafe { self.scale_buffer(buffer, buf_width, buf_height, buf_stride) };
+            self.display
+                .update_framebuffer(&self.buffer, (self.width, self.height))
+                .map_err(|e| Error::UpdateFailed(format!("Error updating framebuffer: {:?}", e)))
+        })();
 
-        unsafe { self.scale_buffer(buffer, buf_width, buf_height, buf_stride) };
-
-        self.display
-            .update_framebuffer(&self.buffer, (self.width, self.height))
-            .map_err(|e| Error::UpdateFailed(format!("Error updating framebuffer: {:?}", e)))?;
+        // `update()` is also where input events and the key-repeat timer
+        // advance -- it must run whether or not the present above
+        // succeeded. A caller that only calls `self.update()` on the Err
+        // branch (or not at all) leaves `key_handler`'s internal duration
+        // tracking frozen for a cycle: the next successful poll then sees
+        // an already-held key's timer still at its initial `0.0` and
+        // reports it as freshly pressed again, a spurious duplicate
+        // keystroke with no visible cause tying it to the failed present.
         self.update();
 
-        Ok(())
+        result
     }
 
     unsafe fn scale_buffer(
