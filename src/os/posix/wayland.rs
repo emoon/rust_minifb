@@ -1041,6 +1041,69 @@ impl Window {
                 key::XKB_KEY_slash => Key::Slash,
                 key::XKB_KEY_space => Key::Space,
 
+                // Shifted-level keysyms for the keys above: XKB resolves a
+                // key through whichever shift level is currently active, so
+                // a press/release pair straddling a Shift transition (very
+                // common in ordinary typing rollover) can arrive with a
+                // different keysym for the same physical key. Without
+                // these, that keysym falls through to `_ => return` below,
+                // silently dropping the event -- on a dropped release, the
+                // key reads as permanently held and the guest's own
+                // repeat timer fires it forever; on a dropped press,
+                // Shift+key does not register at all. Map each back to
+                // the same `Key` its unshifted form uses, matching every
+                // other minifb backend's shift-invariant physical-key
+                // semantics.
+                key::XKB_KEY_A => Key::A,
+                key::XKB_KEY_B => Key::B,
+                key::XKB_KEY_C => Key::C,
+                key::XKB_KEY_D => Key::D,
+                key::XKB_KEY_E => Key::E,
+                key::XKB_KEY_F => Key::F,
+                key::XKB_KEY_G => Key::G,
+                key::XKB_KEY_H => Key::H,
+                key::XKB_KEY_I => Key::I,
+                key::XKB_KEY_J => Key::J,
+                key::XKB_KEY_K => Key::K,
+                key::XKB_KEY_L => Key::L,
+                key::XKB_KEY_M => Key::M,
+                key::XKB_KEY_N => Key::N,
+                key::XKB_KEY_O => Key::O,
+                key::XKB_KEY_P => Key::P,
+                key::XKB_KEY_Q => Key::Q,
+                key::XKB_KEY_R => Key::R,
+                key::XKB_KEY_S => Key::S,
+                key::XKB_KEY_T => Key::T,
+                key::XKB_KEY_U => Key::U,
+                key::XKB_KEY_V => Key::V,
+                key::XKB_KEY_W => Key::W,
+                key::XKB_KEY_X => Key::X,
+                key::XKB_KEY_Y => Key::Y,
+                key::XKB_KEY_Z => Key::Z,
+
+                key::XKB_KEY_exclam => Key::Key1,
+                key::XKB_KEY_at => Key::Key2,
+                key::XKB_KEY_numbersign => Key::Key3,
+                key::XKB_KEY_dollar => Key::Key4,
+                key::XKB_KEY_percent => Key::Key5,
+                key::XKB_KEY_asciicircum => Key::Key6,
+                key::XKB_KEY_ampersand => Key::Key7,
+                key::XKB_KEY_asterisk => Key::Key8,
+                key::XKB_KEY_parenleft => Key::Key9,
+                key::XKB_KEY_parenright => Key::Key0,
+
+                key::XKB_KEY_quotedbl => Key::Apostrophe,
+                key::XKB_KEY_asciitilde => Key::Backquote,
+                key::XKB_KEY_bar => Key::Backslash,
+                key::XKB_KEY_less => Key::Comma,
+                key::XKB_KEY_plus => Key::Equal,
+                key::XKB_KEY_braceleft => Key::LeftBracket,
+                key::XKB_KEY_braceright => Key::RightBracket,
+                key::XKB_KEY_underscore => Key::Minus,
+                key::XKB_KEY_greater => Key::Period,
+                key::XKB_KEY_colon => Key::Semicolon,
+                key::XKB_KEY_question => Key::Slash,
+
                 key::XKB_KEY_F1 => Key::F1,
                 key::XKB_KEY_F2 => Key::F2,
                 key::XKB_KEY_F3 => Key::F3,
