@@ -785,7 +785,10 @@ impl Window {
             self.should_close = true;
         }
 
-        self.key_handler.update();
+        // Snapshot before applying this batch, advance after it -- see the
+        // two methods' docs. This backend is the one that applies platform key
+        // events inline, so it is the one that has to split the phases.
+        self.key_handler.snapshot_prev();
 
         for event in self.input.iter_keyboard_events() {
             use wayland_client::protocol::wl_keyboard::Event;
@@ -838,6 +841,8 @@ impl Window {
                 _ => {}
             }
         }
+
+        self.key_handler.advance_durations();
 
         self.scroll_x = 0.;
         self.scroll_y = 0.;
