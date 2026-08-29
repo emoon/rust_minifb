@@ -263,7 +263,11 @@ struct WaylandState {
     /// Latest unacknowledged `xdg_surface::Configure` serial. Acknowledged when
     /// the next frame is presented, so the ack is paired with actual content.
     xdg_config: Option<u32>,
-    /// Latest `xdg_toplevel::Configure` size.
+    /// Size from an `xdg_toplevel::Configure` that no `xdg_surface::Configure`
+    /// has closed yet, so it is not part of a configure transaction and must
+    /// not be applied.
+    pending_resolution: Option<(i32, i32)>,
+    /// Size of the most recent complete configure transaction.
     resolution: Option<(i32, i32)>,
     closed: bool,
 }
@@ -345,8 +349,13 @@ impl Dispatch<XdgSurface, ()> for WaylandState {
         _: &Connection,
         _: &QueueHandle<Self>,
     ) {
-        // Only the most recent configure needs acknowledging.
+        // Ends a configure sequence, so it is what seals the size the
+        // preceding xdg_toplevel::Configure proposed; publishing that earlier
+        // lets a frame carry one transaction's size under another's serial.
         if let xdg_surface::Event::Configure { serial } = event {
+            if let Some(size) = state.pending_resolution.take() {
+                state.resolution = Some(size);
+            }
             state.xdg_config = Some(serial);
         }
     }
@@ -363,7 +372,7 @@ impl Dispatch<XdgToplevel, ()> for WaylandState {
     ) {
         match event {
             xdg_toplevel::Event::Configure { width, height, .. } => {
-                state.resolution = Some((width, height));
+                state.pending_resolution = Some((width, height));
             }
             xdg_toplevel::Event::Close => {
                 state.closed = true;
@@ -967,7 +976,21 @@ impl Window {
                             self.xkb_keymap = keymap;
                             self.xkb_state = unsafe { ffi_dispatch!(XKBH, xkb_state_new, keymap) };
                         }
-                        Err(e) => eprintln!("Failed to load the compositor keymap: {:?}", e),
+                        Err(e) => {
+                            eprintln!("Failed to load the compositor keymap: {:?}", e);
+                            // A keycode means nothing without the layout it
+                            // came with, so translation stops here rather
+                            // than continuing against the withdrawn one --
+                            // which also means no release will arrive for a
+                            // key held across this point.
+                            unsafe {
+                                ffi_dispatch!(XKBH, xkb_state_unref, self.xkb_state);
+                                ffi_dispatch!(XKBH, xkb_keymap_unref, self.xkb_keymap);
+                            }
+                            self.xkb_state = std::ptr::null_mut();
+                            self.xkb_keymap = std::ptr::null_mut();
+                            self.release_held_keys();
+                        }
                     }
                 }
                 Event::Enter { .. } => {
@@ -1112,6 +1135,15 @@ impl Window {
                     self.apply_cursor(serial);
                 }
                 _ => {}
+            }
+        }
+    }
+
+    /// Clears every key this window still believes is down.
+    fn release_held_keys(&mut self) {
+        for slot in self.held.iter_mut() {
+            if let Some(key) = slot.take() {
+                self.key_handler.set_key_state(key, false);
             }
         }
     }
