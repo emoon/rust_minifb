@@ -2,6 +2,12 @@
 
 This project follows semantic versioning.
 
+### v0.29 (unreleased)
+
+- [added] GPU presentation on Linux/Wayland through EGL/GLES2. The buffer is uploaded and scaled on the GPU, so the per-frame cost tracks your buffer size rather than the window size. Falls back to the existing software scaler whenever EGL is unavailable, or when the only renderer on offer is a CPU rasteriser such as llvmpipe.
+- [added] `WindowOptions::use_gpu` (`UseGPU::Auto` by default, `UseGPU::Disabled` to force the software path). Only the Wayland backend reads it; X11, macOS and Windows scale in software regardless.
+- [API BREAKAGE] The new `WindowOptions::use_gpu` field is a source break for struct literals that do not end in `..WindowOptions::default()`. Add that (or set the field) when moving from 0.28.
+
 ### v0.28 (2025-01-20)
 
 - [fixed] raw window handle and related fixes to get wgpu working. (Thanks Wumpf!) 

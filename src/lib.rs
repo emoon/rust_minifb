@@ -75,6 +75,30 @@ pub enum Scale {
     X32,
 }
 
+/// Whether the buffer should be presented using GPU acceleration.
+///
+/// The GPU path uploads the buffer you pass to `update_with_buffer` and lets
+/// the GPU scale it, so its cost tracks your buffer size. The software path
+/// scales on the CPU, so its cost tracks the *window* size - a small buffer in
+/// a large window is much more expensive there.
+///
+/// This is a preference, not a guarantee: the software path is always
+/// available and is used whenever the GPU path cannot be brought up, including
+/// when the only renderer available is a CPU rasteriser such as llvmpipe,
+/// which would put the scaling straight back on the CPU.
+///
+/// Only the Wayland backend reads this today. X11 always scales in software,
+/// as do macOS and Windows, which ignore this setting.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum UseGPU {
+    /// Use the GPU when one is usable, otherwise fall back to software.
+    /// This is the default and what almost every caller wants.
+    #[default]
+    Auto,
+    /// Always scale on the CPU.
+    Disabled,
+}
+
 /// Used for is_key_pressed and get_keys_pressed() to indicated if repeat of presses is wanted
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum KeyRepeat {
@@ -218,6 +242,8 @@ pub enum ScaleMode {
 
 /// WindowOptions is creation settings for the window. By default the settings are defined for
 /// displaying a 32-bit buffer (no scaling of window is possible)
+// Adding a field breaks any downstream literal that does not end in
+// `..WindowOptions::default()`, so it needs a minor version bump.
 #[derive(Clone, Copy, Debug)]
 pub struct WindowOptions {
     /// If the window should be borderless (default: false)
@@ -232,6 +258,10 @@ pub struct WindowOptions {
     pub scale_mode: ScaleMode,
     /// Should the window be the topmost window (default: false)
     pub topmost: bool,
+    /// Whether to present using the GPU (default: `UseGPU::Auto`).
+    /// Only has an effect on the Wayland backend; every other backend scales
+    /// in software regardless. See [`UseGPU`].
+    pub use_gpu: UseGPU,
     /// Specifies whether or not the window is allowed to draw transparent pixels (default: false)
     /// Requires borderless to be 'true'
     /// TODO: Currently not implemented on OSX.
@@ -1223,6 +1253,7 @@ impl Default for WindowOptions {
             scale: Scale::X1,
             scale_mode: ScaleMode::Stretch,
             topmost: false,
+            use_gpu: UseGPU::default(),
             none: false,
         }
     }
