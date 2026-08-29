@@ -68,6 +68,21 @@ const KEY_MOUSE_BTN3: u32 = 274;
 const KEY_MOUSE_BTN8: u32 = 275;
 const KEY_MOUSE_BTN9: u32 = 276;
 
+/// Byte count of a `width` x `height` ARGB framebuffer, or `None` if the
+/// dimensions are not positive or the total does not fit the `i32` a
+/// `wl_shm_pool` size is sent as. Every path that accepts a size — window
+/// creation, a compositor configure, and the pool itself — goes through this,
+/// so `width * height` can never overflow downstream.
+fn framebuffer_bytes(width: i32, height: i32) -> Option<i32> {
+    if width <= 0 || height <= 0 {
+        return None;
+    }
+    i64::from(width)
+        .checked_mul(i64::from(height))
+        .and_then(|px| px.checked_mul(std::mem::size_of::<u32>() as i64))
+        .and_then(|bytes| i32::try_from(bytes).ok())
+}
+
 /// Which slot `BufferPool::get_buffer` should draw from.
 #[derive(Debug, PartialEq, Eq)]
 enum Slot {
@@ -157,11 +172,7 @@ impl BufferPool {
         size: (i32, i32),
         qh: &QueueHandle<WaylandState>,
     ) -> std::io::Result<Option<(&mut File, &WlBuffer)>> {
-        // A wl_shm_pool size is an i32 on the wire, so the byte count has to
-        // fit one. Computing in i64 keeps an oversized surface from wrapping
-        // to a negative size and tripping a protocol error.
-        let size_bytes = i64::from(size.0) * i64::from(size.1) * std::mem::size_of::<u32>() as i64;
-        let size_bytes = i32::try_from(size_bytes).map_err(|_| {
+        let size_bytes = framebuffer_bytes(size.0, size.1).ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 format!("surface {}x{} is too large for an shm pool", size.0, size.1),
@@ -621,6 +632,12 @@ impl Window {
                 })
         };
         let (scaled_width, scaled_height) = (scaled(width)?, scaled(height)?);
+        if framebuffer_bytes(scaled_width, scaled_height).is_none() {
+            return Err(Error::WindowCreate(format!(
+                "{}x{} at {}x scale is too large",
+                width, height, scale
+            )));
+        }
 
         let (display, keyboard, pointer) = DisplayInfo::new(
             (scaled_width, scaled_height),
@@ -886,6 +903,7 @@ impl Window {
         if let Err(e) = display.event_queue.flush() {
             if !is_would_block(&e) {
                 eprintln!("Error while trying to flush the wayland socket: {:?}", e);
+                return false;
             }
         }
 
@@ -919,11 +937,17 @@ impl Window {
             self.should_close = true;
         }
 
-        if let Some(resize) = self.display.state.resolution.take() {
-            // Don't try to resize to 0x0
-            if self.resizable && resize != (0, 0) {
-                self.width = resize.0;
-                self.height = resize.1;
+        if let Some((width, height)) = self.display.state.resolution.take() {
+            if self.resizable {
+                // The compositor picks these, so a size the framebuffer maths
+                // cannot represent has to be refused rather than stored; 0x0
+                // is the normal "you choose" configure.
+                if framebuffer_bytes(width, height).is_some() {
+                    self.width = width;
+                    self.height = height;
+                } else if (width, height) != (0, 0) {
+                    eprintln!("Ignoring unusable configure size {}x{}", width, height);
+                }
             }
         }
         if self.display.state.closed {
@@ -1864,7 +1888,33 @@ xkb_symbols "minifb_test" {
 
 #[cfg(test)]
 mod buffer_pool_tests {
-    use super::{select_slot, Slot, MAX_POOLED_BUFFERS};
+    use super::{framebuffer_bytes, select_slot, Slot, MAX_POOLED_BUFFERS};
+
+    #[test]
+    fn framebuffer_bytes_is_width_times_height_times_four() {
+        assert_eq!(framebuffer_bytes(640, 480), Some(640 * 480 * 4));
+    }
+
+    #[test]
+    fn framebuffer_bytes_rejects_non_positive() {
+        assert_eq!(framebuffer_bytes(0, 480), None);
+        assert_eq!(framebuffer_bytes(640, 0), None);
+        assert_eq!(framebuffer_bytes(-1, 480), None);
+        assert_eq!(framebuffer_bytes(640, -1), None);
+    }
+
+    /// `i32::MAX * i32::MAX * 4` exceeds `i64::MAX`, so the intermediate
+    /// product has to be checked, not just the final narrowing to i32.
+    #[test]
+    fn framebuffer_bytes_survives_the_largest_dimensions() {
+        assert_eq!(framebuffer_bytes(i32::MAX, i32::MAX), None);
+    }
+
+    #[test]
+    fn framebuffer_bytes_rejects_a_total_larger_than_i32() {
+        // Dimensions are individually fine; the byte count is not.
+        assert_eq!(framebuffer_bytes(40_000, 40_000), None);
+    }
 
     #[test]
     fn empty_pool_grows() {
