@@ -14,6 +14,7 @@
 
 #![allow(non_camel_case_types, non_snake_case)]
 
+use std::convert::TryFrom;
 use std::ffi::{c_char, c_int, c_uint, c_void, CString};
 
 use crate::ScaleMode;
@@ -170,21 +171,15 @@ functions:
 // Shaders
 // ---------------------------------------------------------------------------
 
-/// `highp` is mandatory in the vertex language but optional in the fragment
-/// one, so `v_uv` is declared through the same `#ifdef` in every stage.
-/// GLSL ES 1.00 does not require a varying's precision to match across stages
-/// -- only its type -- but a `mediump` uv cannot address individual texels of
-/// a texture wider than ~1024, which is exactly what `GL_NEAREST` needs it to
-/// do. The macro is defined in both languages, so this picks the same one on
-/// both sides.
+/// `v_uv` is `highp` in every stage. `mediump` guarantees only 2^-10 relative
+/// precision, which cannot resolve adjacent texels of a texture wider than
+/// ~1024 -- and `GL_MAX_TEXTURE_SIZE` is 2048 or more on any real driver, so
+/// falling back to it would sample the wrong texel on buffers this path
+/// happily accepts. `highp` is mandatory in the vertex language.
 const VERTEX_SHADER: &str = "\
 attribute vec2 a_pos;
 attribute vec2 a_uv;
-#ifdef GL_FRAGMENT_PRECISION_HIGH
 varying highp vec2 v_uv;
-#else
-varying mediump vec2 v_uv;
-#endif
 void main() {
     v_uv = a_uv;
     gl_Position = vec4(a_pos, 0.0, 1.0);
@@ -193,14 +188,17 @@ void main() {
 
 /// The buffer's top byte is `X`, not alpha, and callers leave it zero, so
 /// sampling it would blend an opaque window away against the desktop.
+///
+/// `highp` is optional in the fragment language, so a driver without it is
+/// rejected here rather than silently sampling the wrong texels. `#error`
+/// makes the shader ill-formed, which surfaces as [`GlError::Shader`] and
+/// sends the window down the software path like any other setup failure.
 const FRAGMENT_SHADER_OPAQUE: &str = "\
-#ifdef GL_FRAGMENT_PRECISION_HIGH
+#ifndef GL_FRAGMENT_PRECISION_HIGH
+#error minifb needs highp in the fragment language to sample texels exactly
+#endif
 precision highp float;
 varying highp vec2 v_uv;
-#else
-precision mediump float;
-varying mediump vec2 v_uv;
-#endif
 uniform sampler2D u_tex;
 void main() {
     gl_FragColor = vec4(texture2D(u_tex, v_uv).rgb, 1.0);
@@ -210,13 +208,11 @@ void main() {
 /// Used only when the caller asked for `WindowOptions::transparency`, where
 /// the top byte really is alpha.
 const FRAGMENT_SHADER_ALPHA: &str = "\
-#ifdef GL_FRAGMENT_PRECISION_HIGH
+#ifndef GL_FRAGMENT_PRECISION_HIGH
+#error minifb needs highp in the fragment language to sample texels exactly
+#endif
 precision highp float;
 varying highp vec2 v_uv;
-#else
-precision mediump float;
-varying mediump vec2 v_uv;
-#endif
 uniform sampler2D u_tex;
 void main() {
     gl_FragColor = texture2D(u_tex, v_uv);
@@ -732,14 +728,38 @@ impl GlContext {
     pub unsafe fn present(
         &mut self,
         buffer: &[u32],
-        buf_width: i32,
-        buf_height: i32,
-        buf_stride: i32,
+        buf_width: usize,
+        buf_height: usize,
+        buf_stride: usize,
         win_width: i32,
         win_height: i32,
         scale_mode: ScaleMode,
         bg_color: u32,
     ) -> Result<(), GlError> {
+        // The buffer dimensions arrive as `usize` and every GL entry point
+        // takes `GLsizei`. Casting would wrap a dimension past `i32::MAX` to a
+        // negative one, which slips under the size check below and then skips
+        // the upload, presenting a cleared window and reporting success --
+        // i.e. silently losing the frame instead of falling back. Such a size
+        // is reachable from safe code: `check_buffer_size` multiplies by the
+        // height, so a zero height lets any width through.
+        //
+        // Anything that does not fit is past every real `GL_MAX_TEXTURE_SIZE`
+        // anyway, so it reports as oversized and takes that recovery path.
+        let too_large = |max| GlError::TextureTooLarge {
+            width: buf_width.min(i32::MAX as usize) as i32,
+            height: buf_height.min(i32::MAX as usize) as i32,
+            max,
+        };
+        let (buf_width, buf_height, buf_stride) = match (
+            i32::try_from(buf_width),
+            i32::try_from(buf_height),
+            i32::try_from(buf_stride),
+        ) {
+            (Ok(w), Ok(h), Ok(s)) => (w, h, s),
+            _ => return Err(too_large(self.max_texture_size)),
+        };
+
         // Checked before touching GL at all. `glTexImage2D` would reject an
         // oversized buffer with GL_INVALID_VALUE and leave the texture with no
         // storage, and GLES2 samples an incomplete texture as opaque black --

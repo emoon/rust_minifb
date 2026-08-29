@@ -216,6 +216,9 @@ mod scaler_tests {
             (1920, 640),
             (7, 13),
             (2, 3),
+            // A ratio this steep is where a carry loop that subtracts `dst`
+            // until it fits turns into `src / dst` iterations per pixel.
+            (2_200_000, 100),
         ] {
             // One row of distinct values, so a pixel names the column it came
             // from. `scale_guarded` fills the source with `i | 1`.

@@ -802,7 +802,7 @@ impl Window {
             // Still too big for the context we would rebuild; do not pay for
             // one just to hit the same limit.
             GlPath::TooLarge { max } => {
-                if buf_width as i32 > max || buf_height as i32 > max {
+                if buf_width > max as usize || buf_height > max as usize {
                     return false;
                 }
             }
@@ -839,9 +839,9 @@ impl Window {
         let result = unsafe {
             context.context().present(
                 buffer,
-                buf_width as i32,
-                buf_height as i32,
-                buf_stride as i32,
+                buf_width,
+                buf_height,
+                buf_stride,
                 size.width,
                 size.height,
                 scale_mode,
