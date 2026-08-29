@@ -68,36 +68,65 @@ const KEY_MOUSE_BTN3: u32 = 274;
 const KEY_MOUSE_BTN8: u32 = 275;
 const KEY_MOUSE_BTN9: u32 = 276;
 
-/// Byte count of a `width` x `height` ARGB framebuffer, or `None` if the
-/// dimensions are not positive or the total does not fit the `i32` a
-/// `wl_shm_pool` size is sent as. Every path that accepts a size — window
-/// creation, a compositor configure, and the pool itself — goes through this,
-/// so `width * height` can never overflow downstream.
-fn framebuffer_bytes(width: i32, height: i32) -> Option<i32> {
-    if width <= 0 || height <= 0 {
-        return None;
-    }
-    i64::from(width)
-        .checked_mul(i64::from(height))
-        .and_then(|px| px.checked_mul(std::mem::size_of::<u32>() as i64))
-        .and_then(|bytes| i32::try_from(bytes).ok())
+/// A surface size with both axes positive and an ARGB byte count that fits the
+/// `i32` a `wl_shm_pool` size is sent as. `new` is the only constructor, so
+/// nothing downstream re-validates.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct SurfaceSize {
+    width: i32,
+    height: i32,
+    bytes: i32,
 }
 
-/// Which slot `BufferPool::get_buffer` should draw from.
+impl SurfaceSize {
+    fn new(width: i32, height: i32) -> Option<Self> {
+        if width <= 0 || height <= 0 {
+            return None;
+        }
+        let bytes = i64::from(width)
+            .checked_mul(i64::from(height))
+            .and_then(|px| px.checked_mul(std::mem::size_of::<u32>() as i64))
+            .and_then(|bytes| i32::try_from(bytes).ok())?;
+        Some(Self {
+            width,
+            height,
+            bytes,
+        })
+    }
+
+    fn scaled(width: usize, height: usize, scale: i32) -> Option<Self> {
+        let axis = |v: usize| i32::try_from(v).ok()?.checked_mul(scale);
+        Self::new(axis(width)?, axis(height)?)
+    }
+
+    /// A zero axis in an `xdg_toplevel::configure` means the compositor is
+    /// leaving that dimension to us, so the current value stands.
+    fn reconfigured(self, width: i32, height: i32) -> Option<Self> {
+        Self::new(
+            if width == 0 { self.width } else { width },
+            if height == 0 { self.height } else { height },
+        )
+    }
+
+    /// Cannot overflow: the whole buffer already fits an i32.
+    fn stride(self) -> i32 {
+        self.width * std::mem::size_of::<u32>() as i32
+    }
+
+    fn pixels(self) -> usize {
+        self.width as usize * self.height as usize
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 enum Slot {
-    /// Reuse the released buffer at this index.
     Reuse(usize),
-    /// Nothing is free and the pool is under the cap: append a new buffer.
     Grow,
-    /// Every buffer is still held by the compositor and the pool is at its
-    /// cap. There is nothing safe to write to: the frame has to be dropped.
+    /// Every buffer is still held and the pool is at its cap; drop the frame.
     Wait,
 }
 
-/// Picks the slot to draw from, given which buffers the compositor has
-/// released. Split out from `get_buffer` so the policy can be tested without
-/// a compositor.
+/// Split out of `get_buffer` so the policy is testable without a compositor.
 fn select_slot(released: &[bool], max: usize) -> Slot {
     match released.iter().position(|&r| r) {
         Some(idx) => Slot::Reuse(idx),
@@ -106,10 +135,8 @@ fn select_slot(released: &[bool], max: usize) -> Slot {
     }
 }
 
-/// Upper bound on how many shm buffers the pool will grow to. Past it, a frame
-/// with no released buffer to write into is dropped rather than presented. A
-/// well-behaved compositor releases buffers promptly and the pool settles at
-/// two; the cap only stops a misbehaving one from growing it without bound.
+/// Past this, a frame with no released buffer to write into is dropped rather
+/// than presented. A well-behaved compositor settles the pool at two.
 const MAX_POOLED_BUFFERS: usize = 4;
 
 struct Buffer {
@@ -120,7 +147,7 @@ struct Buffer {
     /// Set by the compositor's `wl_buffer::Release`, cleared when we attach the
     /// buffer to the surface. Only a released buffer may be written to.
     released: Arc<AtomicBool>,
-    fb_size: (i32, i32),
+    fb_size: SurfaceSize,
 }
 
 struct BufferPool {
@@ -140,19 +167,19 @@ impl BufferPool {
 
     fn create_shm_buffer(
         shm_pool: &WlShmPool,
-        size: (i32, i32),
+        size: SurfaceSize,
         format: Format,
         qh: &QueueHandle<WaylandState>,
     ) -> (WlBuffer, Arc<AtomicBool>) {
-        // The flag doubles as the buffer's dispatch user data, so the release
-        // event lands on it directly without having to search the pool.
+        // Doubles as the buffer's dispatch user data, so a release lands on it
+        // directly without searching the pool.
         let released = Arc::new(AtomicBool::new(true));
 
         let buffer = shm_pool.create_buffer(
             0,
-            size.0,
-            size.1,
-            size.0 * std::mem::size_of::<u32>() as i32,
+            size.width,
+            size.height,
+            size.stride(),
             format,
             qh,
             released.clone(),
@@ -161,23 +188,14 @@ impl BufferPool {
         (buffer, released)
     }
 
-    /// Returns a buffer the compositor is not currently reading from, growing
-    /// the pool if every existing one is still in use.
-    ///
-    /// `Ok(None)` means every buffer is still held and the pool is at its cap.
-    /// The caller must drop the frame rather than write to a held buffer,
-    /// which would leave the surface contents undefined.
+    /// `Ok(None)` means every buffer is still held and the pool is at its cap;
+    /// the caller must drop the frame rather than write to a held buffer.
     fn get_buffer(
         &mut self,
-        size: (i32, i32),
+        size: SurfaceSize,
         qh: &QueueHandle<WaylandState>,
     ) -> std::io::Result<Option<(&mut File, &WlBuffer)>> {
-        let size_bytes = framebuffer_bytes(size.0, size.1).ok_or_else(|| {
-            std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                format!("surface {}x{} is too large for an shm pool", size.0, size.1),
-            )
-        })?;
+        let size_bytes = size.bytes;
 
         let released: Vec<bool> = self
             .pool
@@ -190,9 +208,8 @@ impl BufferPool {
             Slot::Wait => return Ok(None),
             Slot::Grow => {
                 let file = tempfile::tempfile()?;
-                // The compositor mmaps the pool as soon as it is created, so
-                // the file has to be that large before it is handed over --
-                // touching a mapping that extends past EOF is a SIGBUS.
+                // The compositor mmaps the pool on creation; a mapping past
+                // EOF is a SIGBUS.
                 file.set_len(size_bytes as u64)?;
                 let shm_pool = self.shm.create_pool(file.as_fd(), size_bytes, qh, ());
                 let (buffer, released) = Self::create_shm_buffer(&shm_pool, size, self.format, qh);
@@ -212,8 +229,7 @@ impl BufferPool {
 
         let entry = &mut self.pool[idx];
 
-        // A wl_shm_pool may only ever grow. Extend the backing file first,
-        // for the same reason it is sized up front on creation.
+        // A wl_shm_pool may only grow, and the file has to lead it.
         if size_bytes > entry.pool_size {
             entry.file.set_len(size_bytes as u64)?;
             entry.pool.resize(size_bytes);
@@ -231,8 +247,6 @@ impl BufferPool {
         Ok(Some((&mut entry.file, &entry.buffer)))
     }
 
-    /// Marks `buffer` as in use by the compositor. Called at attach time; the
-    /// matching `Release` event clears it again.
     fn mark_attached(&self, buffer: &WlBuffer) {
         if let Some(entry) = self.pool.iter().find(|e| &e.buffer == buffer) {
             entry.released.store(false, Ordering::Release);
@@ -383,7 +397,11 @@ struct DisplayInfo {
 impl DisplayInfo {
     /// Accepts the size of the surface to be created, whether or not the alpha channel will be
     /// rendered, and whether or not server-side decorations will be used.
-    fn new(size: (i32, i32), alpha: bool, decorate: bool) -> Result<(Self, WlKeyboard, WlPointer)> {
+    fn new(
+        size: SurfaceSize,
+        alpha: bool,
+        decorate: bool,
+    ) -> Result<(Self, WlKeyboard, WlPointer)> {
         let conn = Connection::connect_to_env().map_err(|e| {
             Error::WindowCreate(format!("Failed to connect to the Wayland display: {:?}", e))
         })?;
@@ -419,8 +437,6 @@ impl DisplayInfo {
         };
 
         let mut buf_pool = BufferPool::new(shm.clone(), format);
-        // The pool is empty here, so this always allocates rather than
-        // returning `None` for want of a free buffer.
         let (file, buffer) = buf_pool
             .get_buffer(size, &qh)
             .map_err(|e| Error::WindowCreate(format!("Failed to retrieve Buffer: {:?}", e)))?
@@ -428,7 +444,7 @@ impl DisplayInfo {
         let buffer = buffer.clone();
 
         // Add a black canvas into the framebuffer
-        let frame: Vec<u32> = vec![0xFF00_0000; (size.0 * size.1) as usize];
+        let frame: Vec<u32> = vec![0xFF00_0000; size.pixels()];
         let slice = unsafe {
             std::slice::from_raw_parts(
                 frame.as_ptr() as *const u8,
@@ -508,9 +524,9 @@ impl DisplayInfo {
     }
 
     #[inline]
-    fn set_no_resize(&self, size: (i32, i32)) {
-        self.toplevel.set_max_size(size.0, size.1);
-        self.toplevel.set_min_size(size.0, size.1);
+    fn set_no_resize(&self, size: SurfaceSize) {
+        self.toplevel.set_max_size(size.width, size.height);
+        self.toplevel.set_min_size(size.width, size.height);
     }
 
     // Sets a specific cursor style
@@ -527,7 +543,7 @@ impl DisplayInfo {
     }
 
     // Resizes when buffer is bigger or less
-    fn update_framebuffer(&mut self, buffer: &[u32], size: (i32, i32)) -> std::io::Result<()> {
+    fn update_framebuffer(&mut self, buffer: &[u32], size: SurfaceSize) -> std::io::Result<()> {
         // Every buffer is still held by the compositor: drop this frame
         // rather than write into one it may be scanning out. The previous
         // frame stays on screen and the next call presents normally.
@@ -563,8 +579,7 @@ impl DisplayInfo {
 pub struct Window {
     display: DisplayInfo,
 
-    width: i32,
-    height: i32,
+    size: SurfaceSize,
 
     scale: i32,
     bg_color: u32,
@@ -618,38 +633,21 @@ impl Window {
             Scale::X32 => 32,
         };
 
-        // `Scale::X32` on a large request can overflow an i32 here, which
-        // would reach the compositor as a nonsensical surface size.
-        let scaled = |v: usize| -> Result<i32> {
-            i32::try_from(v)
-                .ok()
-                .and_then(|v: i32| v.checked_mul(scale))
-                .ok_or_else(|| {
-                    Error::WindowCreate(format!(
-                        "{}x{} at {}x scale is too large",
-                        width, height, scale
-                    ))
-                })
-        };
-        let (scaled_width, scaled_height) = (scaled(width)?, scaled(height)?);
-        if framebuffer_bytes(scaled_width, scaled_height).is_none() {
-            return Err(Error::WindowCreate(format!(
+        let size = SurfaceSize::scaled(width, height, scale).ok_or_else(|| {
+            Error::WindowCreate(format!(
                 "{}x{} at {}x scale is too large",
                 width, height, scale
-            )));
-        }
+            ))
+        })?;
 
-        let (display, keyboard, pointer) = DisplayInfo::new(
-            (scaled_width, scaled_height),
-            opts.transparency,
-            !opts.borderless || opts.none,
-        )?;
+        let (display, keyboard, pointer) =
+            DisplayInfo::new(size, opts.transparency, !opts.borderless || opts.none)?;
 
         if opts.title {
             display.set_title(name);
         }
         if !opts.resize || opts.none {
-            display.set_no_resize((scaled_width, scaled_height));
+            display.set_no_resize(size);
         }
 
         #[cfg(feature = "dlopen")]
@@ -676,8 +674,7 @@ impl Window {
         Ok(Self {
             display,
 
-            width: scaled_width,
-            height: scaled_height,
+            size,
 
             scale,
             bg_color: 0,
@@ -738,7 +735,7 @@ impl Window {
 
     #[inline]
     pub fn get_size(&self) -> (usize, usize) {
-        (self.width as usize, self.height as usize)
+        (self.size.width as usize, self.size.height as usize)
     }
 
     #[inline]
@@ -762,8 +759,8 @@ impl Window {
             self.mouse_x,
             self.mouse_y,
             self.scale as f32,
-            self.width as f32,
-            self.height as f32,
+            self.size.width as f32,
+            self.size.height as f32,
         )
     }
 
@@ -784,8 +781,8 @@ impl Window {
             self.mouse_x,
             self.mouse_y,
             1.0,
-            self.width as f32,
-            self.height as f32,
+            self.size.width as f32,
+            self.size.height as f32,
         )
     }
 
@@ -806,7 +803,7 @@ impl Window {
     #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
         self.display
-            .set_geometry((x as i32, y as i32), (self.width, self.height));
+            .set_geometry((x as i32, y as i32), (self.size.width, self.size.height));
     }
 
     #[inline]
@@ -939,14 +936,9 @@ impl Window {
 
         if let Some((width, height)) = self.display.state.resolution.take() {
             if self.resizable {
-                // The compositor picks these, so a size the framebuffer maths
-                // cannot represent has to be refused rather than stored; 0x0
-                // is the normal "you choose" configure.
-                if framebuffer_bytes(width, height).is_some() {
-                    self.width = width;
-                    self.height = height;
-                } else if (width, height) != (0, 0) {
-                    eprintln!("Ignoring unusable configure size {}x{}", width, height);
+                match self.size.reconfigured(width, height) {
+                    Some(size) => self.size = size,
+                    None => eprintln!("Ignoring unusable configure size {}x{}", width, height),
                 }
             }
         }
@@ -1064,7 +1056,13 @@ impl Window {
                 } => {
                     use wayland_client::protocol::wl_pointer::ButtonState;
 
-                    let pressed = matches!(state, WEnum::Value(ButtonState::Pressed));
+                    // An unknown state is not a release; treating it as one
+                    // would clear a button still being held.
+                    let pressed = match state {
+                        WEnum::Value(ButtonState::Pressed) => true,
+                        WEnum::Value(ButtonState::Released) => false,
+                        _ => continue,
+                    };
 
                     match button {
                         // Left mouse button
@@ -1416,7 +1414,7 @@ impl Window {
             check_buffer_size(buffer, buf_width, buf_height, buf_stride)?;
             unsafe { self.scale_buffer(buffer, buf_width, buf_height, buf_stride) };
             self.display
-                .update_framebuffer(&self.buffer, (self.width, self.height))
+                .update_framebuffer(&self.buffer, self.size)
                 .map_err(|e| Error::UpdateFailed(format!("Error updating framebuffer: {:?}", e)))
         })();
 
@@ -1441,14 +1439,14 @@ impl Window {
         buf_height: usize,
         buf_stride: usize,
     ) {
-        self.buffer.resize((self.width * self.height) as usize, 0);
+        self.buffer.resize(self.size.pixels(), 0);
 
         match self.scale_mode {
             ScaleMode::Stretch => {
                 image_resize_linear(
                     self.buffer.as_mut_ptr(),
-                    self.width as u32,
-                    self.height as u32,
+                    self.size.width as u32,
+                    self.size.height as u32,
                     buffer.as_ptr(),
                     buf_width as u32,
                     buf_height as u32,
@@ -1459,8 +1457,8 @@ impl Window {
             ScaleMode::AspectRatioStretch => {
                 image_resize_linear_aspect_fill(
                     self.buffer.as_mut_ptr(),
-                    self.width as u32,
-                    self.height as u32,
+                    self.size.width as u32,
+                    self.size.height as u32,
                     buffer.as_ptr(),
                     buf_width as u32,
                     buf_height as u32,
@@ -1472,8 +1470,8 @@ impl Window {
             ScaleMode::Center => {
                 image_center(
                     self.buffer.as_mut_ptr(),
-                    self.width as u32,
-                    self.height as u32,
+                    self.size.width as u32,
+                    self.size.height as u32,
                     buffer.as_ptr(),
                     buf_width as u32,
                     buf_height as u32,
@@ -1485,8 +1483,8 @@ impl Window {
             ScaleMode::UpperLeft => {
                 image_upper_left(
                     self.buffer.as_mut_ptr(),
-                    self.width as u32,
-                    self.height as u32,
+                    self.size.width as u32,
+                    self.size.height as u32,
                     buffer.as_ptr(),
                     buf_width as u32,
                     buf_height as u32,
@@ -1888,32 +1886,61 @@ xkb_symbols "minifb_test" {
 
 #[cfg(test)]
 mod buffer_pool_tests {
-    use super::{framebuffer_bytes, select_slot, Slot, MAX_POOLED_BUFFERS};
+    use super::{select_slot, Slot, SurfaceSize, MAX_POOLED_BUFFERS};
 
-    #[test]
-    fn framebuffer_bytes_is_width_times_height_times_four() {
-        assert_eq!(framebuffer_bytes(640, 480), Some(640 * 480 * 4));
+    fn size(w: i32, h: i32) -> SurfaceSize {
+        SurfaceSize::new(w, h).unwrap()
     }
 
     #[test]
-    fn framebuffer_bytes_rejects_non_positive() {
-        assert_eq!(framebuffer_bytes(0, 480), None);
-        assert_eq!(framebuffer_bytes(640, 0), None);
-        assert_eq!(framebuffer_bytes(-1, 480), None);
-        assert_eq!(framebuffer_bytes(640, -1), None);
+    fn byte_count_is_width_times_height_times_four() {
+        assert_eq!(size(640, 480).bytes, 640 * 480 * 4);
+        assert_eq!(size(640, 480).stride(), 640 * 4);
+        assert_eq!(size(640, 480).pixels(), 640 * 480);
+    }
+
+    #[test]
+    fn non_positive_dimensions_are_rejected() {
+        assert_eq!(SurfaceSize::new(0, 480), None);
+        assert_eq!(SurfaceSize::new(640, 0), None);
+        assert_eq!(SurfaceSize::new(-1, 480), None);
+        assert_eq!(SurfaceSize::new(640, -1), None);
     }
 
     /// `i32::MAX * i32::MAX * 4` exceeds `i64::MAX`, so the intermediate
     /// product has to be checked, not just the final narrowing to i32.
     #[test]
-    fn framebuffer_bytes_survives_the_largest_dimensions() {
-        assert_eq!(framebuffer_bytes(i32::MAX, i32::MAX), None);
+    fn the_largest_dimensions_do_not_overflow_the_check() {
+        assert_eq!(SurfaceSize::new(i32::MAX, i32::MAX), None);
     }
 
     #[test]
-    fn framebuffer_bytes_rejects_a_total_larger_than_i32() {
+    fn a_total_larger_than_i32_is_rejected() {
         // Dimensions are individually fine; the byte count is not.
-        assert_eq!(framebuffer_bytes(40_000, 40_000), None);
+        assert_eq!(SurfaceSize::new(40_000, 40_000), None);
+    }
+
+    #[test]
+    fn scale_multiply_is_checked() {
+        assert_eq!(SurfaceSize::scaled(320, 240, 2), SurfaceSize::new(640, 480));
+        assert_eq!(SurfaceSize::scaled(usize::MAX, 240, 1), None);
+        assert_eq!(SurfaceSize::scaled(i32::MAX as usize, 1, 32), None);
+    }
+
+    #[test]
+    fn a_zero_configure_axis_keeps_the_current_value() {
+        let current = size(640, 480);
+        assert_eq!(current.reconfigured(0, 600), SurfaceSize::new(640, 600));
+        assert_eq!(current.reconfigured(800, 0), SurfaceSize::new(800, 480));
+        assert_eq!(current.reconfigured(0, 0), Some(current));
+        assert_eq!(current.reconfigured(800, 600), SurfaceSize::new(800, 600));
+    }
+
+    #[test]
+    fn an_unusable_configure_is_rejected() {
+        let current = size(640, 480);
+        assert_eq!(current.reconfigured(-1, 600), None);
+        assert_eq!(current.reconfigured(40_000, 40_000), None);
     }
 
     #[test]
