@@ -1,7 +1,7 @@
 #![allow(non_camel_case_types, clippy::identity_op)]
 
 /** Minimal xkb_common ffi wrapper, based on sctk's. */
-use std::ffi::c_char;
+use std::ffi::{c_char, c_int};
 
 #[repr(C)]
 pub struct xkb_context {
@@ -19,7 +19,12 @@ pub struct xkb_state {
 pub type xkb_keycode_t = u32;
 pub type xkb_keysym_t = u32;
 pub type xkb_layout_index_t = u32;
+pub type xkb_level_index_t = u32;
 pub type xkb_mod_mask_t = u32;
+
+/// `XKB_LAYOUT_INVALID`, returned by `xkb_state_key_get_layout` for a keycode
+/// the keymap does not cover.
+pub const XKB_LAYOUT_INVALID: xkb_layout_index_t = 0xffff_ffff;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -55,6 +60,13 @@ functions:
                                   xkb_keymap_compile_flags
                                  ) -> *mut xkb_keymap,
     fn xkb_keymap_unref(*mut xkb_keymap) -> (),
+    fn xkb_keymap_key_get_syms_by_level(*mut xkb_keymap,
+                                        xkb_keycode_t,
+                                        xkb_layout_index_t,
+                                        xkb_level_index_t,
+                                        *mut *const xkb_keysym_t
+                                       ) -> c_int,
+    fn xkb_state_key_get_layout(*mut xkb_state, xkb_keycode_t) -> xkb_layout_index_t,
     fn xkb_state_key_get_one_sym(*mut xkb_state, xkb_keycode_t) -> xkb_keysym_t,
     fn xkb_state_new(*mut xkb_keymap) -> *mut xkb_state,
     fn xkb_state_unref(*mut xkb_state) -> (),
