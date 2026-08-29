@@ -1,12 +1,14 @@
 use std::{
-    cell::RefCell,
+    convert::TryFrom,
     ffi::c_void,
     fs::File,
     io::{Seek, SeekFrom, Write},
-    os::unix::io::{AsRawFd, RawFd},
+    os::unix::io::{AsFd, AsRawFd, OwnedFd},
     ptr::NonNull,
-    rc::Rc,
-    sync::mpsc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
     time::Duration,
 };
 
@@ -23,23 +25,31 @@ use raw_window_handle::{
     RawWindowHandle, WaylandDisplayHandle, WaylandWindowHandle, WindowHandle,
 };
 use wayland_client::{
+    backend::WaylandError,
+    delegate_noop,
+    globals::{registry_queue_init, GlobalList, GlobalListContents},
     protocol::{
-        wl_buffer::WlBuffer,
+        wl_buffer::{self, WlBuffer},
         wl_compositor::WlCompositor,
-        wl_display::WlDisplay,
         wl_keyboard::{self, KeymapFormat, WlKeyboard},
         wl_pointer::{self, WlPointer},
+        wl_registry::WlRegistry,
         wl_seat::WlSeat,
         wl_shm::{Format, WlShm},
         wl_shm_pool::WlShmPool,
         wl_surface::WlSurface,
     },
-    Attached, Display, EventQueue, GlobalManager, Main,
+    Connection, Dispatch, EventQueue, Proxy, QueueHandle, WEnum,
 };
-use wayland_protocols::{
-    unstable::xdg_decoration::v1::client::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1,
-    xdg_shell::client::{
-        xdg_surface::XdgSurface, xdg_toplevel::XdgToplevel, xdg_wm_base::XdgWmBase,
+use wayland_protocols::xdg::{
+    decoration::zv1::client::{
+        zxdg_decoration_manager_v1::ZxdgDecorationManagerV1,
+        zxdg_toplevel_decoration_v1::ZxdgToplevelDecorationV1,
+    },
+    shell::client::{
+        xdg_surface::{self, XdgSurface},
+        xdg_toplevel::{self, XdgToplevel},
+        xdg_wm_base::{self, XdgWmBase},
     },
 };
 
@@ -58,26 +68,54 @@ const KEY_MOUSE_BTN3: u32 = 274;
 const KEY_MOUSE_BTN8: u32 = 275;
 const KEY_MOUSE_BTN9: u32 = 276;
 
-type ToplevelResolution = Rc<RefCell<Option<(i32, i32)>>>;
-type ToplevelClosed = Rc<RefCell<bool>>;
+/// Which slot `BufferPool::get_buffer` should draw from.
+#[derive(Debug, PartialEq, Eq)]
+enum Slot {
+    /// Reuse the released buffer at this index.
+    Reuse(usize),
+    /// Nothing is free and the pool is under the cap: append a new buffer.
+    Grow,
+    /// Every buffer is still held by the compositor and the pool is at its
+    /// cap. There is nothing safe to write to: the frame has to be dropped.
+    Wait,
+}
+
+/// Picks the slot to draw from, given which buffers the compositor has
+/// released. Split out from `get_buffer` so the policy can be tested without
+/// a compositor.
+fn select_slot(released: &[bool], max: usize) -> Slot {
+    match released.iter().position(|&r| r) {
+        Some(idx) => Slot::Reuse(idx),
+        None if released.len() < max => Slot::Grow,
+        None => Slot::Wait,
+    }
+}
+
+/// Upper bound on how many shm buffers the pool will grow to. Past it, a frame
+/// with no released buffer to write into is dropped rather than presented. A
+/// well-behaved compositor releases buffers promptly and the pool settles at
+/// two; the cap only stops a misbehaving one from growing it without bound.
+const MAX_POOLED_BUFFERS: usize = 4;
 
 struct Buffer {
-    fd: File,
-    pool: Main<WlShmPool>,
+    file: File,
+    pool: WlShmPool,
     pool_size: i32,
-    buffer: Main<WlBuffer>,
-    buffer_state: Rc<RefCell<bool>>,
+    buffer: WlBuffer,
+    /// Set by the compositor's `wl_buffer::Release`, cleared when we attach the
+    /// buffer to the surface. Only a released buffer may be written to.
+    released: Arc<AtomicBool>,
     fb_size: (i32, i32),
 }
 
 struct BufferPool {
     pool: Vec<Buffer>,
-    shm: Main<WlShm>,
+    shm: WlShm,
     format: Format,
 }
 
 impl BufferPool {
-    fn new(shm: Main<WlShm>, format: Format) -> Self {
+    fn new(shm: WlShm, format: Format) -> Self {
         Self {
             pool: Vec::new(),
             shm,
@@ -86,138 +124,297 @@ impl BufferPool {
     }
 
     fn create_shm_buffer(
-        shm_pool: &Main<WlShmPool>,
+        shm_pool: &WlShmPool,
         size: (i32, i32),
         format: Format,
-    ) -> (Main<WlBuffer>, Rc<RefCell<bool>>) {
-        let buf = shm_pool.create_buffer(
+        qh: &QueueHandle<WaylandState>,
+    ) -> (WlBuffer, Arc<AtomicBool>) {
+        // The flag doubles as the buffer's dispatch user data, so the release
+        // event lands on it directly without having to search the pool.
+        let released = Arc::new(AtomicBool::new(true));
+
+        let buffer = shm_pool.create_buffer(
             0,
             size.0,
             size.1,
             size.0 * std::mem::size_of::<u32>() as i32,
             format,
+            qh,
+            released.clone(),
         );
 
-        // Whether or not the buffer has been released by the compositor
-        let buf_released = Rc::new(RefCell::new(false));
-        let buf_released_clone = buf_released.clone();
-
-        buf.quick_assign(move |_, event, _| {
-            use wayland_client::protocol::wl_buffer::Event;
-
-            if let Event::Release = event {
-                *buf_released_clone.borrow_mut() = true;
-            }
-        });
-
-        (buf, buf_released)
+        (buffer, released)
     }
 
-    fn get_buffer(&mut self, size: (i32, i32)) -> std::io::Result<(File, &Main<WlBuffer>)> {
-        let pos = self.pool.iter().rposition(|e| *e.buffer_state.borrow());
-        let size_bytes = size.0 * size.1 * std::mem::size_of::<u32>() as i32;
+    /// Returns a buffer the compositor is not currently reading from, growing
+    /// the pool if every existing one is still in use.
+    ///
+    /// `Ok(None)` means every buffer is still held and the pool is at its cap.
+    /// The caller must drop the frame rather than write to a held buffer,
+    /// which would leave the surface contents undefined.
+    fn get_buffer(
+        &mut self,
+        size: (i32, i32),
+        qh: &QueueHandle<WaylandState>,
+    ) -> std::io::Result<Option<(&mut File, &WlBuffer)>> {
+        // A wl_shm_pool size is an i32 on the wire, so the byte count has to
+        // fit one. Computing in i64 keeps an oversized surface from wrapping
+        // to a negative size and tripping a protocol error.
+        let size_bytes = i64::from(size.0) * i64::from(size.1) * std::mem::size_of::<u32>() as i64;
+        let size_bytes = i32::try_from(size_bytes).map_err(|_| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("surface {}x{} is too large for an shm pool", size.0, size.1),
+            )
+        })?;
 
-        // If possible, take an older shm_pool and create a new buffer in it
-        if let Some(idx) = pos {
-            // Shm_pool not allowed to be truncated
-            if size_bytes > self.pool[idx].pool_size {
-                self.pool[idx].pool.resize(size_bytes);
-                self.pool[idx].pool_size = size_bytes;
+        let released: Vec<bool> = self
+            .pool
+            .iter()
+            .map(|e| e.released.load(Ordering::Acquire))
+            .collect();
+
+        let idx = match select_slot(&released, MAX_POOLED_BUFFERS) {
+            Slot::Reuse(idx) => idx,
+            Slot::Wait => return Ok(None),
+            Slot::Grow => {
+                let file = tempfile::tempfile()?;
+                // The compositor mmaps the pool as soon as it is created, so
+                // the file has to be that large before it is handed over --
+                // touching a mapping that extends past EOF is a SIGBUS.
+                file.set_len(size_bytes as u64)?;
+                let shm_pool = self.shm.create_pool(file.as_fd(), size_bytes, qh, ());
+                let (buffer, released) = Self::create_shm_buffer(&shm_pool, size, self.format, qh);
+
+                self.pool.push(Buffer {
+                    file,
+                    pool: shm_pool,
+                    pool_size: size_bytes,
+                    buffer,
+                    released,
+                    fb_size: size,
+                });
+
+                self.pool.len() - 1
             }
+        };
 
-            // Different buffer size
-            if self.pool[idx].fb_size != size {
-                let new_buffer = Self::create_shm_buffer(&self.pool[idx].pool, size, self.format);
-                let old_buffer = std::mem::replace(&mut self.pool[idx].buffer, new_buffer.0);
-                old_buffer.destroy();
-                self.pool[idx].fb_size = size;
-            }
+        let entry = &mut self.pool[idx];
 
-            Ok((self.pool[idx].fd.try_clone()?, &self.pool[idx].buffer))
-        } else {
-            let tempfile = tempfile::tempfile()?;
-            let shm_pool = self.shm.create_pool(
-                tempfile.as_raw_fd(),
-                size.0 * size.1 * std::mem::size_of::<u32>() as i32,
-            );
-            let buffer = Self::create_shm_buffer(&shm_pool, size, self.format);
+        // A wl_shm_pool may only ever grow. Extend the backing file first,
+        // for the same reason it is sized up front on creation.
+        if size_bytes > entry.pool_size {
+            entry.file.set_len(size_bytes as u64)?;
+            entry.pool.resize(size_bytes);
+            entry.pool_size = size_bytes;
+        }
 
-            self.pool.push(Buffer {
-                fd: tempfile,
-                pool: shm_pool,
-                pool_size: size_bytes,
-                buffer: buffer.0,
-                buffer_state: buffer.1,
-                fb_size: size,
-            });
+        if entry.fb_size != size {
+            let (buffer, released) = Self::create_shm_buffer(&entry.pool, size, self.format, qh);
+            let old = std::mem::replace(&mut entry.buffer, buffer);
+            old.destroy();
+            entry.released = released;
+            entry.fb_size = size;
+        }
 
-            Ok((
-                self.pool[self.pool.len() - 1].fd.try_clone()?,
-                &self.pool[self.pool.len() - 1].buffer,
-            ))
+        Ok(Some((&mut entry.file, &entry.buffer)))
+    }
+
+    /// Marks `buffer` as in use by the compositor. Called at attach time; the
+    /// matching `Release` event clears it again.
+    fn mark_attached(&self, buffer: &WlBuffer) {
+        if let Some(entry) = self.pool.iter().find(|e| &e.buffer == buffer) {
+            entry.released.store(false, Ordering::Release);
         }
     }
 }
 
+/// Event callbacks write here; `Window::update` drains it each frame.
+#[derive(Default)]
+struct WaylandState {
+    kb_events: Vec<wl_keyboard::Event>,
+    pt_events: Vec<wl_pointer::Event>,
+
+    /// Latest unacknowledged `xdg_surface::Configure` serial. Acknowledged when
+    /// the next frame is presented, so the ack is paired with actual content.
+    xdg_config: Option<u32>,
+    /// Latest `xdg_toplevel::Configure` size.
+    resolution: Option<(i32, i32)>,
+    closed: bool,
+}
+
+impl Dispatch<WlRegistry, GlobalListContents> for WaylandState {
+    fn event(
+        _: &mut Self,
+        _: &WlRegistry,
+        _: <WlRegistry as Proxy>::Event,
+        _: &GlobalListContents,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+    }
+}
+
+impl Dispatch<WlBuffer, Arc<AtomicBool>> for WaylandState {
+    fn event(
+        _: &mut Self,
+        _: &WlBuffer,
+        event: wl_buffer::Event,
+        released: &Arc<AtomicBool>,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+        if let wl_buffer::Event::Release = event {
+            released.store(true, Ordering::Release);
+        }
+    }
+}
+
+impl Dispatch<WlKeyboard, ()> for WaylandState {
+    fn event(
+        state: &mut Self,
+        _: &WlKeyboard,
+        event: wl_keyboard::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+        state.kb_events.push(event);
+    }
+}
+
+impl Dispatch<WlPointer, ()> for WaylandState {
+    fn event(
+        state: &mut Self,
+        _: &WlPointer,
+        event: wl_pointer::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+        state.pt_events.push(event);
+    }
+}
+
+impl Dispatch<XdgWmBase, ()> for WaylandState {
+    fn event(
+        _: &mut Self,
+        xdg_wm_base: &XdgWmBase,
+        event: xdg_wm_base::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+        if let xdg_wm_base::Event::Ping { serial } = event {
+            xdg_wm_base.pong(serial);
+        }
+    }
+}
+
+impl Dispatch<XdgSurface, ()> for WaylandState {
+    fn event(
+        state: &mut Self,
+        _: &XdgSurface,
+        event: xdg_surface::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+        // Only the most recent configure needs acknowledging.
+        if let xdg_surface::Event::Configure { serial } = event {
+            state.xdg_config = Some(serial);
+        }
+    }
+}
+
+impl Dispatch<XdgToplevel, ()> for WaylandState {
+    fn event(
+        state: &mut Self,
+        _: &XdgToplevel,
+        event: xdg_toplevel::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+        match event {
+            xdg_toplevel::Event::Configure { width, height, .. } => {
+                state.resolution = Some((width, height));
+            }
+            xdg_toplevel::Event::Close => {
+                state.closed = true;
+            }
+            _ => {}
+        }
+    }
+}
+
+delegate_noop!(WaylandState: ignore WlCompositor);
+delegate_noop!(WaylandState: ignore WlSurface);
+delegate_noop!(WaylandState: ignore WlShm);
+delegate_noop!(WaylandState: ignore WlShmPool);
+delegate_noop!(WaylandState: ignore WlSeat);
+delegate_noop!(WaylandState: ignore ZxdgDecorationManagerV1);
+delegate_noop!(WaylandState: ignore ZxdgToplevelDecorationV1);
+
 struct DisplayInfo {
-    attached_display: Attached<WlDisplay>,
-    surface: Main<WlSurface>,
-    xdg_surface: Main<XdgSurface>,
-    toplevel: Main<XdgToplevel>,
-    event_queue: EventQueue,
-    xdg_config: Rc<RefCell<Option<u32>>>,
+    conn: Connection,
+    event_queue: EventQueue<WaylandState>,
+    qh: QueueHandle<WaylandState>,
+    state: WaylandState,
+    surface: WlSurface,
+    xdg_surface: XdgSurface,
+    toplevel: XdgToplevel,
     cursor: wayland_cursor::CursorTheme,
-    cursor_surface: Main<WlSurface>,
-    _display: Display,
+    cursor_surface: WlSurface,
     buf_pool: BufferPool,
 }
 
 impl DisplayInfo {
     /// Accepts the size of the surface to be created, whether or not the alpha channel will be
     /// rendered, and whether or not server-side decorations will be used.
-    fn new(size: (i32, i32), alpha: bool, decorate: bool) -> Result<(Self, WaylandInput)> {
-        // Get the wayland display
-        let display = Display::connect_to_env().map_err(|e| {
+    fn new(size: (i32, i32), alpha: bool, decorate: bool) -> Result<(Self, WlKeyboard, WlPointer)> {
+        let conn = Connection::connect_to_env().map_err(|e| {
             Error::WindowCreate(format!("Failed to connect to the Wayland display: {:?}", e))
         })?;
-        let mut event_queue = display.create_event_queue();
 
-        // Access internal WlDisplay with a token
-        let attached_display = (*display).clone().attach(event_queue.token());
-        let globals = GlobalManager::new(&attached_display);
-
-        // Wait for the Wayland server to process all events
-        event_queue
-            .sync_roundtrip(&mut (), |_, _, _| unreachable!())
-            .map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
+        let (globals, mut event_queue): (GlobalList, EventQueue<WaylandState>) =
+            registry_queue_init(&conn).map_err(|e| {
+                Error::WindowCreate(format!("Failed to retrieve the Wayland globals: {:?}", e))
+            })?;
+        let qh = event_queue.handle();
+        let mut state = WaylandState::default();
 
         // Version 5 is required for scroll events
-        let seat = globals
-            .instantiate_exact::<WlSeat>(5)
+        let seat: WlSeat = globals
+            .bind(&qh, 5..=5, ())
             .map_err(|e| Error::WindowCreate(format!("Failed to retrieve the WlSeat: {:?}", e)))?;
 
-        let input_devices = WaylandInput::new(&seat);
-        let compositor = globals.instantiate_exact::<WlCompositor>(4).map_err(|e| {
+        let keyboard = seat.get_keyboard(&qh, ());
+        let pointer = seat.get_pointer(&qh, ());
+
+        let compositor: WlCompositor = globals.bind(&qh, 4..=4, ()).map_err(|e| {
             Error::WindowCreate(format!("Failed to retrieve the compositor: {:?}", e))
         })?;
-        let shm = globals
-            .instantiate_exact::<WlShm>(1)
+        let shm: WlShm = globals
+            .bind(&qh, 1..=1, ())
             .map_err(|e| Error::WindowCreate(format!("Failed to create shared memory: {:?}", e)))?;
 
-        let surface = compositor.create_surface();
+        let surface = compositor.create_surface(&qh, ());
 
-        // Specify format
         let format = if alpha {
             Format::Argb8888
         } else {
             Format::Xrgb8888
         };
 
-        // Retrieve shm buffer for writing
         let mut buf_pool = BufferPool::new(shm.clone(), format);
-        let (mut tempfile, buffer) = buf_pool
-            .get_buffer(size)
-            .map_err(|e| Error::WindowCreate(format!("Failed to retrieve Buffer: {:?}", e)))?;
+        // The pool is empty here, so this always allocates rather than
+        // returning `None` for want of a free buffer.
+        let (file, buffer) = buf_pool
+            .get_buffer(size, &qh)
+            .map_err(|e| Error::WindowCreate(format!("Failed to retrieve Buffer: {:?}", e)))?
+            .ok_or_else(|| Error::WindowCreate("Failed to allocate a Buffer".to_owned()))?;
+        let buffer = buffer.clone();
 
         // Add a black canvas into the framebuffer
         let frame: Vec<u32> = vec![0xFF00_0000; (size.0 * size.1) as usize];
@@ -227,91 +424,64 @@ impl DisplayInfo {
                 frame.len() * std::mem::size_of::<u32>(),
             )
         };
-        tempfile
-            .write_all(slice)
+        file.write_all(slice)
             .map_err(|e| Error::WindowCreate(format!("Io Error: {:?}", e)))?;
-        tempfile
-            .flush()
+        file.flush()
             .map_err(|e| Error::WindowCreate(format!("Io Error: {:?}", e)))?;
 
-        let xdg_wm_base = globals.instantiate_exact::<XdgWmBase>(1).map_err(|e| {
+        let xdg_wm_base: XdgWmBase = globals.bind(&qh, 1..=1, ()).map_err(|e| {
             Error::WindowCreate(format!("Failed to retrieve the XdgWmBase: {:?}", e))
         })?;
 
-        // Reply to ping event
-        xdg_wm_base.quick_assign(|xdg_wm_base, event, _| {
-            use wayland_protocols::xdg_shell::client::xdg_wm_base::Event;
-
-            if let Event::Ping { serial } = event {
-                xdg_wm_base.pong(serial);
-            }
-        });
-
-        let xdg_surface = xdg_wm_base.get_xdg_surface(&surface);
-        let surface_clone = surface.clone();
-
-        // Handle configure event
-        xdg_surface.quick_assign(move |xdg_surface, event, _| {
-            use wayland_protocols::xdg_shell::client::xdg_surface::Event;
-
-            if let Event::Configure { serial } = event {
-                xdg_surface.ack_configure(serial);
-                surface_clone.commit();
-            }
-        });
-
-        // Assign the toplevel role and commit
-        let xdg_toplevel = xdg_surface.get_toplevel();
+        let xdg_surface = xdg_wm_base.get_xdg_surface(&surface, &qh, ());
+        let xdg_toplevel = xdg_surface.get_toplevel(&qh, ());
 
         if decorate {
-            if let Ok(decorations) = globals
-                .instantiate_exact::<ZxdgDecorationManagerV1>(1)
-                .map_err(|e| println!("Failed to create server-side surface decoration: {:?}", e))
-            {
-                decorations.get_toplevel_decoration(&xdg_toplevel);
-                decorations.destroy();
+            match globals.bind::<ZxdgDecorationManagerV1, _, _>(&qh, 1..=1, ()) {
+                Ok(decorations) => {
+                    decorations.get_toplevel_decoration(&xdg_toplevel, &qh, ());
+                    decorations.destroy();
+                }
+                Err(e) => println!("Failed to create server-side surface decoration: {:?}", e),
             }
         }
 
         surface.commit();
         event_queue
-            .sync_roundtrip(&mut (), |_, _, _| {})
+            .roundtrip(&mut state)
             .map_err(|e| Error::WindowCreate(format!("Roundtrip failed: {:?}", e)))?;
 
+        // The first configure has to be acknowledged before any content is
+        // attached; later ones are acknowledged as frames are presented.
+        if let Some(serial) = state.xdg_config.take() {
+            xdg_surface.ack_configure(serial);
+        }
+
         // Give the buffer to the surface and commit
-        surface.attach(Some(buffer), 0, 0);
+        surface.attach(Some(&buffer), 0, 0);
+        buf_pool.mark_attached(&buffer);
         surface.damage(0, 0, i32::MAX, i32::MAX);
         surface.commit();
 
-        let xdg_config = Rc::new(RefCell::new(None));
-        let xdg_config_clone = xdg_config.clone();
-
-        xdg_surface.quick_assign(move |_xdg_surface, event, _| {
-            use wayland_protocols::xdg_shell::client::xdg_surface::Event;
-
-            // Acknowledge only the last configure
-            if let Event::Configure { serial } = event {
-                *xdg_config_clone.borrow_mut() = Some(serial);
-            }
-        });
-
-        let cursor = wayland_cursor::CursorTheme::load(16, &shm);
-        let cursor_surface = compositor.create_surface();
+        let cursor = wayland_cursor::CursorTheme::load(&conn, shm.clone(), 16)
+            .map_err(|e| Error::WindowCreate(format!("Failed to load cursor theme: {:?}", e)))?;
+        let cursor_surface = compositor.create_surface(&qh, ());
 
         Ok((
             Self {
-                _display: display,
-                attached_display,
+                conn,
+                event_queue,
+                qh,
+                state,
                 surface,
                 xdg_surface,
                 toplevel: xdg_toplevel,
-                event_queue,
-                xdg_config,
                 cursor,
                 cursor_surface,
                 buf_pool,
             },
-            input_devices,
+            keyboard,
+            pointer,
         ))
     }
 
@@ -347,93 +517,35 @@ impl DisplayInfo {
 
     // Resizes when buffer is bigger or less
     fn update_framebuffer(&mut self, buffer: &[u32], size: (i32, i32)) -> std::io::Result<()> {
-        let (mut fd, buf) = self.buf_pool.get_buffer(size)?;
+        // Every buffer is still held by the compositor: drop this frame
+        // rather than write into one it may be scanning out. The previous
+        // frame stays on screen and the next call presents normally.
+        let (file, buf) = match self.buf_pool.get_buffer(size, &self.qh)? {
+            Some(entry) => entry,
+            None => return Ok(()),
+        };
+        let buf = buf.clone();
 
-        fd.seek(SeekFrom::Start(0))?;
+        file.seek(SeekFrom::Start(0))?;
 
         let slice = unsafe {
             std::slice::from_raw_parts(buffer.as_ptr() as *const u8, std::mem::size_of_val(buffer))
         };
 
-        fd.write_all(slice)?;
-        fd.flush()?;
+        file.write_all(slice)?;
+        file.flush()?;
 
         // Acknowledge the last configure event
-        if let Some(serial) = (*self.xdg_config.borrow_mut()).take() {
+        if let Some(serial) = self.state.xdg_config.take() {
             self.xdg_surface.ack_configure(serial);
         }
 
-        self.surface.attach(Some(buf), 0, 0);
+        self.surface.attach(Some(&buf), 0, 0);
+        self.buf_pool.mark_attached(&buf);
         self.surface.damage(0, 0, i32::MAX, i32::MAX);
         self.surface.commit();
 
         Ok(())
-    }
-
-    fn get_toplevel_info(&self) -> (ToplevelResolution, ToplevelClosed) {
-        let resolution = Rc::new(RefCell::new(None));
-        let closed = Rc::new(RefCell::new(false));
-
-        let resolution_clone = resolution.clone();
-        let closed_clone = closed.clone();
-
-        self.toplevel.quick_assign(move |_, event, _| {
-            use wayland_protocols::xdg_shell::client::xdg_toplevel::Event;
-
-            if let Event::Configure { width, height, .. } = event {
-                *resolution_clone.borrow_mut() = Some((width, height));
-            } else if let Event::Close = event {
-                *closed_clone.borrow_mut() = true;
-            }
-        });
-
-        (resolution, closed)
-    }
-}
-
-struct WaylandInput {
-    kb_events: mpsc::Receiver<wl_keyboard::Event>,
-    pt_events: mpsc::Receiver<wl_pointer::Event>,
-    _keyboard: Main<WlKeyboard>,
-    pointer: Main<WlPointer>,
-}
-
-impl WaylandInput {
-    fn new(seat: &Main<WlSeat>) -> Self {
-        let (keyboard, pointer) = (seat.get_keyboard(), seat.get_pointer());
-        let (kb_sender, kb_receiver) = mpsc::sync_channel(1024);
-
-        keyboard.quick_assign(move |_, event, _| {
-            kb_sender.send(event).unwrap();
-        });
-
-        let (pt_sender, pt_receiver) = mpsc::sync_channel(1024);
-
-        pointer.quick_assign(move |_, event, _| {
-            pt_sender.send(event).unwrap();
-        });
-
-        Self {
-            kb_events: kb_receiver,
-            pt_events: pt_receiver,
-            _keyboard: keyboard,
-            pointer,
-        }
-    }
-
-    #[inline]
-    fn get_pointer(&self) -> &Main<WlPointer> {
-        &self.pointer
-    }
-
-    #[inline]
-    fn iter_keyboard_events(&self) -> mpsc::TryIter<'_, wl_keyboard::Event> {
-        self.kb_events.try_iter()
-    }
-
-    #[inline]
-    fn iter_pointer_events(&self) -> mpsc::TryIter<'_, wl_pointer::Event> {
-        self.pt_events.try_iter()
     }
 }
 
@@ -472,12 +584,11 @@ pub struct Window {
     update_rate: UpdateRate,
     menu_counter: MenuHandle,
     menus: Vec<UnixMenu>,
-    input: WaylandInput,
+    _keyboard: WlKeyboard,
+    pointer: WlPointer,
     resizable: bool,
     // Temporary buffer
     buffer: Vec<u32>,
-    // Resolution, closed
-    toplevel_info: (ToplevelResolution, ToplevelClosed),
     pointer_visibility: bool,
 }
 
@@ -496,8 +607,23 @@ impl Window {
             Scale::X32 => 32,
         };
 
-        let (display, input) = DisplayInfo::new(
-            (width as i32 * scale, height as i32 * scale),
+        // `Scale::X32` on a large request can overflow an i32 here, which
+        // would reach the compositor as a nonsensical surface size.
+        let scaled = |v: usize| -> Result<i32> {
+            i32::try_from(v)
+                .ok()
+                .and_then(|v: i32| v.checked_mul(scale))
+                .ok_or_else(|| {
+                    Error::WindowCreate(format!(
+                        "{}x{} at {}x scale is too large",
+                        width, height, scale
+                    ))
+                })
+        };
+        let (scaled_width, scaled_height) = (scaled(width)?, scaled(height)?);
+
+        let (display, keyboard, pointer) = DisplayInfo::new(
+            (scaled_width, scaled_height),
             opts.transparency,
             !opts.borderless || opts.none,
         )?;
@@ -506,10 +632,8 @@ impl Window {
             display.set_title(name);
         }
         if !opts.resize || opts.none {
-            display.set_no_resize((width as i32 * scale, height as i32 * scale));
+            display.set_no_resize((scaled_width, scaled_height));
         }
-
-        let (resolution, closed) = display.get_toplevel_info();
 
         #[cfg(feature = "dlopen")]
         {
@@ -535,8 +659,8 @@ impl Window {
         Ok(Self {
             display,
 
-            width: width as i32 * scale,
-            height: height as i32 * scale,
+            width: scaled_width,
+            height: scaled_height,
 
             scale,
             bg_color: 0,
@@ -562,10 +686,10 @@ impl Window {
             update_rate: UpdateRate::new(),
             menu_counter: MenuHandle(0),
             menus: Vec::new(),
-            input,
+            _keyboard: keyboard,
+            pointer,
             resizable: opts.resize && !opts.none,
             buffer: Vec::with_capacity(width * height * scale as usize * scale as usize),
-            toplevel_info: (resolution, closed),
             pointer_visibility: true,
         })
     }
@@ -592,7 +716,7 @@ impl Window {
 
     #[inline]
     pub fn get_window_handle(&self) -> *mut c_void {
-        self.display.surface.as_ref().c_ptr() as *mut c_void
+        self.display.surface.id().as_ptr() as *mut c_void
     }
 
     #[inline]
@@ -670,10 +794,9 @@ impl Window {
 
     #[inline]
     pub fn get_position(&self) -> (isize, isize) {
-        let (x, y) = (0, 0);
-        // todo!("get_position");
-
-        (x as isize, y as isize)
+        // Wayland deliberately does not tell a client where its surface is on
+        // screen, so there is nothing truthful to report here.
+        (0, 0)
     }
 
     #[inline]
@@ -754,43 +877,56 @@ impl Window {
         unimplemented!()
     }
 
-    fn try_dispatch_events(&mut self) {
-        // as seen in https://docs.rs/wayland-client/0.28/wayland_client/struct.EventQueue.html
-        if let Err(e) = self.display.event_queue.display().flush() {
-            if e.kind() != std::io::ErrorKind::WouldBlock {
+    /// Pumps the socket. Returns `false` once the connection is gone, which
+    /// the caller turns into a close request: a compositor that disconnects
+    /// mid-run should end the window, not abort the process.
+    fn try_dispatch_events(&mut self) -> bool {
+        let display = &mut self.display;
+
+        if let Err(e) = display.event_queue.flush() {
+            if !is_would_block(&e) {
                 eprintln!("Error while trying to flush the wayland socket: {:?}", e);
             }
         }
 
-        if let Some(guard) = self.display.event_queue.prepare_read() {
-            if let Err(e) = guard.read_events() {
-                if e.kind() != std::io::ErrorKind::WouldBlock {
+        if let Err(e) = display.event_queue.dispatch_pending(&mut display.state) {
+            eprintln!("Wayland event dispatch failed: {:?}", e);
+            return false;
+        }
+
+        if let Some(guard) = display.event_queue.prepare_read() {
+            if let Err(e) = guard.read() {
+                if !is_would_block(&e) {
                     eprintln!(
                         "Error while trying to read from the wayland socket: {:?}",
                         e
                     );
+                    return false;
                 }
             }
         }
 
-        self.display
-            .event_queue
-            .dispatch_pending(&mut (), |_, _, _| {})
-            .map_err(|e| Error::WindowCreate(format!("Event dispatch failed: {:?}", e)))
-            .unwrap();
+        if let Err(e) = display.event_queue.dispatch_pending(&mut display.state) {
+            eprintln!("Wayland event dispatch failed: {:?}", e);
+            return false;
+        }
+
+        true
     }
 
     pub fn update(&mut self) {
-        self.try_dispatch_events();
+        if !self.try_dispatch_events() {
+            self.should_close = true;
+        }
 
-        if let Some(resize) = (*self.toplevel_info.0.borrow_mut()).take() {
+        if let Some(resize) = self.display.state.resolution.take() {
             // Don't try to resize to 0x0
             if self.resizable && resize != (0, 0) {
                 self.width = resize.0;
                 self.height = resize.1;
             }
         }
-        if *self.toplevel_info.1.borrow() {
+        if self.display.state.closed {
             self.should_close = true;
         }
 
@@ -799,14 +935,24 @@ impl Window {
         // events inline, so it is the one that has to split the phases.
         self.key_handler.snapshot_prev();
 
-        for event in self.input.iter_keyboard_events() {
+        for event in std::mem::take(&mut self.display.state.kb_events) {
             use wayland_client::protocol::wl_keyboard::Event;
 
             match event {
                 Event::Keymap { format, fd, size } => {
-                    let keymap = Self::handle_keymap(self.xkb_context, format, fd, size).unwrap();
-                    self.xkb_keymap = keymap;
-                    self.xkb_state = unsafe { ffi_dispatch!(XKBH, xkb_state_new, keymap) };
+                    match Self::handle_keymap(self.xkb_context, format, fd, size) {
+                        Ok(keymap) => {
+                            // Drop the previous keymap/state; the compositor
+                            // sends a fresh keymap whenever the layout changes.
+                            unsafe {
+                                ffi_dispatch!(XKBH, xkb_state_unref, self.xkb_state);
+                                ffi_dispatch!(XKBH, xkb_keymap_unref, self.xkb_keymap);
+                            }
+                            self.xkb_keymap = keymap;
+                            self.xkb_state = unsafe { ffi_dispatch!(XKBH, xkb_state_new, keymap) };
+                        }
+                        Err(e) => eprintln!("Failed to load the compositor keymap: {:?}", e),
+                    }
                 }
                 Event::Enter { .. } => {
                     self.active = true;
@@ -816,14 +962,16 @@ impl Window {
                 }
                 Event::Key { key, state, .. } => {
                     if !self.xkb_state.is_null() && !self.xkb_keymap.is_null() {
-                        Self::handle_key(
-                            self.xkb_keymap,
-                            self.xkb_state,
-                            key + KEY_XKB_OFFSET,
-                            state,
-                            &mut self.key_handler,
-                            &mut self.held,
-                        );
+                        if let WEnum::Value(state) = state {
+                            Self::handle_key(
+                                self.xkb_keymap,
+                                self.xkb_state,
+                                key + KEY_XKB_OFFSET,
+                                state,
+                                &mut self.key_handler,
+                                &mut self.held,
+                            );
+                        }
                     }
                 }
                 Event::Modifiers {
@@ -858,7 +1006,7 @@ impl Window {
         self.scroll_x = 0.;
         self.scroll_y = 0.;
 
-        for event in self.input.iter_pointer_events() {
+        for event in std::mem::take(&mut self.display.state.pt_events) {
             use wayland_client::protocol::wl_pointer::Event;
 
             match event {
@@ -871,26 +1019,10 @@ impl Window {
                     self.mouse_x = surface_x as f32;
                     self.mouse_y = surface_y as f32;
 
-                    self.input.get_pointer().set_cursor(
-                        serial,
-                        Some(&self.display.cursor_surface),
-                        0,
-                        0,
-                    );
                     self.display
                         .update_cursor(Self::decode_cursor(self.prev_cursor))
                         .unwrap();
-
-                    if self.pointer_visibility {
-                        self.input.get_pointer().set_cursor(
-                            serial,
-                            Some(&self.display.cursor_surface),
-                            0,
-                            0,
-                        );
-                    } else {
-                        self.input.get_pointer().set_cursor(serial, None, 0, 0);
-                    }
+                    self.apply_cursor(serial);
                 }
                 Event::Motion {
                     surface_x,
@@ -908,7 +1040,7 @@ impl Window {
                 } => {
                     use wayland_client::protocol::wl_pointer::ButtonState;
 
-                    let pressed = state == ButtonState::Pressed;
+                    let pressed = matches!(state, WEnum::Value(ButtonState::Pressed));
 
                     match button {
                         // Left mouse button
@@ -927,61 +1059,44 @@ impl Window {
                         ),
                     }
 
-                    if self.pointer_visibility {
-                        self.input.get_pointer().set_cursor(
-                            serial,
-                            Some(&self.display.cursor_surface),
-                            0,
-                            0,
-                        );
-                    } else {
-                        self.input.get_pointer().set_cursor(serial, None, 0, 0);
-                    }
+                    self.apply_cursor(serial);
                 }
                 Event::Axis { axis, value, .. } => {
                     use wayland_client::protocol::wl_pointer::Axis;
 
                     match axis {
-                        Axis::VerticalScroll => self.scroll_y = value as f32,
-                        Axis::HorizontalScroll => self.scroll_x = value as f32,
+                        WEnum::Value(Axis::VerticalScroll) => self.scroll_y = value as f32,
+                        WEnum::Value(Axis::HorizontalScroll) => self.scroll_x = value as f32,
                         _ => {}
                     }
-                }
-                Event::Frame => {
-                    // TODO
-                }
-                Event::AxisSource { axis_source } => {
-                    let _ = axis_source;
-                    // TODO
                 }
                 Event::AxisStop { axis, .. } => {
                     use wayland_client::protocol::wl_pointer::Axis;
 
                     match axis {
-                        Axis::VerticalScroll => self.scroll_y = 0.,
-                        Axis::HorizontalScroll => self.scroll_x = 0.,
+                        WEnum::Value(Axis::VerticalScroll) => self.scroll_y = 0.,
+                        WEnum::Value(Axis::HorizontalScroll) => self.scroll_x = 0.,
                         _ => {}
                     }
                 }
-                Event::AxisDiscrete { axis, discrete } => {
-                    let _ = (axis, discrete);
-                    // TODO
-                }
                 Event::Leave { serial, .. } => {
-                    if self.pointer_visibility {
-                        self.input.get_pointer().set_cursor(
-                            serial,
-                            Some(&self.display.cursor_surface),
-                            0,
-                            0,
-                        );
-                    } else {
-                        self.input.get_pointer().set_cursor(serial, None, 0, 0);
-                    }
+                    self.apply_cursor(serial);
                 }
                 _ => {}
             }
         }
+    }
+
+    /// Points the pointer at our cursor surface, or hides it entirely when the
+    /// cursor has been turned off.
+    #[inline]
+    fn apply_cursor(&self, serial: u32) {
+        let surface = if self.pointer_visibility {
+            Some(&self.display.cursor_surface)
+        } else {
+            None
+        };
+        self.pointer.set_cursor(serial, surface, 0, 0);
     }
 
     /// The keysym `key` produces at shift level 0 of the currently active
@@ -1192,12 +1307,12 @@ impl Window {
 
     fn handle_keymap(
         context: *mut xkb_ffi::xkb_context,
-        keymap: KeymapFormat,
-        fd: RawFd,
+        keymap: WEnum<KeymapFormat>,
+        fd: OwnedFd,
         len: u32,
     ) -> Result<*mut xkb_ffi::xkb_keymap> {
         match keymap {
-            KeymapFormat::XkbV1 => {
+            WEnum::Value(KeymapFormat::XkbV1) => {
                 unsafe {
                     // The file descriptor must be memory-mapped (with MAP_PRIVATE).
                     let addr = libc::mmap(
@@ -1205,7 +1320,7 @@ impl Window {
                         len as usize,
                         libc::PROT_READ,
                         libc::MAP_PRIVATE,
-                        fd,
+                        fd.as_raw_fd(),
                         0,
                     );
                     if addr == libc::MAP_FAILED {
@@ -1235,7 +1350,10 @@ impl Window {
                     }
                 }
             }
-            _ => unimplemented!("Only XKB keymaps are supported"),
+            other => Err(Error::WindowCreate(format!(
+                "Only XKB keymaps are supported, compositor sent {:?}",
+                other
+            ))),
         }
     }
 
@@ -1356,13 +1474,16 @@ impl Window {
     }
 }
 
+#[inline]
+fn is_would_block(e: &WaylandError) -> bool {
+    matches!(e, WaylandError::Io(io) if io.kind() == std::io::ErrorKind::WouldBlock)
+}
+
 impl HasWindowHandle for Window {
     fn window_handle(&self) -> std::result::Result<WindowHandle<'_>, HandleError> {
-        let raw_display_surface = self.display.surface.as_ref().c_ptr() as *mut c_void;
-        let display_surface = match NonNull::new(raw_display_surface) {
-            Some(display_surface) => display_surface,
-            None => unimplemented!("null display surface"),
-        };
+        let surface = self.display.surface.id().as_ptr();
+        let display_surface =
+            NonNull::new(surface as *mut c_void).ok_or(HandleError::Unavailable)?;
 
         let handle = WaylandWindowHandle::new(display_surface);
         let raw_handle = RawWindowHandle::Wayland(handle);
@@ -1372,17 +1493,8 @@ impl HasWindowHandle for Window {
 
 impl HasDisplayHandle for Window {
     fn display_handle(&self) -> std::result::Result<DisplayHandle<'_>, HandleError> {
-        let raw_display = self
-            .display
-            .attached_display
-            .clone()
-            .detach()
-            .as_ref()
-            .c_ptr() as *mut c_void;
-        let display = match NonNull::new(raw_display) {
-            Some(display) => display,
-            None => unimplemented!("null display"),
-        };
+        let raw_display = self.display.conn.backend().display_ptr();
+        let display = NonNull::new(raw_display as *mut c_void).ok_or(HandleError::Unavailable)?;
         let handle = WaylandDisplayHandle::new(display);
         let raw_handle = RawDisplayHandle::Wayland(handle);
         unsafe { Ok(DisplayHandle::borrow_raw(raw_handle)) }
@@ -1747,5 +1859,56 @@ xkb_symbols "minifb_test" {
         km.press(&mut keys, KP1);
 
         assert_eq!(keys.get_keys(), vec![Key::NumPad1]);
+    }
+}
+
+#[cfg(test)]
+mod buffer_pool_tests {
+    use super::{select_slot, Slot, MAX_POOLED_BUFFERS};
+
+    #[test]
+    fn empty_pool_grows() {
+        assert_eq!(select_slot(&[], MAX_POOLED_BUFFERS), Slot::Grow);
+    }
+
+    #[test]
+    fn released_buffer_is_reused() {
+        assert_eq!(
+            select_slot(&[false, true], MAX_POOLED_BUFFERS),
+            Slot::Reuse(1)
+        );
+    }
+
+    #[test]
+    fn lowest_released_index_wins() {
+        assert_eq!(
+            select_slot(&[false, true, true], MAX_POOLED_BUFFERS),
+            Slot::Reuse(1)
+        );
+    }
+
+    #[test]
+    fn all_busy_under_cap_grows() {
+        assert_eq!(select_slot(&[false, false], MAX_POOLED_BUFFERS), Slot::Grow);
+    }
+
+    /// At the cap with nothing released there is no safe buffer to write to,
+    /// so the frame is dropped rather than scribbled into a held buffer.
+    #[test]
+    fn all_busy_at_cap_waits() {
+        let busy = [false; MAX_POOLED_BUFFERS];
+        assert_eq!(select_slot(&busy, MAX_POOLED_BUFFERS), Slot::Wait);
+    }
+
+    /// A released buffer must still win at the cap, rather than dropping a
+    /// frame that had somewhere safe to go.
+    #[test]
+    fn release_at_cap_is_preferred_over_waiting() {
+        let mut slots = [false; MAX_POOLED_BUFFERS];
+        slots[MAX_POOLED_BUFFERS - 1] = true;
+        assert_eq!(
+            select_slot(&slots, MAX_POOLED_BUFFERS),
+            Slot::Reuse(MAX_POOLED_BUFFERS - 1)
+        );
     }
 }
