@@ -785,7 +785,10 @@ impl Window {
             self.should_close = true;
         }
 
-        self.key_handler.update();
+        // Snapshot before applying this batch, advance after it -- see the
+        // two methods' docs. This backend is the one that applies platform key
+        // events inline, so it is the one that has to split the phases.
+        self.key_handler.snapshot_prev();
 
         for event in self.input.iter_keyboard_events() {
             use wayland_client::protocol::wl_keyboard::Event;
@@ -838,6 +841,8 @@ impl Window {
                 _ => {}
             }
         }
+
+        self.key_handler.advance_durations();
 
         self.scroll_x = 0.;
         self.scroll_y = 0.;
@@ -1041,6 +1046,69 @@ impl Window {
                 key::XKB_KEY_slash => Key::Slash,
                 key::XKB_KEY_space => Key::Space,
 
+                // Shifted-level keysyms for the keys above: XKB resolves a
+                // key through whichever shift level is currently active, so
+                // a press/release pair straddling a Shift transition (very
+                // common in ordinary typing rollover) can arrive with a
+                // different keysym for the same physical key. Without
+                // these, that keysym falls through to `_ => return` below,
+                // silently dropping the event -- on a dropped release, the
+                // key reads as permanently held and the guest's own
+                // repeat timer fires it forever; on a dropped press,
+                // Shift+key does not register at all. Map each back to
+                // the same `Key` its unshifted form uses, matching every
+                // other minifb backend's shift-invariant physical-key
+                // semantics.
+                key::XKB_KEY_A => Key::A,
+                key::XKB_KEY_B => Key::B,
+                key::XKB_KEY_C => Key::C,
+                key::XKB_KEY_D => Key::D,
+                key::XKB_KEY_E => Key::E,
+                key::XKB_KEY_F => Key::F,
+                key::XKB_KEY_G => Key::G,
+                key::XKB_KEY_H => Key::H,
+                key::XKB_KEY_I => Key::I,
+                key::XKB_KEY_J => Key::J,
+                key::XKB_KEY_K => Key::K,
+                key::XKB_KEY_L => Key::L,
+                key::XKB_KEY_M => Key::M,
+                key::XKB_KEY_N => Key::N,
+                key::XKB_KEY_O => Key::O,
+                key::XKB_KEY_P => Key::P,
+                key::XKB_KEY_Q => Key::Q,
+                key::XKB_KEY_R => Key::R,
+                key::XKB_KEY_S => Key::S,
+                key::XKB_KEY_T => Key::T,
+                key::XKB_KEY_U => Key::U,
+                key::XKB_KEY_V => Key::V,
+                key::XKB_KEY_W => Key::W,
+                key::XKB_KEY_X => Key::X,
+                key::XKB_KEY_Y => Key::Y,
+                key::XKB_KEY_Z => Key::Z,
+
+                key::XKB_KEY_exclam => Key::Key1,
+                key::XKB_KEY_at => Key::Key2,
+                key::XKB_KEY_numbersign => Key::Key3,
+                key::XKB_KEY_dollar => Key::Key4,
+                key::XKB_KEY_percent => Key::Key5,
+                key::XKB_KEY_asciicircum => Key::Key6,
+                key::XKB_KEY_ampersand => Key::Key7,
+                key::XKB_KEY_asterisk => Key::Key8,
+                key::XKB_KEY_parenleft => Key::Key9,
+                key::XKB_KEY_parenright => Key::Key0,
+
+                key::XKB_KEY_quotedbl => Key::Apostrophe,
+                key::XKB_KEY_asciitilde => Key::Backquote,
+                key::XKB_KEY_bar => Key::Backslash,
+                key::XKB_KEY_less => Key::Comma,
+                key::XKB_KEY_plus => Key::Equal,
+                key::XKB_KEY_braceleft => Key::LeftBracket,
+                key::XKB_KEY_braceright => Key::RightBracket,
+                key::XKB_KEY_underscore => Key::Minus,
+                key::XKB_KEY_greater => Key::Period,
+                key::XKB_KEY_colon => Key::Semicolon,
+                key::XKB_KEY_question => Key::Slash,
+
                 key::XKB_KEY_F1 => Key::F1,
                 key::XKB_KEY_F2 => Key::F2,
                 key::XKB_KEY_F3 => Key::F3,
@@ -1189,16 +1257,25 @@ impl Window {
         buf_height: usize,
         buf_stride: usize,
     ) -> Result<()> {
-        check_buffer_size(buffer, buf_width, buf_height, buf_stride)?;
+        let result = (|| {
+            check_buffer_size(buffer, buf_width, buf_height, buf_stride)?;
+            unsafe { self.scale_buffer(buffer, buf_width, buf_height, buf_stride) };
+            self.display
+                .update_framebuffer(&self.buffer, (self.width, self.height))
+                .map_err(|e| Error::UpdateFailed(format!("Error updating framebuffer: {:?}", e)))
+        })();
 
-        unsafe { self.scale_buffer(buffer, buf_width, buf_height, buf_stride) };
-
-        self.display
-            .update_framebuffer(&self.buffer, (self.width, self.height))
-            .map_err(|e| Error::UpdateFailed(format!("Error updating framebuffer: {:?}", e)))?;
+        // `update()` is also where input events and the key-repeat timer
+        // advance -- it must run whether or not the present above
+        // succeeded. A caller that only calls `self.update()` on the Err
+        // branch (or not at all) leaves `key_handler`'s internal duration
+        // tracking frozen for a cycle: the next successful poll then sees
+        // an already-held key's timer still at its initial `0.0` and
+        // reports it as freshly pressed again, a spurious duplicate
+        // keystroke with no visible cause tying it to the failed present.
         self.update();
 
-        Ok(())
+        result
     }
 
     unsafe fn scale_buffer(

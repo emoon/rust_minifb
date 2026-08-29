@@ -49,7 +49,26 @@ impl KeyHandler {
         keys
     }
 
-    pub fn update(&mut self) {
+    /// Snapshots the current key levels as "previous", which is what
+    /// `is_key_index_released` compares against.
+    ///
+    /// A backend that applies platform key events itself must call this
+    /// *before* applying them: the release edge is `keys_prev && !keys`, so
+    /// snapshotting after a release has already been written to `keys` makes
+    /// both sides false and destroys the edge before the caller can read it.
+    pub fn snapshot_prev(&mut self) {
+        self.keys_prev.copy_from_slice(&self.keys);
+    }
+
+    /// Advances each key's held duration from the levels currently in `keys`.
+    ///
+    /// A backend that applies platform key events itself must call this
+    /// *after* applying them: `is_key_index_pressed` reports a key only while
+    /// its duration is exactly `0.0`, and a key pressed in this batch is still
+    /// at the initial `-1.0` until this runs. Advancing before the batch is
+    /// applied defers every press by a cycle, and loses it outright if the
+    /// release lands in the next batch.
+    pub fn advance_durations(&mut self) {
         self.delta_time = self.prev_time.elapsed();
         self.prev_time = Instant::now();
         let delta_time = self.delta_time.as_secs_f32();
@@ -64,8 +83,15 @@ impl KeyHandler {
             } else {
                 self.keys_down_duration[idx] = -1.0;
             }
-            self.keys_prev[idx] = self.keys[idx];
         }
+    }
+
+    /// Both phases together, for backends that apply their platform key
+    /// events outside the window this call spans (X11, macOS, Windows), where
+    /// the ordering the two phases exist to separate does not arise.
+    pub fn update(&mut self) {
+        self.snapshot_prev();
+        self.advance_durations();
     }
 
     #[inline]

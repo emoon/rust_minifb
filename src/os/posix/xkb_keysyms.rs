@@ -49,6 +49,59 @@ pub const XKB_KEY_period: u32 = 0x002e;
 pub const XKB_KEY_semicolon: u32 = 0x003b;
 pub const XKB_KEY_slash: u32 = 0x002f;
 pub const XKB_KEY_space: u32 = 0x0020;
+// Shifted-level keysyms for the same physical keys above. XKB resolves a
+// key through the *active* shift level, so holding Shift changes which
+// keysym a press/release reports even though the physical key hasn't
+// changed -- these map each one back to the same `Key` its unshifted
+// counterpart uses. Values are the standard X11 keysyms (identical to
+// their Latin-1/ASCII code points in this range).
+pub const XKB_KEY_A: u32 = 0x0041;
+pub const XKB_KEY_B: u32 = 0x0042;
+pub const XKB_KEY_C: u32 = 0x0043;
+pub const XKB_KEY_D: u32 = 0x0044;
+pub const XKB_KEY_E: u32 = 0x0045;
+pub const XKB_KEY_F: u32 = 0x0046;
+pub const XKB_KEY_G: u32 = 0x0047;
+pub const XKB_KEY_H: u32 = 0x0048;
+pub const XKB_KEY_I: u32 = 0x0049;
+pub const XKB_KEY_J: u32 = 0x004a;
+pub const XKB_KEY_K: u32 = 0x004b;
+pub const XKB_KEY_L: u32 = 0x004c;
+pub const XKB_KEY_M: u32 = 0x004d;
+pub const XKB_KEY_N: u32 = 0x004e;
+pub const XKB_KEY_O: u32 = 0x004f;
+pub const XKB_KEY_P: u32 = 0x0050;
+pub const XKB_KEY_Q: u32 = 0x0051;
+pub const XKB_KEY_R: u32 = 0x0052;
+pub const XKB_KEY_S: u32 = 0x0053;
+pub const XKB_KEY_T: u32 = 0x0054;
+pub const XKB_KEY_U: u32 = 0x0055;
+pub const XKB_KEY_V: u32 = 0x0056;
+pub const XKB_KEY_W: u32 = 0x0057;
+pub const XKB_KEY_X: u32 = 0x0058;
+pub const XKB_KEY_Y: u32 = 0x0059;
+pub const XKB_KEY_Z: u32 = 0x005a;
+pub const XKB_KEY_exclam: u32 = 0x0021;
+pub const XKB_KEY_quotedbl: u32 = 0x0022;
+pub const XKB_KEY_numbersign: u32 = 0x0023;
+pub const XKB_KEY_dollar: u32 = 0x0024;
+pub const XKB_KEY_percent: u32 = 0x0025;
+pub const XKB_KEY_ampersand: u32 = 0x0026;
+pub const XKB_KEY_parenleft: u32 = 0x0028;
+pub const XKB_KEY_parenright: u32 = 0x0029;
+pub const XKB_KEY_asterisk: u32 = 0x002a;
+pub const XKB_KEY_plus: u32 = 0x002b;
+pub const XKB_KEY_colon: u32 = 0x003a;
+pub const XKB_KEY_less: u32 = 0x003c;
+pub const XKB_KEY_greater: u32 = 0x003e;
+pub const XKB_KEY_question: u32 = 0x003f;
+pub const XKB_KEY_at: u32 = 0x0040;
+pub const XKB_KEY_underscore: u32 = 0x005f;
+pub const XKB_KEY_asciicircum: u32 = 0x005e;
+pub const XKB_KEY_braceleft: u32 = 0x007b;
+pub const XKB_KEY_bar: u32 = 0x007c;
+pub const XKB_KEY_braceright: u32 = 0x007d;
+pub const XKB_KEY_asciitilde: u32 = 0x007e;
 pub const XKB_KEY_F1: u32 = 0xffbe;
 pub const XKB_KEY_F2: u32 = 0xffbf;
 pub const XKB_KEY_F3: u32 = 0xffc0;
