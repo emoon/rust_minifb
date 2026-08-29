@@ -170,10 +170,21 @@ functions:
 // Shaders
 // ---------------------------------------------------------------------------
 
+/// `highp` is mandatory in the vertex language but optional in the fragment
+/// one, so `v_uv` is declared through the same `#ifdef` in every stage.
+/// GLSL ES 1.00 does not require a varying's precision to match across stages
+/// -- only its type -- but a `mediump` uv cannot address individual texels of
+/// a texture wider than ~1024, which is exactly what `GL_NEAREST` needs it to
+/// do. The macro is defined in both languages, so this picks the same one on
+/// both sides.
 const VERTEX_SHADER: &str = "\
 attribute vec2 a_pos;
 attribute vec2 a_uv;
-varying vec2 v_uv;
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+varying highp vec2 v_uv;
+#else
+varying mediump vec2 v_uv;
+#endif
 void main() {
     v_uv = a_uv;
     gl_Position = vec4(a_pos, 0.0, 1.0);
@@ -185,10 +196,11 @@ void main() {
 const FRAGMENT_SHADER_OPAQUE: &str = "\
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
+varying highp vec2 v_uv;
 #else
 precision mediump float;
+varying mediump vec2 v_uv;
 #endif
-varying vec2 v_uv;
 uniform sampler2D u_tex;
 void main() {
     gl_FragColor = vec4(texture2D(u_tex, v_uv).rgb, 1.0);
@@ -200,10 +212,11 @@ void main() {
 const FRAGMENT_SHADER_ALPHA: &str = "\
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
+varying highp vec2 v_uv;
 #else
 precision mediump float;
+varying mediump vec2 v_uv;
 #endif
-varying vec2 v_uv;
 uniform sampler2D u_tex;
 void main() {
     gl_FragColor = texture2D(u_tex, v_uv);
@@ -703,9 +716,11 @@ impl GlContext {
     ///
     /// An `Err` means nothing was presented and the caller must fall back to
     /// the software path, which -- because the shm path cannot attach to a
-    /// surface EGL owns -- also means tearing this context down. That applies
-    /// to [`GlError::TextureTooLarge`] as well: a buffer past the driver's
-    /// limit costs the whole session's GPU acceleration, not just one frame.
+    /// surface EGL owns -- also means tearing this context down, including for
+    /// [`GlError::TextureTooLarge`]. That one is worth coming back from
+    /// though: it is checked before any GL call, so the context was still
+    /// healthy when it went. `max` is reported so the caller can rebuild once
+    /// a buffer fits again rather than lose the GPU for the whole session.
     ///
     /// # Safety
     ///
