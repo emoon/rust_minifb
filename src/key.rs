@@ -1,5 +1,10 @@
 /// Key is used by the get key functions to check if some keys on the keyboard has been pressed
+///
+/// The discriminants are contiguous from `Key0 = 0` to `Count`, and the
+/// representation is fixed to `u8` so that `key_handler` can map a key state
+/// array index back to a `Key`.
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[repr(u8)]
 pub enum Key {
     Key0 = 0,
     Key1 = 1,
