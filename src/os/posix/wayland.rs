@@ -635,7 +635,7 @@ impl Window {
 
         let size = SurfaceSize::scaled(width, height, scale).ok_or_else(|| {
             Error::WindowCreate(format!(
-                "{}x{} at {}x scale is too large",
+                "{}x{} at {}x scale is not a usable window size",
                 width, height, scale
             ))
         })?;
