@@ -126,7 +126,13 @@ impl MouseMode {
 
         match self {
             Self::Pass => Some((x, y)),
-            Self::Clamp => Some((x.clamp(0.0, width - 1.0), y.clamp(0.0, height - 1.0))),
+            // `max(0.0)` guards the degenerate case: a window whose
+            // scale-divided size is below one pixel makes `width - 1.0`
+            // negative, and `f32::clamp` asserts that `min <= max`.
+            Self::Clamp => Some((
+                x.clamp(0.0, (width - 1.0).max(0.0)),
+                y.clamp(0.0, (height - 1.0).max(0.0)),
+            )),
             Self::Discard => {
                 if x < 0.0 || y < 0.0 || x >= width || y >= height {
                     None
@@ -1247,5 +1253,33 @@ pub(crate) fn check_buffer_size(
         Err(Error::UpdateFailed(err))
     } else {
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod mouse_mode_tests {
+    use super::*;
+
+    /// `f32::clamp` asserts `min <= max`, so a window whose scale-divided
+    /// size drops below one pixel used to panic instead of returning a
+    /// degenerate coordinate.
+    #[test]
+    fn clamp_handles_sub_pixel_window_sizes() {
+        assert_eq!(
+            MouseMode::Clamp.get_pos(5.0, 5.0, 32.0, 16.0, 16.0),
+            Some((0.0, 0.0))
+        );
+        assert_eq!(
+            MouseMode::Clamp.get_pos(5.0, 5.0, 1.0, 0.0, 0.0),
+            Some((0.0, 0.0))
+        );
+    }
+
+    #[test]
+    fn clamp_still_clamps_normal_sizes() {
+        assert_eq!(
+            MouseMode::Clamp.get_pos(-3.0, 900.0, 1.0, 640.0, 480.0),
+            Some((0.0, 479.0))
+        );
     }
 }

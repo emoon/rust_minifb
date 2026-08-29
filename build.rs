@@ -30,6 +30,22 @@ fn main() {
         panic!("At least one of the x11 or wayland features must be enabled");
     }
 
+    // `cc` does not emit these itself, so without them cargo keeps a stale
+    // object file when only the native sources change. Emitting any of these
+    // also switches cargo off watching the whole package, so the headers have
+    // to be listed too.
+    for source in [
+        "src/native/macosx/MacMiniFB.m",
+        "src/native/macosx/OSXWindow.h",
+        "src/native/macosx/OSXWindow.m",
+        "src/native/macosx/OSXWindowFrameView.h",
+        "src/native/macosx/OSXWindowFrameView.m",
+        "src/native/macosx/shared_data.h",
+        "src/native/posix/scalar.c",
+    ] {
+        println!("cargo:rerun-if-changed={}", source);
+    }
+
     if target.contains("darwin") {
         cc::Build::new()
             .flag("-mmacosx-version-min=10.11")

@@ -2,13 +2,33 @@ use web_time::{Duration, Instant};
 
 use crate::{InputCallback, Key, KeyRepeat};
 
+/// Number of slots in the key state arrays.
+///
+/// `Key` is `#[repr(u8)]` with contiguous discriminants `0..=Key::Count`, so
+/// every index below this is a valid `Key` and every `key as usize` is in
+/// range.
+const KEY_COUNT: usize = Key::Count as usize + 1;
+
+/// Converts a key state array index back into the `Key` it belongs to.
+#[inline]
+fn key_from_index(idx: usize) -> Option<Key> {
+    if idx < Key::Count as usize {
+        // SAFETY: `Key` is `#[repr(u8)]` and its discriminants are contiguous
+        // from 0 to `Key::Count`, so every `idx < Key::Count` is a valid
+        // discriminant. `Key::Count` itself is a sentinel and is excluded.
+        Some(unsafe { std::mem::transmute::<u8, Key>(idx as u8) })
+    } else {
+        None
+    }
+}
+
 pub struct KeyHandler {
     pub key_callback: Option<Box<dyn InputCallback>>,
     prev_time: Instant,
     delta_time: Duration,
-    keys: [bool; 512],
-    keys_prev: [bool; 512],
-    keys_down_duration: [f32; 512],
+    keys: [bool; KEY_COUNT],
+    keys_prev: [bool; KEY_COUNT],
+    keys_down_duration: [f32; KEY_COUNT],
     key_repeat_delay: f32,
     key_repeat_rate: f32,
 }
@@ -17,9 +37,9 @@ impl KeyHandler {
     pub fn new() -> KeyHandler {
         KeyHandler {
             key_callback: None,
-            keys: [false; 512],
-            keys_prev: [false; 512],
-            keys_down_duration: [-1.0; 512],
+            keys: [false; KEY_COUNT],
+            keys_prev: [false; KEY_COUNT],
+            keys_down_duration: [-1.0; KEY_COUNT],
             prev_time: Instant::now(),
             delta_time: Duration::from_secs(0),
             key_repeat_delay: 0.250,
@@ -40,9 +60,7 @@ impl KeyHandler {
 
         for (idx, is_down) in self.keys.iter().enumerate() {
             if *is_down {
-                unsafe {
-                    keys.push(std::mem::transmute::<u8, Key>(idx as u8));
-                }
+                keys.extend(key_from_index(idx));
             }
         }
 
@@ -105,9 +123,7 @@ impl KeyHandler {
 
         for (idx, is_down) in self.keys.iter().enumerate() {
             if *is_down && self.is_key_index_pressed(idx, repeat) {
-                unsafe {
-                    keys.push(std::mem::transmute::<u8, Key>(idx as u8));
-                }
+                keys.extend(key_from_index(idx));
             }
         }
 
@@ -119,9 +135,7 @@ impl KeyHandler {
 
         for (idx, is_down) in self.keys.iter().enumerate() {
             if !(*is_down) && self.is_key_index_released(idx) {
-                unsafe {
-                    keys.push(std::mem::transmute::<u8, Key>(idx as u8));
-                }
+                keys.extend(key_from_index(idx));
             }
         }
 
@@ -177,5 +191,29 @@ impl KeyHandler {
     #[inline]
     fn is_key_index_released(&self, idx: usize) -> bool {
         self.keys_prev[idx] && !self.keys[idx]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Pins the contiguity that `key_from_index`'s transmute relies on.
+    #[test]
+    fn every_index_below_count_round_trips() {
+        for idx in 0..Key::Count as usize {
+            let key = key_from_index(idx).expect("index below Count must map to a Key");
+            assert_eq!(key as usize, idx);
+        }
+        assert_eq!(key_from_index(Key::Count as usize), None);
+        assert_eq!(key_from_index(usize::MAX), None);
+    }
+
+    #[test]
+    fn state_array_covers_every_key() {
+        let mut handler = KeyHandler::new();
+        handler.set_key_state(Key::Unknown, true);
+        assert!(handler.is_key_down(Key::Unknown));
+        assert_eq!(handler.get_keys(), vec![Key::Unknown]);
     }
 }
