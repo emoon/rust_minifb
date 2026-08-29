@@ -50,6 +50,8 @@ use super::xkb_ffi::XKBCOMMON_HANDLE as XKBH;
 use super::xkb_ffi::*;
 
 const KEY_XKB_OFFSET: u32 = 8;
+/// Covers the evdev keycode range (`KEY_MAX` 767) plus `KEY_XKB_OFFSET`.
+const KEYCODE_SLOTS: usize = 776;
 const KEY_MOUSE_BTN1: u32 = 272;
 const KEY_MOUSE_BTN2: u32 = 273;
 const KEY_MOUSE_BTN3: u32 = 274;
@@ -461,6 +463,12 @@ pub struct Window {
     xkb_keymap: *mut xkb_ffi::xkb_keymap,
     xkb_state: *mut xkb_ffi::xkb_state,
 
+    /// The `Key` each held keycode resolved to when it went down. A release
+    /// clears what its own press set: the active layout group can change
+    /// while a key is held, which would otherwise resolve the release to a
+    /// different `Key` and leave the pressed one stuck.
+    held: Box<[Option<Key>; KEYCODE_SLOTS]>,
+
     update_rate: UpdateRate,
     menu_counter: MenuHandle,
     menus: Vec<UnixMenu>,
@@ -549,6 +557,7 @@ impl Window {
             xkb_context: context,
             xkb_keymap: std::ptr::null_mut(),
             xkb_state: std::ptr::null_mut(),
+            held: Box::new([None; KEYCODE_SLOTS]),
 
             update_rate: UpdateRate::new(),
             menu_counter: MenuHandle(0),
@@ -679,7 +688,7 @@ impl Window {
 
     #[inline]
     pub fn set_key_repeat_rate(&mut self, rate: f32) {
-        self.key_handler.set_key_repeat_delay(rate);
+        self.key_handler.set_key_repeat_rate(rate);
     }
 
     #[inline]
@@ -806,12 +815,14 @@ impl Window {
                     self.active = false;
                 }
                 Event::Key { key, state, .. } => {
-                    if !self.xkb_state.is_null() {
+                    if !self.xkb_state.is_null() && !self.xkb_keymap.is_null() {
                         Self::handle_key(
+                            self.xkb_keymap,
                             self.xkb_state,
                             key + KEY_XKB_OFFSET,
                             state,
                             &mut self.key_handler,
+                            &mut self.held,
                         );
                     }
                 }
@@ -973,26 +984,84 @@ impl Window {
         }
     }
 
+    /// The keysym `key` produces at shift level 0 of the currently active
+    /// layout, or `None` if it produces nothing there.
+    ///
+    /// Level 0 is shift-invariant, unlike `xkb_state_key_get_one_sym`, which
+    /// resolves through the active shift level.
+    ///
+    /// SAFETY: `keymap` and `keymap_state` must be live and non-null; the
+    /// caller checks both before dispatching a key event.
+    fn keysym_at_level_0(
+        keymap: *mut xkb_ffi::xkb_keymap,
+        keymap_state: *mut xkb_ffi::xkb_state,
+        key: u32,
+    ) -> Option<u32> {
+        let layout = unsafe { ffi_dispatch!(XKBH, xkb_state_key_get_layout, keymap_state, key) };
+        if layout == xkb_ffi::XKB_LAYOUT_INVALID {
+            return None;
+        }
+
+        let mut syms: *const xkb_ffi::xkb_keysym_t = std::ptr::null();
+        let count = unsafe {
+            ffi_dispatch!(
+                XKBH,
+                xkb_keymap_key_get_syms_by_level,
+                keymap,
+                key,
+                layout,
+                0,
+                &mut syms
+            )
+        };
+        if count <= 0 || syms.is_null() {
+            return None;
+        }
+
+        // `syms` points into the keymap and stays valid as long as it does.
+        match unsafe { *syms } {
+            0 => None,
+            sym => Some(sym),
+        }
+    }
+
     fn handle_key(
+        keymap: *mut xkb_ffi::xkb_keymap,
         keymap_state: *mut xkb_ffi::xkb_state,
         key: u32,
         state: wl_keyboard::KeyState,
         key_handler: &mut KeyHandler,
+        held: &mut [Option<Key>; KEYCODE_SLOTS],
     ) {
         let is_down = state == wl_keyboard::KeyState::Pressed;
-        let key_xkb = unsafe { ffi_dispatch!(XKBH, xkb_state_key_get_one_sym, keymap_state, key) };
-        if key_xkb != 0 {
-            use super::xkb_keysyms as key;
 
-            if state == wl_keyboard::KeyState::Pressed {
+        if is_down {
+            // Character input, unlike `Key`, *should* follow the active shift
+            // level and layout, so it keeps using the state-resolved keysym.
+            let sym = unsafe { ffi_dispatch!(XKBH, xkb_state_key_get_one_sym, keymap_state, key) };
+            if sym != 0 {
                 // Taken from GLFW
-                let code_point = unsafe { ffi_dispatch!(XKBH, xkb_keysym_to_utf32, key_xkb) };
+                let code_point = unsafe { ffi_dispatch!(XKBH, xkb_keysym_to_utf32, sym) };
                 if !(code_point < 32 || (code_point > 126 && code_point < 160)) {
                     if let Some(ref mut callback) = key_handler.key_callback {
                         callback.add_char(code_point);
                     }
                 }
             }
+        }
+
+        // A release clears what its own press recorded: the layout group can
+        // change while a key is held, which would otherwise resolve the
+        // release to a different `Key` and leave the pressed one stuck.
+        if !is_down {
+            if let Some(pressed) = held.get_mut(key as usize).and_then(Option::take) {
+                key_handler.set_key_state(pressed, false);
+                return;
+            }
+        }
+
+        if let Some(key_xkb) = Self::keysym_at_level_0(keymap, keymap_state, key) {
+            use super::xkb_keysyms as key;
 
             let key_i = match key_xkb {
                 key::XKB_KEY_0 => Key::Key0,
@@ -1046,69 +1115,6 @@ impl Window {
                 key::XKB_KEY_slash => Key::Slash,
                 key::XKB_KEY_space => Key::Space,
 
-                // Shifted-level keysyms for the keys above: XKB resolves a
-                // key through whichever shift level is currently active, so
-                // a press/release pair straddling a Shift transition (very
-                // common in ordinary typing rollover) can arrive with a
-                // different keysym for the same physical key. Without
-                // these, that keysym falls through to `_ => return` below,
-                // silently dropping the event -- on a dropped release, the
-                // key reads as permanently held and the guest's own
-                // repeat timer fires it forever; on a dropped press,
-                // Shift+key does not register at all. Map each back to
-                // the same `Key` its unshifted form uses, matching every
-                // other minifb backend's shift-invariant physical-key
-                // semantics.
-                key::XKB_KEY_A => Key::A,
-                key::XKB_KEY_B => Key::B,
-                key::XKB_KEY_C => Key::C,
-                key::XKB_KEY_D => Key::D,
-                key::XKB_KEY_E => Key::E,
-                key::XKB_KEY_F => Key::F,
-                key::XKB_KEY_G => Key::G,
-                key::XKB_KEY_H => Key::H,
-                key::XKB_KEY_I => Key::I,
-                key::XKB_KEY_J => Key::J,
-                key::XKB_KEY_K => Key::K,
-                key::XKB_KEY_L => Key::L,
-                key::XKB_KEY_M => Key::M,
-                key::XKB_KEY_N => Key::N,
-                key::XKB_KEY_O => Key::O,
-                key::XKB_KEY_P => Key::P,
-                key::XKB_KEY_Q => Key::Q,
-                key::XKB_KEY_R => Key::R,
-                key::XKB_KEY_S => Key::S,
-                key::XKB_KEY_T => Key::T,
-                key::XKB_KEY_U => Key::U,
-                key::XKB_KEY_V => Key::V,
-                key::XKB_KEY_W => Key::W,
-                key::XKB_KEY_X => Key::X,
-                key::XKB_KEY_Y => Key::Y,
-                key::XKB_KEY_Z => Key::Z,
-
-                key::XKB_KEY_exclam => Key::Key1,
-                key::XKB_KEY_at => Key::Key2,
-                key::XKB_KEY_numbersign => Key::Key3,
-                key::XKB_KEY_dollar => Key::Key4,
-                key::XKB_KEY_percent => Key::Key5,
-                key::XKB_KEY_asciicircum => Key::Key6,
-                key::XKB_KEY_ampersand => Key::Key7,
-                key::XKB_KEY_asterisk => Key::Key8,
-                key::XKB_KEY_parenleft => Key::Key9,
-                key::XKB_KEY_parenright => Key::Key0,
-
-                key::XKB_KEY_quotedbl => Key::Apostrophe,
-                key::XKB_KEY_asciitilde => Key::Backquote,
-                key::XKB_KEY_bar => Key::Backslash,
-                key::XKB_KEY_less => Key::Comma,
-                key::XKB_KEY_plus => Key::Equal,
-                key::XKB_KEY_braceleft => Key::LeftBracket,
-                key::XKB_KEY_braceright => Key::RightBracket,
-                key::XKB_KEY_underscore => Key::Minus,
-                key::XKB_KEY_greater => Key::Period,
-                key::XKB_KEY_colon => Key::Semicolon,
-                key::XKB_KEY_question => Key::Slash,
-
                 key::XKB_KEY_F1 => Key::F1,
                 key::XKB_KEY_F2 => Key::F2,
                 key::XKB_KEY_F3 => Key::F3,
@@ -1160,6 +1166,7 @@ impl Window {
                 key::XKB_KEY_KP_Home => Key::NumPad7,
                 key::XKB_KEY_KP_Up => Key::NumPad8,
                 key::XKB_KEY_KP_Prior => Key::NumPad9,
+                key::XKB_KEY_KP_Delete => Key::NumPadDot,
                 key::XKB_KEY_KP_Decimal => Key::NumPadDot,
                 key::XKB_KEY_KP_Divide => Key::NumPadSlash,
                 key::XKB_KEY_KP_Multiply => Key::NumPadAsterisk,
@@ -1172,6 +1179,12 @@ impl Window {
                     return;
                 }
             };
+
+            if is_down {
+                if let Some(slot) = held.get_mut(key as usize) {
+                    *slot = Some(key_i);
+                }
+            }
 
             key_handler.set_key_state(key_i, is_down);
         }
@@ -1267,12 +1280,13 @@ impl Window {
 
         // `update()` is also where input events and the key-repeat timer
         // advance -- it must run whether or not the present above
-        // succeeded. A caller that only calls `self.update()` on the Err
-        // branch (or not at all) leaves `key_handler`'s internal duration
-        // tracking frozen for a cycle: the next successful poll then sees
-        // an already-held key's timer still at its initial `0.0` and
-        // reports it as freshly pressed again, a spurious duplicate
-        // keystroke with no visible cause tying it to the failed present.
+        // succeeded. A caller whose `Err` handling does not itself call
+        // `self.update()` (the natural shape, since that branch usually just
+        // logs and retries) would otherwise leave `key_handler`'s duration
+        // tracking frozen for a cycle: the next successful poll then sees an
+        // already-held key's timer still at its initial `0.0` and reports it
+        // as freshly pressed again, a spurious duplicate keystroke with no
+        // visible cause tying it to the failed present.
         self.update();
 
         result
@@ -1382,5 +1396,356 @@ impl Drop for Window {
             ffi_dispatch!(XKBH, xkb_keymap_unref, self.xkb_keymap);
             ffi_dispatch!(XKBH, xkb_context_unref, self.xkb_context);
         }
+    }
+}
+
+#[cfg(test)]
+mod key_level_tests {
+    use super::*;
+    use std::ffi::CString;
+
+    /// A minimal keymap that reproduces the level structure the `Key` mapping
+    /// has to survive, without depending on the host's installed layouts:
+    ///
+    /// - `<AE02>` is `2` unshifted and `quotedbl` shifted, exactly as the
+    ///   German layout maps that physical key. On a US layout the shifted
+    ///   level would be `at` instead -- the point is that *which* keysym the
+    ///   shifted level yields is layout-specific, so `Key` must not be derived
+    ///   from it.
+    /// - `<AD01>` is the usual `q`/`Q` alphabetic pair.
+    /// - `<KP1>` is `KP_End` at the base level and `KP_1` with NumLock, which
+    ///   is how every real keymap describes the numpad.
+    const KEYMAP: &str = r#"xkb_keymap {
+xkb_keycodes "minifb_test" {
+    minimum = 8;
+    maximum = 255;
+    <AE02> = 11;
+    <AD01> = 24;
+    <LFSH> = 50;
+    <NMLK> = 77;
+    <KP1>  = 87;
+    <KPDL> = 91;
+};
+xkb_types "minifb_test" {
+    virtual_modifiers NumLock;
+    type "ONE_LEVEL"  { modifiers = none; level_name[1] = "Any"; };
+    type "TWO_LEVEL"  {
+        modifiers = Shift;
+        map[Shift] = 2;
+        level_name[1] = "Base"; level_name[2] = "Shift";
+    };
+    type "ALPHABETIC" {
+        modifiers = Shift;
+        map[Shift] = 2;
+        level_name[1] = "Base"; level_name[2] = "Caps";
+    };
+    type "KEYPAD" {
+        modifiers = Shift+NumLock;
+        map[None] = 1;
+        map[Shift] = 2;
+        map[NumLock] = 2;
+        map[Shift+NumLock] = 1;
+        level_name[1] = "Base"; level_name[2] = "Number";
+    };
+};
+xkb_compat "minifb_test" {
+    virtual_modifiers NumLock;
+    interpret Num_Lock+AnyOf(all) {
+        virtualModifier = NumLock;
+        action = LockMods(modifiers = NumLock);
+    };
+    interpret Shift_L+AnyOf(all) { action = SetMods(modifiers = Shift); };
+};
+xkb_symbols "minifb_test" {
+    key <AE02> {
+        type[Group1] = "TWO_LEVEL", symbols[Group1] = [ 2, quotedbl ],
+        type[Group2] = "TWO_LEVEL", symbols[Group2] = [ bracketleft, braceleft ]
+    };
+    key <AD01> { type = "ALPHABETIC", [ q, Q ] };
+    key <LFSH> { type = "ONE_LEVEL",  [ Shift_L ] };
+    key <NMLK> { type = "ONE_LEVEL",  [ Num_Lock ] };
+    key <KP1>  { type = "KEYPAD",     [ KP_End, KP_1 ] };
+    key <KPDL> { type = "KEYPAD",     [ KP_Delete, KP_Decimal ] };
+    modifier_map Shift { <LFSH> };
+    modifier_map Mod2  { <NMLK> };
+};
+};"#;
+
+    // XKB keycodes are evdev codes + KEY_XKB_OFFSET, which is what
+    // `handle_key` receives from the compositor.
+    const AE02: u32 = 3 + KEY_XKB_OFFSET;
+    const AD01: u32 = 16 + KEY_XKB_OFFSET;
+    const KP1: u32 = 79 + KEY_XKB_OFFSET;
+    const KPDL: u32 = 83 + KEY_XKB_OFFSET;
+    /// In range for the fixture's keycode block, but not one of its keys.
+    const UNDECLARED: u32 = 200;
+
+    const SHIFT: u32 = 1 << 0; // core Shift
+    const NUMLOCK: u32 = 1 << 4; // Mod2
+
+    const SYM_2: u32 = 0x0032;
+    const SYM_QUOTEDBL: u32 = 0x0022;
+    const SYM_KP_1: u32 = 0xffb1;
+    const SYM_KP_DECIMAL: u32 = 0xffae;
+
+    struct Keymap {
+        context: *mut xkb_ffi::xkb_context,
+        keymap: *mut xkb_ffi::xkb_keymap,
+        state: *mut xkb_ffi::xkb_state,
+        held: Box<[Option<Key>; KEYCODE_SLOTS]>,
+    }
+
+    impl Keymap {
+        fn new() -> Keymap {
+            let text = CString::new(KEYMAP).unwrap();
+            unsafe {
+                let context = ffi_dispatch!(
+                    XKBH,
+                    xkb_context_new,
+                    xkb_ffi::xkb_context_flags::XKB_CONTEXT_NO_FLAGS
+                );
+                assert!(!context.is_null(), "failed to create xkb context");
+                let keymap = ffi_dispatch!(
+                    XKBH,
+                    xkb_keymap_new_from_string,
+                    context,
+                    text.as_ptr(),
+                    xkb_ffi::xkb_keymap_format::XKB_KEYMAP_FORMAT_TEXT_V1,
+                    xkb_ffi::xkb_keymap_compile_flags::XKB_KEYMAP_COMPILE_NO_FLAGS
+                );
+                assert!(!keymap.is_null(), "test keymap failed to compile");
+                let state = ffi_dispatch!(XKBH, xkb_state_new, keymap);
+                assert!(!state.is_null(), "failed to create xkb state");
+                Keymap {
+                    context,
+                    keymap,
+                    state,
+                    held: Box::new([None; KEYCODE_SLOTS]),
+                }
+            }
+        }
+
+        /// Stands in for the compositor's `Modifiers` event.
+        fn set_mods(&self, depressed: u32, locked: u32) {
+            unsafe {
+                ffi_dispatch!(
+                    XKBH,
+                    xkb_state_update_mask,
+                    self.state,
+                    depressed,
+                    0,
+                    locked,
+                    0,
+                    0,
+                    0
+                )
+            };
+        }
+
+        /// Stands in for the `group` field of the compositor's Modifiers event.
+        fn set_group(&self, group: u32) {
+            unsafe {
+                ffi_dispatch!(
+                    XKBH,
+                    xkb_state_update_mask,
+                    self.state,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    group
+                )
+            };
+        }
+
+        fn active_sym(&self, key: u32) -> u32 {
+            unsafe { ffi_dispatch!(XKBH, xkb_state_key_get_one_sym, self.state, key) }
+        }
+
+        fn press(&mut self, keys: &mut KeyHandler, key: u32) {
+            Window::handle_key(
+                self.keymap,
+                self.state,
+                key,
+                wl_keyboard::KeyState::Pressed,
+                keys,
+                &mut self.held,
+            );
+        }
+
+        fn release(&mut self, keys: &mut KeyHandler, key: u32) {
+            Window::handle_key(
+                self.keymap,
+                self.state,
+                key,
+                wl_keyboard::KeyState::Released,
+                keys,
+                &mut self.held,
+            );
+        }
+    }
+
+    impl Drop for Keymap {
+        fn drop(&mut self) {
+            unsafe {
+                ffi_dispatch!(XKBH, xkb_state_unref, self.state);
+                ffi_dispatch!(XKBH, xkb_keymap_unref, self.keymap);
+                ffi_dispatch!(XKBH, xkb_context_unref, self.context);
+            }
+        }
+    }
+
+    /// The fixture is only meaningful if Shift really does change the keysym.
+    #[test]
+    fn fixture_has_a_layout_specific_shifted_level() {
+        let mut km = Keymap::new();
+
+        km.set_mods(0, 0);
+        assert_eq!(km.active_sym(AE02), SYM_2);
+
+        km.set_mods(SHIFT, 0);
+        assert_eq!(km.active_sym(AE02), SYM_QUOTEDBL);
+
+        km.set_mods(0, NUMLOCK);
+        assert_eq!(km.active_sym(KP1), SYM_KP_1);
+    }
+
+    /// Ordinary typing rollover: a key goes down with Shift held and comes
+    /// back up after Shift is already released, so press and release resolve
+    /// through different shift levels. Whatever the press set, the release
+    /// has to clear -- otherwise the key reads as held forever.
+    #[test]
+    fn shift_rollover_leaves_no_key_held() {
+        let mut km = Keymap::new();
+        let mut keys = KeyHandler::new();
+
+        km.set_mods(SHIFT, 0);
+        km.press(&mut keys, AE02);
+        let held = keys.get_keys();
+        assert!(!held.is_empty(), "shifted press was dropped entirely");
+
+        km.set_mods(0, 0);
+        km.release(&mut keys, AE02);
+
+        assert_eq!(
+            keys.get_keys(),
+            Vec::new(),
+            "release did not clear {held:?}"
+        );
+    }
+
+    /// `Key` names a physical key, so the shift level must not change which
+    /// one a given keycode reports.
+    #[test]
+    fn shift_does_not_change_the_reported_key() {
+        // `<AE02>` is the discriminating case: its shifted level is
+        // layout-specific (`quotedbl` here, `at` on a US layout), so a
+        // mapping taken from the active level reports a different `Key`
+        // under Shift. `<AD01>`'s `q`/`Q` pair does not discriminate.
+        for (keycode, expected) in [(AE02, Key::Key2), (AD01, Key::Q)] {
+            let mut km = Keymap::new();
+
+            let mut unshifted = KeyHandler::new();
+            km.set_mods(0, 0);
+            km.press(&mut unshifted, keycode);
+
+            let mut shifted = KeyHandler::new();
+            km.set_mods(SHIFT, 0);
+            km.press(&mut shifted, keycode);
+
+            assert_eq!(unshifted.get_keys(), vec![expected]);
+            assert_eq!(shifted.get_keys(), vec![expected]);
+        }
+    }
+
+    /// `add_char` is the one path that *should* follow the active shift
+    /// level: the character typed depends on the layout, even though the
+    /// `Key` does not.
+    #[test]
+    fn char_input_follows_the_active_shift_level() {
+        #[derive(Default)]
+        struct Recorder(std::rc::Rc<std::cell::RefCell<Vec<u32>>>);
+
+        impl InputCallback for Recorder {
+            fn add_char(&mut self, uni_char: u32) {
+                self.0.borrow_mut().push(uni_char);
+            }
+        }
+
+        let mut km = Keymap::new();
+        let chars = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let mut keys = KeyHandler::new();
+        keys.set_input_callback(Box::new(Recorder(chars.clone())));
+
+        km.set_mods(SHIFT, 0);
+        km.press(&mut keys, AE02);
+        km.set_mods(0, 0);
+        km.press(&mut keys, AE02);
+
+        assert_eq!(*chars.borrow(), vec![SYM_QUOTEDBL, SYM_2]);
+    }
+
+    /// A keycode the keymap does not describe has no level-0 symbol; it must
+    /// be ignored rather than resolving to some other key.
+    #[test]
+    fn undeclared_keycode_is_ignored() {
+        let mut km = Keymap::new();
+        let mut keys = KeyHandler::new();
+
+        assert_eq!(km.active_sym(UNDECLARED), 0);
+        km.press(&mut keys, UNDECLARED);
+
+        assert_eq!(keys.get_keys(), Vec::new());
+    }
+
+    /// The compositor can switch layout group while a key is held, which
+    /// resolves the release through a different group than the press. The
+    /// release must still clear the key the press set.
+    #[test]
+    fn group_change_while_held_leaves_no_key_held() {
+        let mut km = Keymap::new();
+        let mut keys = KeyHandler::new();
+
+        km.set_group(0);
+        km.press(&mut keys, AE02);
+        assert_eq!(keys.get_keys(), vec![Key::Key2]);
+
+        km.set_group(1);
+        assert_ne!(
+            km.active_sym(AE02),
+            SYM_2,
+            "fixture's second group must differ"
+        );
+        km.release(&mut keys, AE02);
+
+        assert_eq!(keys.get_keys(), Vec::new());
+    }
+
+    /// The keypad decimal key is `KP_Delete` at level 0 and `KP_Decimal` only
+    /// at the NumLock level, so a level-0 lookup has to recognise the former.
+    #[test]
+    fn keypad_decimal_registers() {
+        let mut km = Keymap::new();
+        km.set_mods(0, NUMLOCK);
+        assert_eq!(km.active_sym(KPDL), SYM_KP_DECIMAL);
+
+        let mut keys = KeyHandler::new();
+        km.press(&mut keys, KPDL);
+
+        assert_eq!(keys.get_keys(), vec![Key::NumPadDot]);
+    }
+
+    /// With NumLock on -- the normal state -- the numpad resolves to `KP_1`
+    /// rather than `KP_End`, and must still report as a numpad key.
+    #[test]
+    fn numpad_registers_with_numlock_on() {
+        let mut km = Keymap::new();
+        km.set_mods(0, NUMLOCK);
+
+        let mut keys = KeyHandler::new();
+        km.press(&mut keys, KP1);
+
+        assert_eq!(keys.get_keys(), vec![Key::NumPad1]);
     }
 }

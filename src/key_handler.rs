@@ -89,6 +89,7 @@ impl KeyHandler {
     /// Both phases together, for backends that apply their platform key
     /// events outside the window this call spans (X11, macOS, Windows), where
     /// the ordering the two phases exist to separate does not arise.
+    #[allow(dead_code)] // the Wayland backend calls the two phases directly
     pub fn update(&mut self) {
         self.snapshot_prev();
         self.advance_durations();
