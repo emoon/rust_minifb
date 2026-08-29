@@ -977,12 +977,19 @@ impl Window {
                     self.active = false;
                 }
                 Event::Key { key, state, .. } => {
+                    // `key` is compositor-supplied, so the offset to xkb's
+                    // numbering must not wrap into a valid-looking keycode.
+                    let key = match key.checked_add(KEY_XKB_OFFSET) {
+                        Some(key) => key,
+                        None => continue,
+                    };
+
                     if !self.xkb_state.is_null() && !self.xkb_keymap.is_null() {
                         if let WEnum::Value(state) = state {
                             Self::handle_key(
                                 self.xkb_keymap,
                                 self.xkb_state,
-                                key + KEY_XKB_OFFSET,
+                                key,
                                 state,
                                 &mut self.key_handler,
                                 &mut self.held,
@@ -1336,6 +1343,23 @@ impl Window {
         match keymap {
             WEnum::Value(KeymapFormat::XkbV1) => {
                 unsafe {
+                    // mmap does not check `len` against the file, so a short
+                    // fd would map fine and then fault when xkbcommon read it.
+                    let mut stat: libc::stat = std::mem::zeroed();
+                    if libc::fstat(fd.as_raw_fd(), &mut stat) != 0 {
+                        return Err(Error::WindowCreate(format!(
+                            "Could not stat the keymap from the compositor ({})",
+                            std::io::Error::last_os_error()
+                        )));
+                    }
+                    let file_len = stat.st_size;
+                    if len == 0 || file_len < 0 || (file_len as u64) < u64::from(len) {
+                        return Err(Error::WindowCreate(format!(
+                            "Compositor sent a {} byte keymap backed by {} bytes",
+                            len, file_len
+                        )));
+                    }
+
                     // The file descriptor must be memory-mapped (with MAP_PRIVATE).
                     let addr = libc::mmap(
                         std::ptr::null_mut(),
@@ -1350,6 +1374,15 @@ impl Window {
                             "Could not mmap keymap from compositor ({})",
                             std::io::Error::last_os_error()
                         )));
+                    }
+
+                    // `len` counts the terminator, and the parser below scans
+                    // for one; without it the scan runs past the mapping.
+                    if *(addr as *const u8).add(len as usize - 1) != 0 {
+                        libc::munmap(addr, len as usize);
+                        return Err(Error::WindowCreate(
+                            "Compositor sent an unterminated keymap.".to_owned(),
+                        ));
                     }
 
                     let keymap = ffi_dispatch!(
