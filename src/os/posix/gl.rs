@@ -31,10 +31,11 @@ pub type EGLSurface = *mut c_void;
 /// pointer-sized either way, so the backend casts its handle to this.
 pub type EGLNativeWindowType = *mut c_void;
 pub type EGLNativeDisplayType = *mut c_void;
-/// Which windowing system the native handles came from. `eglGetDisplay` picks
-/// this by implementation-defined means (Mesa uses the first configured
-/// platform, or `$EGL_PLATFORM`), which can misinterpret a `wl_display*` on a
-/// build whose default is X11.
+/// Which windowing system the native handles came from. Naming it is what
+/// keeps EGL from guessing: the unnamed `eglGetDisplay` picks a platform by
+/// implementation-defined means (Mesa uses the first configured one, or
+/// `$EGL_PLATFORM`) and can misinterpret a `wl_display*` on a build whose
+/// default is X11.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[allow(dead_code)] // Only the Wayland backend calls into this module so far.
 pub enum Platform {
@@ -72,7 +73,6 @@ const EGL_PLATFORM_X11: EGLenum = 0x31D5;
 
 dlib::dlopen_external_library!(Egl,
 functions:
-    fn eglGetDisplay(EGLNativeDisplayType) -> EGLDisplay,
     // `eglGetPlatformDisplay` is deliberately *not* bound here: it is EGL 1.5,
     // and dlib fails the whole library on its first missing symbol, so binding
     // it would cost the GPU path outright on an EGL 1.4 driver. It is resolved
@@ -405,6 +405,9 @@ pub enum GlError {
     /// `GL_RENDERER` names a CPU rasteriser, so there is no GPU to accelerate
     /// with. See [`is_software_renderer`].
     SoftwareRenderer(String),
+    /// The target is big-endian, where this path cannot describe minifb's
+    /// pixel layout to GL. See [`GlContext::new`].
+    BigEndian,
 }
 
 impl std::fmt::Display for GlError {
@@ -425,6 +428,9 @@ impl std::fmt::Display for GlError {
             ),
             GlError::SoftwareRenderer(name) => {
                 write!(f, "{} is a software renderer, not a GPU", name)
+            }
+            GlError::BigEndian => {
+                write!(f, "GL_BGRA upload needs a little-endian target")
             }
         }
     }
@@ -543,6 +549,20 @@ impl GlContext {
         transparent: bool,
     ) -> Result<Self, GlError> {
         let egl = Egl::open("libEGL.so.1").map_err(|_| GlError::LibraryMissing("libEGL.so.1"))?;
+        // `glTexImage2D` is told `GL_BGRA`/`GL_UNSIGNED_BYTE`, which consumes
+        // the texture as a byte stream: B, G, R, A in ascending address order.
+        // minifb's pixel is a `u32` `0x00RRGGBB`, whose bytes land in that
+        // order only on a little-endian target. On a big-endian one they are
+        // `00 RR GG BB`, so GL would read the padding byte as blue and the
+        // blue channel as alpha. GLES2 has no swizzle and no packed 8888
+        // format to say this with, and byte-swapping every frame would spend
+        // exactly the CPU pass this path exists to avoid -- so hand these
+        // targets to the software scaler, which writes the `u32` straight
+        // through and is correct either way.
+        if cfg!(target_endian = "big") {
+            return Err(GlError::BigEndian);
+        }
+
         // The GLES2 soname is .so.2 - there is no libGLESv2.so.1.
         let gl =
             Gles2::open("libGLESv2.so.2").map_err(|_| GlError::LibraryMissing("libGLESv2.so.2"))?;
@@ -945,21 +965,20 @@ impl Drop for GlContext {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// `eglGetPlatformDisplay`, resolved at runtime.
+/// `eglGetPlatformDisplay`, resolved at runtime. Null means no display.
 ///
 /// Naming the platform avoids `eglGetDisplay`'s implementation-defined guess,
-/// which can read a `wl_display*` as an X11 `Display*`. That call is EGL 1.5;
+/// which can read a `wl_display*` as an X11 `Display*` and fault inside the
+/// driver rather than returning an error. That call is EGL 1.5;
 /// `EGL_EXT_platform_base` spells the same thing `eglGetPlatformDisplayEXT` on
 /// EGL 1.4, so both are tried. Binding either as a plain `dlib` symbol would
 /// instead cost the whole GPU path on any driver that lacks it.
 ///
-/// `eglGetDisplay` is only reached when *neither* symbol exists, i.e. an EGL
-/// 1.4 stack without `EGL_EXT_platform_base`, where there is nothing else to
-/// try. A resolved entry point returning `EGL_NO_DISPLAY` is a real answer and
-/// is passed straight back: retrying it unnamed would hand the driver a
-/// pointer it is entitled to read as another platform's, and this module's
-/// contract is that every failure falls back to software rather than faults
-/// inside libEGL.
+/// There is deliberately no `eglGetDisplay` fallback. A stack with neither
+/// entry point is EGL 1.4 without `EGL_EXT_platform_base`, which has not
+/// shipped alongside a working `libwayland-egl` in a decade; taking the
+/// ambiguous call for it would trade a guaranteed software fallback for a
+/// possible fault, on the path `UseGPU::Auto` puts everyone by default.
 unsafe fn platform_display(
     egl: &Egl,
     platform: EGLenum,
@@ -971,7 +990,6 @@ unsafe fn platform_display(
     type GetPlatformDisplay =
         unsafe extern "C" fn(EGLenum, *mut c_void, *const c_void) -> EGLDisplay;
 
-    let mut found = false;
     for name in [
         b"eglGetPlatformDisplay\0".as_ref(),
         b"eglGetPlatformDisplayEXT\0".as_ref(),
@@ -980,7 +998,6 @@ unsafe fn platform_display(
         if sym.is_null() {
             continue;
         }
-        found = true;
         let get: GetPlatformDisplay = std::mem::transmute(sym);
         let display = get(platform, native_display, std::ptr::null());
         if !display.is_null() {
@@ -988,11 +1005,7 @@ unsafe fn platform_display(
         }
     }
 
-    if found {
-        return std::ptr::null_mut();
-    }
-
-    (egl.eglGetDisplay)(native_display)
+    std::ptr::null_mut()
 }
 
 unsafe fn renderer_string(gl: &Gles2) -> String {
@@ -1518,6 +1531,10 @@ mod tests {
         assert_eq!(
             GlError::SoftwareRenderer("llvmpipe (LLVM 17.0.6, 256 bits)".to_owned()).to_string(),
             "llvmpipe (LLVM 17.0.6, 256 bits) is a software renderer, not a GPU"
+        );
+        assert_eq!(
+            GlError::BigEndian.to_string(),
+            "GL_BGRA upload needs a little-endian target"
         );
     }
 
