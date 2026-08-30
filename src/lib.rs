@@ -87,6 +87,11 @@ pub enum Scale {
 /// when the only renderer available is a CPU rasteriser such as llvmpipe,
 /// which would put the scaling straight back on the CPU.
 ///
+/// The two paths do not pick identical source pixels when scaling: the GPU
+/// samples at destination pixel centres, as the macOS backend does, which is
+/// up to half a destination pixel later than the software scaler's choice. A
+/// 1:1 blit and whole-number scale factors are unaffected.
+///
 /// Only the Wayland backend reads this today. X11 always scales in software,
 /// as do macOS and Windows, which ignore this setting.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

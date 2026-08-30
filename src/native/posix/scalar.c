@@ -6,8 +6,9 @@
 // per-pixel divide, and without the drift a fixed-point step accumulates: a
 // 10.10 step quantises the ratio to 1/1024, which on a non-integer scale
 // factor lands on the wrong source pixel for over half a row and drifts by
-// several pixels by the right edge. The GPU path in `os/posix/gl.rs` maps the
-// exact ratio, so this is also what keeps the two paths pixel-identical.
+// several pixels by the right edge. The GPU path in `os/posix/gl.rs` samples
+// the same ratio at fragment centres, so this is also what keeps the two paths
+// within half a destination pixel of each other instead of drifting apart.
 //
 // Splitting the ratio into `src / dst` and `src % dst` keeps that to one add
 // and at most one carry per destination pixel, so a heavy downscale costs the

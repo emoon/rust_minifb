@@ -4,7 +4,7 @@ This project follows semantic versioning.
 
 ### v0.29 (unreleased)
 
-- [added] GPU presentation on Linux/Wayland through EGL/GLES2. The buffer is uploaded and scaled on the GPU, so the per-frame cost tracks your buffer size rather than the window size. Falls back to the existing software scaler whenever EGL is unavailable, or when the only renderer on offer is a CPU rasteriser such as llvmpipe.
+- [added] GPU presentation on Linux/Wayland through EGL/GLES2. The buffer is uploaded and scaled on the GPU, so the per-frame cost tracks your buffer size rather than the window size. Falls back to the existing software scaler whenever EGL is unavailable, or when the only renderer on offer is a CPU rasteriser such as llvmpipe. Scaling samples at destination pixel centres, like the macOS GPU path, so a scaled window can pick a source pixel up to half a destination pixel later than the software scaler does; 1:1 blits and whole-number scale factors are unaffected.
 - [added] `WindowOptions::use_gpu` (`UseGPU::Auto` by default, `UseGPU::Disabled` to force the software path). Only the Wayland backend reads it; X11, macOS and Windows scale in software regardless.
 - [fixed] The Linux/BSD software scaler stepped a 10.10 fixed-point ratio, which quantises the step to 1/1024 and drifts on non-integer scale factors - a 320-wide buffer in a 3840-wide window picked the wrong source column for 2430 of 3840 columns, by up to two pixels. It now indexes `floor(j * src / dst)` exactly.
 - [API BREAKAGE] The new `WindowOptions::use_gpu` field is a source break for struct literals that do not end in `..WindowOptions::default()`. Add that (or set the field) when moving from 0.28.

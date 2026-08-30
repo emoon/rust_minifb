@@ -239,9 +239,9 @@ pub struct DestRect {
 ///
 /// This mirrors the C scalers in `src/native/posix/scalar.c`, integer
 /// truncation included, because those are what this path replaces: toggling
-/// `use_gpu` must not shift the image by a pixel. That means the odd-remainder
-/// case resolves top-down -- a 2-row buffer centred in a 5-row window leaves 1
-/// row above and 2 below. The macOS `calculate_scaling()` computes the same
+/// `use_gpu` must not move the image within the window. That means the
+/// odd-remainder case resolves top-down -- a 2-row buffer centred in a 5-row
+/// window leaves 1 row above and 2 below. The macOS `calculate_scaling()` computes the same
 /// layout in Cocoa's y-up space and so rounds the other way; matching the
 /// backend a caller can actually switch between wins over matching that.
 pub fn dest_rect(
@@ -310,26 +310,22 @@ pub fn dest_rect(
     }
 }
 
+/// Whether a zero-dimension buffer leaves the previous frame up rather than
+/// clearing: `image_resize_linear` returns without writing, the other three
+/// scalers clear to `bg_color` first.
+fn preserves_frame_when_empty(scale_mode: ScaleMode) -> bool {
+    matches!(scale_mode, ScaleMode::Stretch)
+}
+
 /// Six interleaved `x, y, u, v` vertices - two triangles - in clip space.
 ///
-/// Two things happen here beyond the obvious pixels-to-NDC map.
+/// The uv range is the whole texture, so `GL_NEAREST` reads the texel under
+/// each fragment centre -- `floor((j + 0.5) * src / dst)`, as on macOS, which
+/// is up to half a destination pixel later than the C scalers' index.
 ///
 /// The rect is top-down and clip space is y-up, so `y` is flipped; texture row
-/// 0 is the buffer's first row and lands at the *top*, which is `v = 0` at the
-/// vertex with the larger clip-space `y`.
-///
-/// The uv range is then nudged by [`sample_offset`] so that `GL_NEAREST` picks
-/// the same texel the C scalers index. Without it the fragment centre at
-/// `(j + 0.5) / dst` reads half a destination pixel further into the source
-/// than `floor(j * src / dst)` does, which shifts a 2-to-3 upscale from
-/// `[A, A, B]` to `[A, B, B]`.
-fn quad_vertices(
-    rect: DestRect,
-    buf_width: i32,
-    buf_height: i32,
-    win_width: i32,
-    win_height: i32,
-) -> [GLfloat; 24] {
+/// 0 lands at the *top*, which is `v = 0` at the larger clip-space `y`.
+fn quad_vertices(rect: DestRect, win_width: i32, win_height: i32) -> [GLfloat; 24] {
     let to_ndc_x = |px: i32| (px as f32 / win_width as f32) * 2.0 - 1.0;
     let to_ndc_y = |px: i32| 1.0 - (px as f32 / win_height as f32) * 2.0;
 
@@ -337,42 +333,16 @@ fn quad_vertices(
     // `y0` is the rect's top edge, so it maps to the larger clip-space y.
     let (t, b) = (to_ndc_y(rect.y0), to_ndc_y(rect.y1));
 
-    let du = sample_offset(buf_width, rect.x1 - rect.x0);
-    let dv = sample_offset(buf_height, rect.y1 - rect.y0);
-    let (u0, u1) = (du, 1.0 + du);
-    let (v0, v1) = (dv, 1.0 + dv);
-
     [
         // triangle 1: bottom-left, bottom-right, top-right
-        l, b, u0, v1, //
-        r, b, u1, v1, //
-        r, t, u1, v0, //
+        l, b, 0.0, 1.0, //
+        r, b, 1.0, 1.0, //
+        r, t, 1.0, 0.0, //
         // triangle 2: bottom-left, top-right, top-left
-        l, b, u0, v1, //
-        r, t, u1, v0, //
-        l, t, u0, v0,
+        l, b, 0.0, 1.0, //
+        r, t, 1.0, 0.0, //
+        l, t, 0.0, 0.0,
     ]
-}
-
-/// How far to slide the 0..1 uv range so `GL_NEAREST` lands on the C scalers'
-/// texel.
-///
-/// The scalers sample at the destination pixel's *origin* -- texel
-/// `floor(j * src / dst)` -- while a fragment centre sits half a destination
-/// pixel later. Undoing that is a shift of `-0.5 / dst` in uv.
-///
-/// The extra `+0.5 / (dst * src)` then nudges the sample point half a texel
-/// boundary's worth *into* the texel it just chose. The sampled coordinate
-/// `j * src / dst` is a multiple of `1 / dst` texels, so it is either exactly
-/// an integer or a full `1 / dst` short of the next one -- meaning a nudge of
-/// `0.5 / dst` texels can never cross a boundary, but it does move the
-/// exact-integer case off it. That case is every sample of a 1:1 blit, where
-/// without the nudge float error rounds half of them down a texel.
-fn sample_offset(src: i32, dst: i32) -> GLfloat {
-    if src <= 0 || dst <= 0 {
-        return 0.0;
-    }
-    0.5 * (1.0 / src as f32 - 1.0) / dst as f32
 }
 
 // ---------------------------------------------------------------------------
@@ -531,6 +501,10 @@ pub struct GlContext {
     /// uploaded, because a failed allocation leaves the texture incomplete and
     /// GLES2 samples an incomplete texture as opaque black.
     max_texture_size: i32,
+
+    /// Whether anything has been swapped yet. A Wayland surface with no
+    /// buffer attached is not mapped, so the first frame cannot be skipped.
+    presented: bool,
 }
 
 impl GlContext {
@@ -721,6 +695,7 @@ impl GlContext {
             repack: Vec::new(),
             transparent,
             max_texture_size,
+            presented: false,
         })
     }
 
@@ -756,6 +731,18 @@ impl GlContext {
         scale_mode: ScaleMode,
         bg_color: u32,
     ) -> Result<(), GlError> {
+        // Not swapping leaves the last frame up, which is what the scaler
+        // this replaces shows. Ahead of the size checks on purpose: nothing
+        // here touches the texture, so a degenerate size -- which
+        // `check_buffer_size` accepts, it multiplies by the height -- must not
+        // cost the GL context.
+        if (buf_width == 0 || buf_height == 0)
+            && preserves_frame_when_empty(scale_mode)
+            && self.presented
+        {
+            return Ok(());
+        }
+
         // The buffer dimensions arrive as `usize` and every GL entry point
         // takes `GLsizei`. Casting would wrap a dimension past `i32::MAX` to a
         // negative one, which slips under the size check below and then skips
@@ -820,9 +807,8 @@ impl GlContext {
         (gl.glClearColor)(r, g, b, a);
         (gl.glClear)(GL_COLOR_BUFFER_BIT);
 
-        // A zero-dimension buffer has nothing to sample; present the cleared
-        // background rather than feeding a degenerate texture to the driver.
-        // The software scalers guard the same case.
+        // Only modes whose scaler clears reach here with an empty buffer, and
+        // the clear above is already the frame they want.
         if buf_width > 0 && buf_height > 0 {
             self.upload(buffer, buf_width, buf_height, buf_stride)?;
             self.draw_quad(buf_width, buf_height, win_width, win_height, scale_mode);
@@ -831,6 +817,7 @@ impl GlContext {
         if (self.egl.eglSwapBuffers)(self.display, self.surface) == EGL_FALSE {
             return Err(GlError::Egl("eglSwapBuffers", (self.egl.eglGetError)()));
         }
+        self.presented = true;
 
         Ok(())
     }
@@ -918,7 +905,7 @@ impl GlContext {
         let gl = &self.gl;
 
         let rect = dest_rect(scale_mode, buf_width, buf_height, win_width, win_height);
-        let verts = quad_vertices(rect, buf_width, buf_height, win_width, win_height);
+        let verts = quad_vertices(rect, win_width, win_height);
 
         (gl.glUseProgram)(self.program);
 
@@ -1231,25 +1218,89 @@ mod tests {
     /// derived from the quad's interpolated uv exactly as the rasterizer would:
     /// interpolate to the fragment centre, scale by the texture size, floor,
     /// and clamp (`GL_CLAMP_TO_EDGE`).
+    ///
+    /// Host `f32`: GLES2 guarantees `highp` only 2^-16 relative precision, so
+    /// this pins down the mapping, not any particular driver.
     fn gl_texel(uv_at_near_edge: f32, uv_at_far_edge: f32, span: i32, src: i32, i: i32) -> i32 {
         let f = (i as f32 + 0.5) / span as f32;
         let uv = uv_at_near_edge + (uv_at_far_edge - uv_at_near_edge) * f;
         ((uv * src as f32).floor() as i32).clamp(0, src - 1)
     }
 
-    /// What `image_resize_linear` in `src/native/posix/scalar.c` indexes for
-    /// destination pixel `i`.
-    fn scalar_texel(src: i32, dst: i32, i: i32) -> i32 {
-        (i * src / dst).min(src - 1)
+    /// The source index `image_resize_linear` picks for each destination
+    /// index along one axis, read back out of the C scaler rather than
+    /// restated here: a one-pixel-thick source whose pixels are their own
+    /// index comes back as the indices it chose.
+    fn scalar_axis(src: i32, dst: i32, vertical: bool) -> Vec<u32> {
+        let source: Vec<u32> = (0..src as u32).collect();
+        let mut out = vec![u32::MAX; dst as usize];
+        let (src_w, src_h) = if vertical { (1, src) } else { (src, 1) };
+        let (dst_w, dst_h) = if vertical { (1, dst) } else { (dst, 1) };
+
+        // SAFETY: `source` holds `src_w * src_h` pixels at stride `src_w`, and
+        // `out` holds `dst_w * dst_h`.
+        unsafe {
+            crate::os::posix::common::image_resize_linear(
+                out.as_mut_ptr(),
+                dst_w as u32,
+                dst_h as u32,
+                source.as_ptr(),
+                src_w as u32,
+                src_h as u32,
+                src_w as u32,
+            );
+        }
+        out
     }
 
-    /// Every destination pixel of a stretch must read the same source pixel the
-    /// C scaler would, or toggling `use_gpu` visibly shifts the image. This is
-    /// the check the geometry tests below cannot make.
+    /// One axis of a stretch: never earlier than the C scaler's pixel, never
+    /// more than half a destination pixel after it, and exactly it on a
+    /// whole-number scale.
+    fn assert_axis_tracks_the_scaler(
+        uv_at_near_edge: f32,
+        uv_at_far_edge: f32,
+        span: i32,
+        src: i32,
+        vertical: bool,
+    ) {
+        let what = if vertical { "row" } else { "column" };
+        let reference = scalar_axis(src, span, vertical);
+        // ceil(src / (2 * span)): half a destination pixel, in source pixels.
+        let budget = (src as i64 + 2 * span as i64 - 1) / (2 * span as i64);
+        let exact = span % src == 0;
+
+        for i in 0..span {
+            let gl = gl_texel(uv_at_near_edge, uv_at_far_edge, span, src, i) as i64;
+            let sw = reference[i as usize] as i64;
+
+            assert!(
+                gl >= sw && gl - sw <= budget,
+                "{} {} of {} -> {}: GL reads {}, the scaler reads {}, budget {}",
+                what,
+                i,
+                src,
+                span,
+                gl,
+                sw,
+                budget
+            );
+            if exact {
+                assert_eq!(
+                    gl, sw,
+                    "{} {} of {} -> {} is a whole-number scale",
+                    what, i, src, span
+                );
+            }
+        }
+    }
+
+    /// The sizes reach past what a window can hold on purpose: everything this
+    /// path got wrong before lived at an extreme, and a sweep that stops at
+    /// 1280 sees none of it.
     #[test]
-    fn nearest_sampling_matches_the_software_scaler() {
+    fn nearest_sampling_tracks_the_software_scaler() {
         for (src_w, src_h, win_w, win_h) in [
-            (2, 2, 3, 3),         // the 2-to-3 case that exposed the half-pixel bias
+            (2, 2, 3, 3),         // the 2-to-3 case, where the phase shows
             (3, 3, 2, 2),         // downscale
             (320, 240, 320, 240), // 1:1, where every sample sits on a texel edge
             (320, 240, 1280, 960),
@@ -1257,38 +1308,90 @@ mod tests {
             (7, 5, 13, 11),
             (13, 11, 7, 5),
             (1, 1, 640, 480),
+            (1920, 1080, 3840, 2160), // 1080p into 4K, where an exact phase is sub-ULP
+            (2560, 1440, 3840, 2160),
+            (3839, 2159, 3840, 2160), // a scale factor barely above 1:1
+            (4096, 4096, 3840, 2160), // GL_MAX_TEXTURE_SIZE-sized, downscaled
+            (100, 100, 2200000, 1),   // an upscale no window can hold
+            (2200000, 1, 100, 100),   // and the downscale back
         ] {
             let rect = dest_rect(ScaleMode::Stretch, src_w, src_h, win_w, win_h);
-            let v = quad_vertices(rect, src_w, src_h, win_w, win_h);
+            let v = quad_vertices(rect, win_w, win_h);
 
             // Vertex 0 is bottom-left (u0, v1), vertex 2 is top-right (u1, v0).
             let (u0, v_bottom) = (v[2], v[3]);
             let (u1, v_top) = (v[10], v[11]);
 
-            for i in 0..win_w {
-                assert_eq!(
-                    gl_texel(u0, u1, win_w, src_w, i),
-                    scalar_texel(src_w, win_w, i),
-                    "column {} of {}x{} -> {}x{}",
-                    i,
-                    src_w,
-                    src_h,
-                    win_w,
-                    win_h
-                );
-            }
-
+            assert_axis_tracks_the_scaler(u0, u1, win_w, src_w, false);
             // Rows run top-down, and `v_top` is the uv at the quad's top edge.
-            for i in 0..win_h {
+            assert_axis_tracks_the_scaler(v_top, v_bottom, win_h, src_h, true);
+        }
+    }
+
+    /// Which modes clear on an empty buffer is asked of the C scalers, not
+    /// assumed: nothing else would catch `present` drifting from them.
+    #[test]
+    fn empty_frames_follow_the_scalers() {
+        type Scaler = unsafe extern "C" fn(*mut u32, u32, u32, *const u32, u32, u32, u32, u32);
+
+        // `image_resize_linear` takes no `bg_color`; it never clears.
+        unsafe extern "C" fn stretch(
+            dst: *mut u32,
+            dst_width: u32,
+            dst_height: u32,
+            src: *const u32,
+            src_width: u32,
+            src_height: u32,
+            src_stride: u32,
+            _bg_color: u32,
+        ) {
+            crate::os::posix::common::image_resize_linear(
+                dst, dst_width, dst_height, src, src_width, src_height, src_stride,
+            )
+        }
+
+        let scalers: [(ScaleMode, Scaler); 4] = [
+            (ScaleMode::Stretch, stretch),
+            (
+                ScaleMode::AspectRatioStretch,
+                crate::os::posix::common::image_resize_linear_aspect_fill,
+            ),
+            (ScaleMode::Center, crate::os::posix::common::image_center),
+            (
+                ScaleMode::UpperLeft,
+                crate::os::posix::common::image_upper_left,
+            ),
+        ];
+
+        for (mode, scaler) in scalers {
+            for (src_w, src_h) in [(0, 4), (4, 0), (0, 0)] {
+                let source = [0u32; 4];
+                let mut dst = [0xAAAA_AAAAu32; 4];
+
+                // SAFETY: `dst` holds 2x2 pixels and `source` covers any of the
+                // degenerate source sizes above.
+                unsafe {
+                    scaler(
+                        dst.as_mut_ptr(),
+                        2,
+                        2,
+                        source.as_ptr(),
+                        src_w,
+                        src_h,
+                        src_w,
+                        0,
+                    );
+                }
+
+                let untouched = dst == [0xAAAA_AAAA; 4];
                 assert_eq!(
-                    gl_texel(v_top, v_bottom, win_h, src_h, i),
-                    scalar_texel(src_h, win_h, i),
-                    "row {} of {}x{} -> {}x{}",
-                    i,
+                    untouched,
+                    preserves_frame_when_empty(mode),
+                    "{:?} with a {}x{} buffer: dst {:x?}",
+                    mode,
                     src_w,
                     src_h,
-                    win_w,
-                    win_h
+                    dst
                 );
             }
         }
@@ -1408,7 +1511,7 @@ mod tests {
     #[test]
     fn quad_puts_texture_row_zero_at_the_top() {
         let rect = dest_rect(ScaleMode::Stretch, 320, 240, 640, 480);
-        let v = quad_vertices(rect, 320, 240, 640, 480);
+        let v = quad_vertices(rect, 640, 480);
 
         // Vertex 0 is bottom-left: NDC (-1, -1), and the larger v.
         assert_eq!(&v[0..2], &[-1.0, -1.0]);
@@ -1443,7 +1546,7 @@ mod tests {
                 for v in [r.x0, r.y0, r.x1, r.y1] {
                     assert!(v > i32::MIN && v < i32::MAX, "{:?} {:?}", mode, r);
                 }
-                let q = quad_vertices(r, bw, bh, ww.max(1), wh.max(1));
+                let q = quad_vertices(r, ww.max(1), wh.max(1));
                 assert!(q.iter().all(|f| f.is_finite()), "{:?} {:?}", mode, r);
             }
         }
@@ -1571,7 +1674,7 @@ mod tests {
             x1: 480,
             y1: 360,
         };
-        let v = quad_vertices(rect, 320, 240, 640, 480);
+        let v = quad_vertices(rect, 640, 480);
         // Vertex 0 is bottom-left: x0 = 160/640 * 2 - 1 = -0.5, and the rect's
         // *bottom* is y1, flipped to 1 - 360/480 * 2 = -0.5.
         assert_eq!(v[0], -0.5);
