@@ -197,8 +197,62 @@ mod scaler_tests {
         assert_eq!((first, last), (100, 199));
     }
 
-    /// A source dimension above 2^21 overflows a 32-bit 10.10 accumulator.
-    /// Such a buffer passes `check_buffer_size` (2.2M x 1 is 8.8 MB).
+    /// The scaler must index source pixel `floor(j * src / dst)` exactly.
+    ///
+    /// It used to step a 10.10 fixed-point ratio, which quantises the step to
+    /// 1/1024 and drifts: at 320 -> 641 the drift first bites at column 513,
+    /// and at 320 -> 3840 it misses on 2430 of 3840 columns by up to two
+    /// pixels. `os/posix/gl.rs` maps the exact ratio on the GPU, so any drift
+    /// here is also a visible difference between the two paths.
+    #[test]
+    fn resize_linear_indexes_exactly() {
+        for (src_w, dst_w) in [
+            (320, 641),
+            (320, 3840),
+            (256, 1920),
+            (640, 1920),
+            (100, 1000),
+            (320, 1280),
+            (1920, 640),
+            (7, 13),
+            (2, 3),
+            // A ratio this steep is where a carry loop that subtracts `dst`
+            // until it fits turns into `src / dst` iterations per pixel.
+            (2_200_000, 100),
+        ] {
+            // One row of distinct values, so a pixel names the column it came
+            // from. `scale_guarded` fills the source with `i | 1`.
+            let dst = scale_guarded(image_resize_linear_wrapper, dst_w, 1, src_w, 1);
+
+            let expected: Vec<u32> = (0..dst_w)
+                .map(|j| ((j * src_w / dst_w).min(src_w - 1) as u32) | 1)
+                .collect();
+
+            assert_eq!(dst, expected, "{} -> {}", src_w, dst_w);
+        }
+    }
+
+    /// `image_resize_linear` takes no `bg_color`, so it needs a shim to reuse
+    /// the overrun-guarded harness.
+    unsafe extern "C" fn image_resize_linear_wrapper(
+        dst: *mut u32,
+        dst_width: u32,
+        dst_height: u32,
+        src: *const u32,
+        src_width: u32,
+        src_height: u32,
+        src_stride: u32,
+        _bg_color: u32,
+    ) {
+        image_resize_linear(
+            dst, dst_width, dst_height, src, src_width, src_height, src_stride,
+        );
+    }
+
+    /// A source dimension this large used to overflow the 32-bit 10.10
+    /// accumulator the scaler stepped; the exact walk accumulates `src` into a
+    /// 64-bit remainder for the same reason. Such a buffer passes
+    /// `check_buffer_size` (2.2M x 1 is 8.8 MB).
     #[test]
     fn resize_linear_handles_large_source_dimensions() {
         let width = 2_200_000usize;
@@ -222,7 +276,7 @@ mod scaler_tests {
 
     /// The pillarbox branch routes through a second copy of the resize loop
     /// with its own accumulators. Overflowing them needs a source dimension
-    /// above 2^21 *and* a destination tall enough for the loop to reach the
+    /// this large *and* a destination tall enough for the loop to reach the
     /// overflowing iteration -- a short destination scales the source down to
     /// a zero-width blit that never indexes it.
     #[test]

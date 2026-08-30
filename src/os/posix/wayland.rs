@@ -18,8 +18,10 @@ use super::common::{
 use crate::{
     check_buffer_size, key_handler::KeyHandler, rate::UpdateRate, CursorStyle, Error,
     InputCallback, Key, KeyRepeat, MenuHandle, MouseButton, MouseMode, Result, Scale, ScaleMode,
-    UnixMenu, WindowOptions,
+    UnixMenu, UseGPU, WindowOptions,
 };
+
+use super::gl;
 use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
     RawWindowHandle, WaylandDisplayHandle, WaylandWindowHandle, WindowHandle,
@@ -551,7 +553,17 @@ impl DisplayInfo {
         Ok(())
     }
 
-    // Resizes when buffer is bigger or less
+    /// Acknowledge the pending configure, if any.
+    ///
+    /// xdg-shell requires this before the commit that consumes the configure.
+    /// `eglSwapBuffers` is such a commit, so the GL path has to call this too
+    /// -- `update_framebuffer` is not on that path.
+    fn ack_pending_configure(&mut self) {
+        if let Some(serial) = self.state.xdg_config.take() {
+            self.xdg_surface.ack_configure(serial);
+        }
+    }
+
     fn update_framebuffer(&mut self, buffer: &[u32], size: SurfaceSize) -> std::io::Result<()> {
         // Every buffer is still held by the compositor: drop this frame
         // rather than write into one it may be scanning out. The previous
@@ -571,10 +583,7 @@ impl DisplayInfo {
         file.write_all(slice)?;
         file.flush()?;
 
-        // Acknowledge the last configure event
-        if let Some(serial) = self.state.xdg_config.take() {
-            self.xdg_surface.ack_configure(serial);
-        }
+        self.ack_pending_configure();
 
         self.surface.attach(Some(&buf), 0, 0);
         self.buf_pool.mark_attached(&buf);
@@ -583,6 +592,28 @@ impl DisplayInfo {
 
         Ok(())
     }
+}
+
+/// Where the GL path stands for this window. The context is built on the
+/// first `update_with_buffer` rather than at window creation, so a caller that
+/// only wants the `wl_surface` through `raw-window-handle` -- to drive it with
+/// wgpu or glow -- never gets a competing EGL surface on it.
+enum GlPath {
+    /// No attempt made yet.
+    Untried,
+    Active(Box<gl::WaylandGl>),
+    /// A frame exceeded `GL_MAX_TEXTURE_SIZE`. The context had to go -- shm
+    /// cannot attach to a surface EGL owns -- but nothing was lost, so GL is
+    /// rebuilt as soon as a buffer fits `max` again. Gating on the remembered
+    /// limit is what keeps an app that stays oversized from paying for a fresh
+    /// EGL context every frame.
+    TooLarge {
+        max: i32,
+    },
+    /// Tried and failed, or explicitly turned off. Never retried: a driver
+    /// that could not give us a context once will not on the next frame, and
+    /// retrying would stall every update.
+    Unavailable,
 }
 
 pub struct Window {
@@ -622,9 +653,15 @@ pub struct Window {
     _keyboard: WlKeyboard,
     pointer: WlPointer,
     resizable: bool,
-    // Temporary buffer
+    // Temporary buffer, only used by the software path
     buffer: Vec<u32>,
     pointer_visibility: bool,
+
+    transparent: bool,
+    gl: GlPath,
+    /// Size the `wl_egl_window` was last told about, so a resize is pushed to
+    /// EGL only when it actually changed.
+    gl_size: SurfaceSize,
 }
 
 impl Window {
@@ -680,7 +717,7 @@ impl Window {
             ));
         }
 
-        Ok(Self {
+        let window = Self {
             display,
 
             size,
@@ -714,7 +751,121 @@ impl Window {
             resizable: opts.resize && !opts.none,
             buffer: Vec::with_capacity(width * height * scale as usize * scale as usize),
             pointer_visibility: true,
-        })
+
+            transparent: opts.transparency,
+            gl: match opts.use_gpu {
+                UseGPU::Disabled => GlPath::Unavailable,
+                UseGPU::Auto => GlPath::Untried,
+            },
+            gl_size: size,
+        };
+
+        Ok(window)
+    }
+
+    /// Build the GL context for this window's surface.
+    fn init_gl(&mut self) -> std::result::Result<(), gl::GlError> {
+        let wl_display = self.display.conn.backend().display_ptr() as *mut c_void;
+        let wl_surface = self.display.surface.id().as_ptr() as *mut c_void;
+
+        let context = unsafe {
+            gl::WaylandGl::new(
+                wl_display,
+                wl_surface,
+                self.size.width,
+                self.size.height,
+                self.transparent,
+            )?
+        };
+
+        self.gl_size = self.size;
+        self.gl = GlPath::Active(Box::new(context));
+        Ok(())
+    }
+
+    /// Present through GL, reporting whether it happened. `false` means the
+    /// caller must run the software path.
+    ///
+    /// Once EGL owns the surface the shm path cannot attach to it any more, so
+    /// anything that stops GL working has to destroy the context (and with it
+    /// the `wl_egl_window`) before returning `false`. Assigning over
+    /// `self.gl` is what does that -- the old `GlPath::Active` drops in place.
+    fn try_present_gl(
+        &mut self,
+        buffer: &[u32],
+        buf_width: usize,
+        buf_height: usize,
+        buf_stride: usize,
+    ) -> bool {
+        match self.gl {
+            GlPath::Unavailable => return false,
+            // Still too big for the context we would rebuild; do not pay for
+            // one just to hit the same limit.
+            GlPath::TooLarge { max } => {
+                if buf_width > max as usize || buf_height > max as usize {
+                    return false;
+                }
+            }
+            GlPath::Untried | GlPath::Active(_) => {}
+        }
+
+        if matches!(self.gl, GlPath::Untried | GlPath::TooLarge { .. }) && self.init_gl().is_err() {
+            self.gl = GlPath::Unavailable;
+            return false;
+        }
+
+        let (size, scale_mode, bg_color) = (self.size, self.scale_mode, self.bg_color);
+        let resized = self.gl_size != size;
+
+        // The `wl_egl_window` carries its own size and will not pick up a
+        // configure on its own.
+        if resized {
+            match &mut self.gl {
+                GlPath::Active(context) => context.resize(size.width, size.height),
+                _ => return false,
+            }
+        }
+
+        // `eglSwapBuffers` inside `present` commits the surface, and xdg-shell
+        // requires the configure to be acknowledged before that commit -- not
+        // after it.
+        self.display.ack_pending_configure();
+
+        let context = match &mut self.gl {
+            GlPath::Active(context) => context,
+            _ => return false,
+        };
+
+        let result = unsafe {
+            context.context().present(
+                buffer,
+                buf_width,
+                buf_height,
+                buf_stride,
+                size.width,
+                size.height,
+                scale_mode,
+                bg_color,
+            )
+        };
+
+        if let Err(e) = result {
+            // Nothing reached the screen, and shm cannot attach while EGL owns
+            // the surface -- so the context goes either way. Only an oversized
+            // buffer is worth coming back from: the context was never touched,
+            // and the next frame may well fit.
+            self.gl = match e {
+                gl::GlError::TextureTooLarge { max, .. } => GlPath::TooLarge { max },
+                _ => GlPath::Unavailable,
+            };
+            return false;
+        }
+
+        if resized {
+            self.gl_size = size;
+        }
+
+        true
     }
 
     #[inline]
@@ -1477,6 +1628,13 @@ impl Window {
     ) -> Result<()> {
         let result = (|| {
             check_buffer_size(buffer, buf_width, buf_height, buf_stride)?;
+
+            // The GPU scales from the buffer you passed; the software path
+            // below has to materialise a window-sized copy first.
+            if self.try_present_gl(buffer, buf_width, buf_height, buf_stride) {
+                return Ok(());
+            }
+
             unsafe { self.scale_buffer(buffer, buf_width, buf_height, buf_stride) };
             self.display
                 .update_framebuffer(&self.buffer, self.size)
@@ -1590,6 +1748,12 @@ impl HasDisplayHandle for Window {
 
 impl Drop for Window {
     fn drop(&mut self) {
+        // Before anything else: the GL context holds an EGLSurface built on a
+        // `wl_egl_window` wrapping `display`'s `wl_surface`, and `display`
+        // owns the connection. Field drop order would run this after
+        // `display`, handing freed native handles to the driver.
+        self.gl = GlPath::Unavailable;
+
         unsafe {
             ffi_dispatch!(XKBH, xkb_state_unref, self.xkb_state);
             ffi_dispatch!(XKBH, xkb_keymap_unref, self.xkb_keymap);

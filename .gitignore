@@ -2,3 +2,7 @@ target
 Cargo.lock
 *.idea
 *.iml
+
+# aider working state: chat/input history and its tags cache. `cargo package`
+# picks up untracked files, so an unignored WAL ships in the crate.
+.aider*

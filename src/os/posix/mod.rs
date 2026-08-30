@@ -10,6 +10,12 @@
 
 mod common;
 
+/// EGL/GLES2 presentation. EGL binds to X11 as well, but only the Wayland
+/// backend calls into this so far, so it is gated with that backend rather
+/// than built into x11-only configurations that cannot reach it.
+#[cfg(feature = "wayland")]
+mod gl;
+
 #[cfg(feature = "wayland")]
 mod wayland;
 #[cfg(feature = "x11")]

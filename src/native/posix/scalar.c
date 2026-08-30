@@ -1,12 +1,24 @@
 #include <stdint.h>
 #include <stddef.h>
 
-// Fixed-point coordinates are accumulated in 64-bit: a source dimension above
-// 2^21 overflows a 32-bit 10.10 accumulator and wraps to a negative index,
-// which is reachable from the safe Rust API (`check_buffer_size` happily
-// accepts a 2.1M x 1 buffer).
-#define FP_SHIFT 10
-#define FP_ONE (1 << FP_SHIFT)
+// Nearest-neighbour source index for destination pixel j is exactly
+// floor(j * src / dst). Walking an integer remainder gets there without a
+// per-pixel divide, and without the drift a fixed-point step accumulates: a
+// 10.10 step quantises the ratio to 1/1024, which on a non-integer scale
+// factor lands on the wrong source pixel for over half a row and drifts by
+// several pixels by the right edge. The GPU path in `os/posix/gl.rs` samples
+// the same ratio at fragment centres, so this is also what keeps the two paths
+// within half a destination pixel of each other instead of drifting apart.
+//
+// Splitting the ratio into `src / dst` and `src % dst` keeps that to one add
+// and at most one carry per destination pixel, so a heavy downscale costs the
+// same as any other: accumulating `src` and subtracting `dst` until it fits
+// would instead carry `src / dst` times per pixel, which is 220M iterations
+// for the 2.2M -> 100 case the tests cover.
+//
+// Remainders are 64-bit because both dimensions are `uint32_t`: `rem + err`
+// would wrap a 32-bit accumulator, and `check_buffer_size` happily accepts a
+// 2.1M x 1 buffer from safe Rust.
 
 static void image_clear(uint32_t* dst, const uint32_t dst_width, const uint32_t dst_height, const uint32_t bg_clear) {
     const size_t count = (size_t)dst_width * (size_t)dst_height;
@@ -28,26 +40,38 @@ void image_resize_linear(
         return;
     }
 
-    const float x_ratio = (float)(src_width) / (float)(dst_width);
-    const float y_ratio = (float)(src_height) / (float)(dst_height);
-    const int64_t step_x = (int64_t)(x_ratio * (float)FP_ONE);
-    const int64_t step_y = (int64_t)(y_ratio * (float)FP_ONE);
-    const int64_t max_x = (int64_t)src_width - 1;
-    const int64_t max_y = (int64_t)src_height - 1;
-    int64_t fixed_y = 0;
+    const uint32_t max_x = src_width - 1;
+    const uint32_t max_y = src_height - 1;
+    const uint32_t step_x = src_width / dst_width;
+    const uint32_t step_y = src_height / dst_height;
+    const uint32_t err_x = src_width % dst_width;
+    const uint32_t err_y = src_height % dst_height;
+    uint32_t sy = 0;
+    uint64_t rem_y = 0;
 
     for (uint32_t i = 0; i < dst_height; i++) {
-        int64_t sy = fixed_y >> FP_SHIFT;
-        if (sy > max_y) sy = max_y;
-        const int64_t y = sy * (int64_t)src_stride;
-        int64_t fixed_x = 0;
+        // `sy` cannot pass `max_y` for i < dst_height; the clamp only bounds
+        // the read if a caller ever gets those two out of step.
+        const size_t y = (size_t)(sy > max_y ? max_y : sy) * (size_t)src_stride;
+        uint32_t sx = 0;
+        uint64_t rem_x = 0;
+
         for (uint32_t j = 0; j < dst_width; j++) {
-            int64_t x = fixed_x >> FP_SHIFT;
-            if (x > max_x) x = max_x;
-            *dst++ = src[y + x];
-            fixed_x += step_x;
+            *dst++ = src[y + (sx > max_x ? max_x : sx)];
+            sx += step_x;
+            rem_x += err_x;
+            if (rem_x >= dst_width) {
+                rem_x -= dst_width;
+                sx++;
+            }
         }
-        fixed_y += step_y;
+
+        sy += step_y;
+        rem_y += err_y;
+        if (rem_y >= dst_height) {
+            rem_y -= dst_height;
+            sy++;
+        }
     }
 }
 
@@ -65,28 +89,40 @@ static void image_resize_linear_stride(
         return;
     }
 
-    const float x_ratio = (float)(src_width) / (float)(dst_width);
-    const float y_ratio = (float)(src_height) / (float)(dst_height);
-    const int64_t step_x = (int64_t)(x_ratio * (float)FP_ONE);
-    const int64_t step_y = (int64_t)(y_ratio * (float)FP_ONE);
-    const int64_t max_x = (int64_t)src_width - 1;
-    const int64_t max_y = (int64_t)src_height - 1;
+    const uint32_t max_x = src_width - 1;
+    const uint32_t max_y = src_height - 1;
+    const uint32_t step_x = src_width / dst_width;
+    const uint32_t step_y = src_height / dst_height;
+    const uint32_t err_x = src_width % dst_width;
+    const uint32_t err_y = src_height % dst_height;
     const ptrdiff_t stride_step = (ptrdiff_t)stride - (ptrdiff_t)dst_width;
-    int64_t fixed_y = 0;
+    uint32_t sy = 0;
+    uint64_t rem_y = 0;
 
     for (uint32_t i = 0; i < dst_height; i++) {
-        int64_t sy = fixed_y >> FP_SHIFT;
-        if (sy > max_y) sy = max_y;
-        const int64_t y = sy * (int64_t)src_stride;
-        int64_t fixed_x = 0;
+        // `sy` cannot pass `max_y` for i < dst_height; the clamp only bounds
+        // the read if a caller ever gets those two out of step.
+        const size_t y = (size_t)(sy > max_y ? max_y : sy) * (size_t)src_stride;
+        uint32_t sx = 0;
+        uint64_t rem_x = 0;
+
         for (uint32_t j = 0; j < dst_width; j++) {
-            int64_t x = fixed_x >> FP_SHIFT;
-            if (x > max_x) x = max_x;
-            *dst++ = src[y + x];
-            fixed_x += step_x;
+            *dst++ = src[y + (sx > max_x ? max_x : sx)];
+            sx += step_x;
+            rem_x += err_x;
+            if (rem_x >= dst_width) {
+                rem_x -= dst_width;
+                sx++;
+            }
         }
+
         dst += stride_step;
-        fixed_y += step_y;
+        sy += step_y;
+        rem_y += err_y;
+        if (rem_y >= dst_height) {
+            rem_y -= dst_height;
+            sy++;
+        }
     }
 }
 
