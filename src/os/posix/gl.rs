@@ -501,10 +501,6 @@ pub struct GlContext {
     /// uploaded, because a failed allocation leaves the texture incomplete and
     /// GLES2 samples an incomplete texture as opaque black.
     max_texture_size: i32,
-
-    /// Whether anything has been swapped yet. A Wayland surface with no
-    /// buffer attached is not mapped, so the first frame cannot be skipped.
-    presented: bool,
 }
 
 impl GlContext {
@@ -695,7 +691,6 @@ impl GlContext {
             repack: Vec::new(),
             transparent,
             max_texture_size,
-            presented: false,
         })
     }
 
@@ -736,10 +731,7 @@ impl GlContext {
         // here touches the texture, so a degenerate size -- which
         // `check_buffer_size` accepts, it multiplies by the height -- must not
         // cost the GL context.
-        if (buf_width == 0 || buf_height == 0)
-            && preserves_frame_when_empty(scale_mode)
-            && self.presented
-        {
+        if (buf_width == 0 || buf_height == 0) && preserves_frame_when_empty(scale_mode) {
             return Ok(());
         }
 
@@ -817,7 +809,6 @@ impl GlContext {
         if (self.egl.eglSwapBuffers)(self.display, self.surface) == EGL_FALSE {
             return Err(GlError::Egl("eglSwapBuffers", (self.egl.eglGetError)()));
         }
-        self.presented = true;
 
         Ok(())
     }
