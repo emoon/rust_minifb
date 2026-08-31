@@ -94,7 +94,7 @@ lazy_static = { version = "1.0", optional = true }
 
 
 [target.x86_64-unknown-redox.dependencies]
-orbclient = "0.3.20"
+orbclient = "0.4.5"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 js-sys = "0.3.56"
