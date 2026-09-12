@@ -6,10 +6,13 @@
 //! stale and any later message/callback dereferenced freed or invalid memory.
 //!
 //! The fix heap-allocates the backend state so its address is stable. This test
-//! moves a live `Window` and then drives the message/event path that used to
-//! crash.
+//! moves a live `Window` and then drives the message path that used to crash.
+//!
+//! Windows-only: `CreateWindowExW` works from any thread, so it is testable in
+//! the harness. macOS is excluded because AppKit window creation requires the
+//! main thread, which `cargo test` worker threads cannot provide.
 
-#![cfg(any(windows, target_os = "macos"))]
+#![cfg(windows)]
 
 use minifb::{Window, WindowOptions};
 
@@ -24,9 +27,8 @@ fn window_remains_usable_after_move() {
     // pointer.
     let mut window = Box::new(window);
 
-    // Windows: `SetWindowTextW` synchronously re-enters `wnd_proc` through the
-    // stored pointer. macOS: the next `update()` pumps events against the
-    // callback target.
+    // `SetWindowTextW` synchronously re-enters `wnd_proc` through the stored
+    // pointer.
     window.set_title("moved");
     window.update();
 
