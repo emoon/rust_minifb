@@ -217,7 +217,30 @@ pub struct SharedData {
     pub state: [u8; 8],
 }
 
+/// The public window handle. All mutable state lives in a heap-allocated
+/// `WindowState` so its address stays stable when the `Window` value itself is
+/// moved. The native code receives raw pointers to this state (`rust_data`
+/// for the key/char callbacks and `shared_data` for mouse input) and must
+/// never observe a stale inline address.
 pub struct Window {
+    state: Box<WindowState>,
+}
+
+impl std::ops::Deref for Window {
+    type Target = WindowState;
+
+    fn deref(&self) -> &WindowState {
+        &self.state
+    }
+}
+
+impl std::ops::DerefMut for Window {
+    fn deref_mut(&mut self) -> &mut WindowState {
+        &mut self.state
+    }
+}
+
+pub struct WindowState {
     window_handle: *mut c_void,
     view_handle: *const c_void,
     scale_factor: usize,
@@ -229,7 +252,10 @@ pub struct Window {
 }
 
 unsafe extern "C" fn key_callback(window: *mut c_void, key: i32, state: i32) {
-    let win: *mut Window = std::mem::transmute(window);
+    let win = window as *mut WindowState;
+    if win.is_null() {
+        return;
+    }
 
     let s = state == 1;
 
@@ -245,14 +271,17 @@ unsafe extern "C" fn key_callback(window: *mut c_void, key: i32, state: i32) {
 }
 
 unsafe extern "C" fn char_callback(window: *mut c_void, code_point: u32) {
-    let win: *mut Window = std::mem::transmute(window);
+    let win = window as *mut WindowState;
+    if win.is_null() {
+        return;
+    }
 
     // Taken from GLFW
     if code_point < 32 || (code_point > 126 && code_point < 160) {
         return;
     }
 
-    if let Some(ref mut callback) = (*win).key_handler.key_callback {
+    if let Some(callback) = (*win).key_handler.key_callback.as_mut() {
         callback.add_char(code_point);
     }
 }
@@ -310,20 +339,22 @@ impl Window {
             }
 
             Ok(Window {
-                window_handle: handle,
-                view_handle,
-                scale_factor,
-                shared_data: SharedData {
-                    bg_color: 0,
-                    scale_mode: opts.scale_mode as u32,
-                    width: width as u32 * scale_factor as u32,
-                    height: height as u32 * scale_factor as u32,
-                    ..SharedData::default()
-                },
-                key_handler: KeyHandler::new(),
-                update_rate: UpdateRate::new(),
-                has_set_data: false,
-                menus: Vec::new(),
+                state: Box::new(WindowState {
+                    window_handle: handle,
+                    view_handle,
+                    scale_factor,
+                    shared_data: SharedData {
+                        bg_color: 0,
+                        scale_mode: opts.scale_mode as u32,
+                        width: width as u32 * scale_factor as u32,
+                        height: height as u32 * scale_factor as u32,
+                        ..SharedData::default()
+                    },
+                    key_handler: KeyHandler::new(),
+                    update_rate: UpdateRate::new(),
+                    has_set_data: false,
+                    menus: Vec::new(),
+                }),
             })
         }
     }
@@ -400,7 +431,7 @@ impl Window {
             self.set_mouse_data();
             mfb_set_key_callback(
                 self.window_handle,
-                std::mem::transmute(self),
+                self.state.as_mut() as *mut WindowState as *mut c_void,
                 key_callback,
                 char_callback,
             );
@@ -417,7 +448,7 @@ impl Window {
             self.set_mouse_data();
             mfb_set_key_callback(
                 self.window_handle,
-                std::mem::transmute(self),
+                self.state.as_mut() as *mut WindowState as *mut c_void,
                 key_callback,
                 char_callback,
             );
@@ -783,6 +814,16 @@ impl Menu {
 impl Drop for Window {
     fn drop(&mut self) {
         unsafe {
+            // Clear the `rust_data` pointer the native code holds before
+            // closing, so a late event (e.g. the key-up monitor) can't reach the
+            // freed state. The callback functions are static and now null-check
+            // their argument, so they stay registered.
+            mfb_set_key_callback(
+                self.window_handle,
+                std::ptr::null_mut(),
+                key_callback,
+                char_callback,
+            );
             mfb_close(self.window_handle);
         }
     }
