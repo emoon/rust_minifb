@@ -43,7 +43,7 @@ struct BitmapInfo {
     pub bmi_colors: [wingdi::RGBQUAD; 3],
 }
 
-fn update_key_state(window: &mut Window, wparam: u32, state: bool) {
+fn update_key_state(window: &mut WindowState, wparam: u32, state: bool) {
     match wparam & 0x1ff {
         0x00B => window.key_handler.set_key_state(Key::Key0, state),
         0x002 => window.key_handler.set_key_state(Key::Key1, state),
@@ -149,8 +149,8 @@ fn update_key_state(window: &mut Window, wparam: u32, state: bool) {
 }
 
 #[inline]
-fn char_down(window: &mut Window, code_point: u32) {
-    if let Some(ref mut callback) = window.key_handler.key_callback {
+fn char_down(window: &mut WindowState, code_point: u32) {
+    if let Some(callback) = window.key_handler.key_callback.as_mut() {
         callback.add_char(code_point);
     }
 }
@@ -217,7 +217,7 @@ unsafe extern "system" fn wnd_proc(
         return winuser::DefWindowProcW(window, msg, wparam, lparam);
     }
 
-    let wnd: &mut Window = std::mem::transmute(user_data);
+    let wnd: &mut WindowState = &mut *(user_data as *mut WindowState);
 
     match msg {
         winuser::WM_SYSCOMMAND => {
@@ -502,8 +502,29 @@ impl Default for DrawParameters {
     }
 }
 
-#[repr(C)]
+/// The public window handle. All mutable state lives in a heap-allocated
+/// `WindowState` so its address stays stable when the `Window` value itself is
+/// moved. `wnd_proc` receives a raw pointer to that state via `GWLP_USERDATA`
+/// and must never observe a stale (inline) address.
 pub struct Window {
+    state: Box<WindowState>,
+}
+
+impl std::ops::Deref for Window {
+    type Target = WindowState;
+
+    fn deref(&self) -> &WindowState {
+        &self.state
+    }
+}
+
+impl std::ops::DerefMut for Window {
+    fn deref_mut(&mut self) -> &mut WindowState {
+        &mut self.state
+    }
+}
+
+pub struct WindowState {
     hwnd: windef::HWND,
     hinstance: minwindef::HINSTANCE,
     dc: windef::HDC,
@@ -663,35 +684,37 @@ impl Window {
 
         unsafe {
             let window = Window {
-                mouse: MouseData::default(),
-                dc: winuser::GetDC(window_handle),
-                hwnd: window_handle,
-                hinstance,
-                key_handler: KeyHandler::new(),
-                update_rate: UpdateRate::new(),
-                is_open: true,
-                scale_factor,
-                width: (width * scale_factor as usize) as i32,
-                height: (height * scale_factor as usize) as i32,
-                menus: Vec::new(),
-                accel_table: std::ptr::null_mut(),
-                accel_key: INVALID_ACCEL,
-                cursor: CursorStyle::Arrow,
-                clear_brush: wingdi::CreateSolidBrush(0),
-                cursors: [
-                    winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_ARROW),
-                    winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_IBEAM),
-                    winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_CROSS),
-                    winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_HAND),
-                    winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_HAND),
-                    winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_SIZEWE),
-                    winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_SIZENS),
-                    winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_SIZEALL),
-                ],
-                draw_params: DrawParameters {
-                    scale_mode: opts.scale_mode,
-                    ..DrawParameters::default()
-                },
+                state: Box::new(WindowState {
+                    mouse: MouseData::default(),
+                    dc: winuser::GetDC(window_handle),
+                    hwnd: window_handle,
+                    hinstance,
+                    key_handler: KeyHandler::new(),
+                    update_rate: UpdateRate::new(),
+                    is_open: true,
+                    scale_factor,
+                    width: (width * scale_factor as usize) as i32,
+                    height: (height * scale_factor as usize) as i32,
+                    menus: Vec::new(),
+                    accel_table: std::ptr::null_mut(),
+                    accel_key: INVALID_ACCEL,
+                    cursor: CursorStyle::Arrow,
+                    clear_brush: wingdi::CreateSolidBrush(0),
+                    cursors: [
+                        winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_ARROW),
+                        winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_IBEAM),
+                        winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_CROSS),
+                        winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_HAND),
+                        winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_HAND),
+                        winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_SIZEWE),
+                        winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_SIZENS),
+                        winuser::LoadCursorW(std::ptr::null_mut(), winuser::IDC_SIZEALL),
+                    ],
+                    draw_params: DrawParameters {
+                        scale_mode: opts.scale_mode,
+                        ..DrawParameters::default()
+                    },
+                }),
             };
 
             if opts.topmost {
@@ -944,11 +967,19 @@ impl Window {
 
             self.key_handler.update();
 
-            set_window_long(window, std::mem::transmute(self));
+            // Store the heap address of the state. It stays valid across moves of
+            // the `Window` value, unlike a pointer to `self` would.
+            set_window_long(
+                window,
+                std::mem::transmute(self.state.as_mut() as *mut WindowState),
+            );
         }
     }
 
-    fn message_loop(&self, _window: windef::HWND) {
+    // NOTE: takes `accel_table` by value rather than `&self` so that no Rust
+    // reference to the state is live while `DispatchMessageW` re-enters
+    // `wnd_proc` and reconstructs a `&mut WindowState` from the raw pointer.
+    fn message_loop(accel_table: windef::HACCEL) {
         unsafe {
             let mut msg = std::mem::zeroed();
 
@@ -956,10 +987,10 @@ impl Window {
                 != 0
             {
                 let acc_condition =
-                    winuser::TranslateAcceleratorW(msg.hwnd, self.accel_table, &mut msg) == 0;
+                    winuser::TranslateAcceleratorW(msg.hwnd, accel_table, &mut msg) == 0;
 
                 // Make this code a bit nicer
-                if self.accel_table.is_null() || acc_condition {
+                if accel_table.is_null() || acc_condition {
                     winuser::TranslateMessage(&msg);
                     winuser::DispatchMessageW(&msg);
                 }
@@ -1008,7 +1039,7 @@ impl Window {
             winuser::InvalidateRect(window, std::ptr::null_mut(), minwindef::TRUE);
         }
 
-        self.message_loop(window);
+        Self::message_loop(self.accel_table);
 
         Ok(())
     }
@@ -1016,7 +1047,7 @@ impl Window {
     #[inline]
     pub fn update(&mut self) {
         self.generic_update(self.hwnd);
-        self.message_loop(self.hwnd);
+        Self::message_loop(self.accel_table);
     }
 
     #[inline]
@@ -1470,6 +1501,10 @@ impl Menu {
 impl Drop for Window {
     fn drop(&mut self) {
         unsafe {
+            // Clear the user-data pointer before destroying the window so any
+            // message dispatched during teardown (e.g. WM_DESTROY) falls through
+            // to `DefWindowProcW` instead of dereferencing freed state.
+            set_window_long(self.hwnd, 0);
             winuser::ReleaseDC(self.hwnd, self.dc);
             winuser::DestroyWindow(self.hwnd);
         }
