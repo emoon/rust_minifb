@@ -406,13 +406,14 @@ struct DisplayInfo {
 }
 
 impl DisplayInfo {
-    /// Accepts the size of the surface to be created, whether or not the alpha channel will be
-    /// rendered, and whether or not server-side decorations will be used.
+    /// Accepts the size of the surface to be created, the window name, and the window options.
     fn new(
         size: SurfaceSize,
-        alpha: bool,
-        decorate: bool,
+        name: &str,
+        opts: &WindowOptions,
     ) -> Result<(Self, WlKeyboard, WlPointer)> {
+        let alpha = opts.transparency;
+        let decorate = !opts.borderless || opts.none;
         let conn = Connection::connect_to_env().map_err(|e| {
             Error::WindowCreate(format!("Failed to connect to the Wayland display: {:?}", e))
         })?;
@@ -484,6 +485,15 @@ impl DisplayInfo {
             }
         }
 
+        if opts.title {
+            xdg_toplevel.set_title(name.to_owned());
+        }
+        xdg_toplevel.set_app_id(name.to_owned());
+        if !opts.resize || opts.none {
+            xdg_toplevel.set_max_size(size.width, size.height);
+            xdg_toplevel.set_min_size(size.width, size.height);
+        }
+
         surface.commit();
         event_queue
             .roundtrip(&mut state)
@@ -532,12 +542,6 @@ impl DisplayInfo {
     #[inline]
     fn set_title(&self, title: &str) {
         self.toplevel.set_title(title.to_owned());
-    }
-
-    #[inline]
-    fn set_no_resize(&self, size: SurfaceSize) {
-        self.toplevel.set_max_size(size.width, size.height);
-        self.toplevel.set_min_size(size.width, size.height);
     }
 
     // Sets a specific cursor style
@@ -686,15 +690,7 @@ impl Window {
             ))
         })?;
 
-        let (display, keyboard, pointer) =
-            DisplayInfo::new(size, opts.transparency, !opts.borderless || opts.none)?;
-
-        if opts.title {
-            display.set_title(name);
-        }
-        if !opts.resize || opts.none {
-            display.set_no_resize(size);
-        }
+        let (display, keyboard, pointer) = DisplayInfo::new(size, name, &opts)?;
 
         #[cfg(feature = "dlopen")]
         {
