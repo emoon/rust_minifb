@@ -74,8 +74,14 @@ impl Window {
             window_flags.push(orbclient::WindowFlag::Transparent);
         }
 
-        let window_opt =
-            orbclient::Window::new_flags(-1, -1, window_width, window_height, name, &window_flags);
+        let window_opt = orbclient::Window::new_flags(
+            -1,
+            -1,
+            window_width,
+            window_height,
+            name,
+            orbclient::WindowFlags::new(&window_flags),
+        );
         match window_opt {
             Some(window) => Ok(Window {
                 mouse_pos: None,
