@@ -1,17 +1,16 @@
 #![cfg(target_os = "redox")]
 
 use crate::{
-    check_buffer_size, error::Error, icon::Icon, key_handler::KeyHandler,
-    os::redox::orbclient::Renderer, CursorStyle, InputCallback, Key, KeyRepeat, MenuHandle,
-    MenuItem, MenuItemHandle, MouseButton, MouseMode, Result, Scale, UnixMenu, UnixMenuItem,
-    WindowOptions,
+    check_buffer_size, error::Error, icon::Icon, key_handler::KeyHandler, rate::UpdateRate,
+    CursorStyle, InputCallback, Key, KeyRepeat, MenuHandle, MenuItem, MenuItemHandle, MouseButton,
+    MouseMode, Result, Scale, UnixMenu, UnixMenuItem, WindowOptions,
 };
 use orbclient::Renderer;
 use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, OrbitalDisplayHandle,
     OrbitalWindowHandle, RawDisplayHandle, RawWindowHandle, WindowHandle,
 };
-use std::{cmp, std::ffi::c_void};
+use std::{cmp, ffi::c_void, ptr::NonNull, time::Duration};
 
 pub struct Window {
     is_open: bool,
@@ -20,10 +19,10 @@ pub struct Window {
     mouse_scroll: Option<(i32, i32)>,
     /// The state of the left, middle and right mouse buttons
     mouse_state: (bool, bool, bool),
-    buffer_width: usize,
-    buffer_height: usize,
     window: orbclient::Window,
     window_scale: usize,
+    bg_color: u32,
+    update_rate: UpdateRate,
     key_handler: KeyHandler,
     menu_counter: MenuHandle,
     menus: Vec<UnixMenu>,
@@ -89,10 +88,10 @@ impl Window {
                 mouse_state: (false, false, false),
                 is_open: true,
                 is_active: true,
-                buffer_width: width,
-                buffer_height: height,
                 window,
                 window_scale,
+                bg_color: 0,
+                update_rate: UpdateRate::new(),
                 key_handler: KeyHandler::new(),
                 menu_counter: MenuHandle(0),
                 menus: Vec::new(),
@@ -116,18 +115,19 @@ impl Window {
         std::ptr::null_mut()
     }
 
-    pub fn update_with_buffer(&mut self, buffer: &[u32]) -> Result<()> {
+    pub fn update_with_buffer_stride(
+        &mut self,
+        buffer: &[u32],
+        buf_width: usize,
+        buf_height: usize,
+        buf_stride: usize,
+    ) -> Result<()> {
         self.process_events();
         self.key_handler.update();
 
-        check_buffer_size(
-            buffer,
-            self.buffer_width,
-            self.buffer_height,
-            self.window_scale,
-        )?;
+        check_buffer_size(buffer, buf_width, buf_height, buf_stride)?;
 
-        self.render_buffer(buffer);
+        self.render_buffer(buffer, buf_width, buf_height, buf_stride);
         self.window.sync();
 
         Ok(())
@@ -143,6 +143,36 @@ impl Window {
     #[inline]
     pub fn set_position(&mut self, x: isize, y: isize) {
         self.window.set_pos(x as i32, y as i32)
+    }
+
+    #[inline]
+    pub fn get_position(&self) -> (isize, isize) {
+        (self.window.x() as isize, self.window.y() as isize)
+    }
+
+    #[inline]
+    pub fn topmost(&self, _topmost: bool) {
+        // Orbital has no always-on-top support; do nothing so that nothing breaks
+    }
+
+    #[inline]
+    pub fn set_background_color(&mut self, color: u32) {
+        self.bg_color = color;
+    }
+
+    #[inline]
+    pub fn set_rate(&mut self, rate: Option<Duration>) {
+        self.update_rate.set_rate(rate);
+    }
+
+    #[inline]
+    pub fn get_delta_time(&self) -> Option<Duration> {
+        self.update_rate.get_delta_time()
+    }
+
+    #[inline]
+    pub fn update_rate(&mut self) {
+        self.update_rate.update();
     }
 
     #[inline]
@@ -177,8 +207,8 @@ impl Window {
                 mouse_x as f32,
                 mouse_y as f32,
                 self.window_scale as f32,
-                self.buffer_width as f32 * self.window_scale as f32,
-                self.buffer_height as f32 * self.window_scale as f32,
+                self.window.width() as f32,
+                self.window.height() as f32,
             )
         } else {
             None
@@ -192,8 +222,8 @@ impl Window {
                 mouse_x as f32,
                 mouse_y as f32,
                 1.0 as f32,
-                self.buffer_width as f32 * self.window_scale as f32,
-                self.buffer_height as f32 * self.window_scale as f32,
+                self.window.width() as f32,
+                self.window.height() as f32,
             )
         } else {
             None
@@ -251,7 +281,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_input_callback(&mut self, callback: Box<InputCallback>) {
+    pub fn set_input_callback(&mut self, callback: Box<dyn InputCallback>) {
         self.key_handler.set_input_callback(callback)
     }
 
@@ -387,17 +417,24 @@ impl Window {
     }
 
     /// Renders the given pixel data into the Orbital window
-    fn render_buffer(&mut self, buffer: &[u32]) {
-        let render_width = cmp::min(
-            self.buffer_width * self.window_scale,
-            self.window.width() as usize,
-        );
-        let render_height = cmp::min(
-            self.buffer_height * self.window_scale,
-            self.window.height() as usize,
-        );
-
+    fn render_buffer(
+        &mut self,
+        buffer: &[u32],
+        buf_width: usize,
+        buf_height: usize,
+        buf_stride: usize,
+    ) {
         let window_width = self.window.width() as usize;
+        let window_height = self.window.height() as usize;
+        let render_width = cmp::min(buf_width * self.window_scale, window_width);
+        let render_height = cmp::min(buf_height * self.window_scale, window_height);
+
+        if render_width < window_width || render_height < window_height {
+            self.window.set(orbclient::Color {
+                data: self.bg_color,
+            });
+        }
+
         let window_buffer = self.window.data_mut();
 
         for y in 0..render_height {
@@ -406,7 +443,7 @@ impl Window {
                 let buffer_y = y / self.window_scale;
 
                 window_buffer[y * window_width + x] = orbclient::Color {
-                    data: buffer[buffer_y * self.buffer_width + buffer_x],
+                    data: buffer[buffer_y * buf_stride + buffer_x],
                 };
             }
         }
@@ -445,8 +482,8 @@ impl Window {
 }
 
 impl HasWindowHandle for Window {
-    fn window_handle(&self) -> std::result::Result<WindowHandle, HandleError> {
-        let raw_window = &self.window as *const orbclient::Window as *const c_void;
+    fn window_handle(&self) -> std::result::Result<WindowHandle<'_>, HandleError> {
+        let raw_window = NonNull::from(&self.window).cast::<c_void>();
         let handle = OrbitalWindowHandle::new(raw_window);
         let raw_handle = RawWindowHandle::Orbital(handle);
         unsafe { Ok(WindowHandle::borrow_raw(raw_handle)) }
@@ -454,7 +491,7 @@ impl HasWindowHandle for Window {
 }
 
 impl HasDisplayHandle for Window {
-    fn display_handle(&self) -> std::result::Result<DisplayHandle, HandleError> {
+    fn display_handle(&self) -> std::result::Result<DisplayHandle<'_>, HandleError> {
         let handle = OrbitalDisplayHandle::new();
         let raw_handle = RawDisplayHandle::Orbital(handle);
         unsafe { Ok(DisplayHandle::borrow_raw(raw_handle)) }
