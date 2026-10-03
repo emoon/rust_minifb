@@ -1,15 +1,17 @@
 use minifb::{Key, Window, WindowOptions};
 use png::{Decoder, Transformations};
-use std::fs::File;
+use std::{fs::File, io::BufReader};
 
 fn main() {
-    let mut decoder = Decoder::new(File::open("examples/resources/planet.png").unwrap());
+    let mut decoder = Decoder::new(BufReader::new(
+        File::open("examples/resources/planet.png").unwrap(),
+    ));
 
     // Reading the image in RGBA format.
     decoder.set_transformations(Transformations::ALPHA);
     let mut reader = decoder.read_info().unwrap();
 
-    let mut buffer = vec![0u32; reader.output_buffer_size() / 4];
+    let mut buffer = vec![0u32; reader.output_buffer_size().unwrap() / 4];
 
     // View of pixels as individual subpixels (avoids allocating a second pixel buffer).
     let mut u8_buffer = unsafe {
