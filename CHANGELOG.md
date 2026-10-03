@@ -2,12 +2,35 @@
 
 This project follows semantic versioning.
 
-### v0.29 (unreleased)
+### v0.29 (2026-10-03)
 
-- [added] GPU presentation on Linux/Wayland through EGL/GLES2. The buffer is uploaded and scaled on the GPU, so the per-frame cost tracks your buffer size rather than the window size. Falls back to the existing software scaler whenever EGL is unavailable, or when the only renderer on offer is a CPU rasteriser such as llvmpipe. Scaling samples at destination pixel centres, like the macOS GPU path, so a scaled window can pick a source pixel up to half a destination pixel later than the software scaler does; 1:1 blits and whole-number scale factors are unaffected.
-- [added] `WindowOptions::use_gpu` (`UseGPU::Auto` by default, `UseGPU::Disabled` to force the software path). Only the Wayland backend reads it; X11, macOS and Windows scale in software regardless.
+- [added] GPU presentation on Linux/Wayland through EGL/GLES2. Falls back to the software scaler when EGL is unavailable or only a CPU rasteriser such as llvmpipe is found.
+- [added] `WindowOptions::use_gpu` (`UseGPU::Auto` by default, `UseGPU::Disabled` to force the software path). Only the Wayland backend reads it; macOS always uses the GPU, X11 scales in software and Windows presents through GDI (Hardware accelerated).
+- [added] `Window::get_fps`. (Thanks Luca Casati!)
+- [added] `MouseButton::Back` and `MouseButton::Forward`. (Thanks nimad499!)
+- [added] Windows: separator and grayed menu items, and `enable_menu`. (Thanks Jefferson!)
 - [fixed] The Linux/BSD software scaler stepped a 10.10 fixed-point ratio, which quantises the step to 1/1024 and drifts on non-integer scale factors - a 320-wide buffer in a 3840-wide window picked the wrong source column for 2430 of 3840 columns, by up to two pixels. It now indexes `floor(j * src / dst)` exactly.
+- [fixed] Wayland: ported to wayland-client 0.31. Fixes the "queue destroyed while proxies still attached" warning on exit and several buffer, keymap and disconnect bugs.
+- [fixed] Wayland: set title and app id before the first commit.
+- [fixed] Wayland: shifted keys being dropped or stuck, numpad with NumLock and `set_key_repeat_rate`. (Thanks bearyjd!)
+- [fixed] Wayland: `get_keys_released` never reporting anything. (Thanks woojiq!)
+- [fixed] Linux/BSD scaler out of bounds writes and reads, and `AspectRatioStretch` not centering.
+- [fixed] `get_mouse_pos` aborting in `MouseMode::Clamp` with a tiny window.
+- [fixed] Use-after-free on Windows and macOS when a `Window` was moved.
+- [fixed] macOS: use-after-free in `update_with_buffer_stride`. (Thanks Alexander Kumar!)
+- [fixed] macOS: keycode 128 out of bounds. (Thanks dev_Hakaze!)
+- [fixed] macOS: key up while cmd is held and numpad codes. (Thanks Chadd Knowlton!)
+- [fixed] macOS: raised minimum version to 10.11 to fix a build issue. (Thanks Noah Friedman!)
+- [fixed] `Scale::FitScreen` creating too large windows. (Thanks Vitaliy and StaterZ!)
+- [fixed] `Error` Display now includes the message. (Thanks Vladimir Babin!)
+- [fixed] Segfault on empty buffer. (Thanks Mohammedi Mohammed Djawad!)
+- [fixed] Memory leaks and typos. (Thanks nimad499!)
+- [fixed] `is_active` no longer requires `&mut self`. (Thanks Andreas Reich!)
+- [fixed] Cross-compilation of the build script. (Thanks John Hodge!)
+- [fixed] Replaced unmaintained `instant` with `web-time`. (Thanks Andreas Neukoetter!)
+- [fixed] Various doc fixes. (Thanks André Fertig de Oliveira!)
 - [API BREAKAGE] The new `WindowOptions::use_gpu` field is a source break for struct literals that do not end in `..WindowOptions::default()`. Add that (or set the field) when moving from 0.28.
+- [API BREAKAGE] `MouseButton` has new variants `Back` and `Forward`, which breaks exhaustive matches.
 
 ### v0.28 (2025-01-20)
 

@@ -92,8 +92,9 @@ pub enum Scale {
 /// up to half a destination pixel later than the software scaler's choice. A
 /// 1:1 blit and whole-number scale factors are unaffected.
 ///
-/// Only the Wayland backend reads this today. X11 always scales in software,
-/// as do macOS and Windows, which ignore this setting.
+/// Only the Wayland backend reads this today. macOS always uses the GPU, X11
+/// scales in software and Windows presents through GDI; they ignore this
+/// setting.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum UseGPU {
     /// Use the GPU when one is usable, otherwise fall back to software.
@@ -264,8 +265,8 @@ pub struct WindowOptions {
     /// Should the window be the topmost window (default: false)
     pub topmost: bool,
     /// Whether to present using the GPU (default: `UseGPU::Auto`).
-    /// Only has an effect on the Wayland backend; every other backend scales
-    /// in software regardless. See [`UseGPU`].
+    /// Only has an effect on the Wayland backend; macOS always uses the GPU, X11
+    /// scales in software and Windows presents through GDI. See [`UseGPU`].
     pub use_gpu: UseGPU,
     /// Specifies whether or not the window is allowed to draw transparent pixels (default: false)
     /// Requires borderless to be 'true'
