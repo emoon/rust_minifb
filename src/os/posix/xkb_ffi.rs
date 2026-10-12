@@ -54,8 +54,9 @@ functions:
     fn xkb_keysym_to_utf32(xkb_keysym_t) -> u32,
     fn xkb_context_new(xkb_context_flags) -> *mut xkb_context,
     fn xkb_context_unref(*mut xkb_context) -> (),
-    fn xkb_keymap_new_from_string(*mut xkb_context,
+    fn xkb_keymap_new_from_buffer(*mut xkb_context,
                                   *const c_char,
+                                  usize,
                                   xkb_keymap_format,
                                   xkb_keymap_compile_flags
                                  ) -> *mut xkb_keymap,

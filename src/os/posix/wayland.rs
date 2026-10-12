@@ -1555,20 +1555,12 @@ impl Window {
                         )));
                     }
 
-                    // `len` counts the terminator, and the parser below scans
-                    // for one; without it the scan runs past the mapping.
-                    if *(addr as *const u8).add(len as usize - 1) != 0 {
-                        libc::munmap(addr, len as usize);
-                        return Err(Error::WindowCreate(
-                            "Compositor sent an unterminated keymap.".to_owned(),
-                        ));
-                    }
-
                     let keymap = ffi_dispatch!(
                         XKBH,
-                        xkb_keymap_new_from_string,
+                        xkb_keymap_new_from_buffer,
                         context,
                         addr as *const _,
+                        len as usize,
                         xkb_ffi::xkb_keymap_format::XKB_KEYMAP_FORMAT_TEXT_V1,
                         xkb_ffi::xkb_keymap_compile_flags::XKB_KEYMAP_COMPILE_NO_FLAGS
                     );
@@ -1857,6 +1849,7 @@ xkb_symbols "minifb_test" {
     impl Keymap {
         fn new() -> Keymap {
             let text = CString::new(KEYMAP).unwrap();
+            let len = KEYMAP.len();
             unsafe {
                 let context = ffi_dispatch!(
                     XKBH,
@@ -1866,9 +1859,10 @@ xkb_symbols "minifb_test" {
                 assert!(!context.is_null(), "failed to create xkb context");
                 let keymap = ffi_dispatch!(
                     XKBH,
-                    xkb_keymap_new_from_string,
+                    xkb_keymap_new_from_buffer,
                     context,
                     text.as_ptr(),
+                    len,
                     xkb_ffi::xkb_keymap_format::XKB_KEYMAP_FORMAT_TEXT_V1,
                     xkb_ffi::xkb_keymap_compile_flags::XKB_KEYMAP_COMPILE_NO_FLAGS
                 );
