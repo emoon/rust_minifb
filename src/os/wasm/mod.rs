@@ -503,7 +503,7 @@ impl Menu {
         let item_handle = self.next_item_handle();
         self.internal.items.push(UnixMenuItem {
             sub_menu: None,
-            handle: self.internal.item_counter,
+            handle: item_handle,
             id: item.id,
             label: item.label.clone(),
             enabled: item.enabled,

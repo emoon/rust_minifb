@@ -42,7 +42,7 @@ impl Menu {
         let item_handle = self.next_item_handle();
         self.internal.items.push(UnixMenuItem {
             sub_menu: None,
-            handle: self.internal.item_counter,
+            handle: item_handle,
             id: item.id,
             label: item.label.clone(),
             enabled: item.enabled,
@@ -308,5 +308,23 @@ mod scaler_tests {
             image_center(dst.as_mut_ptr(), 2, 2, src.as_ptr(), 0, 0, 0, 0);
             image_upper_left(dst.as_mut_ptr(), 2, 2, src.as_ptr(), 0, 0, 0, 0);
         }
+    }
+}
+
+#[cfg(test)]
+mod menu_tests {
+    use super::*;
+
+    #[test]
+    fn remove_item_uses_the_handle_add_menu_item_returned() {
+        let mut menu = Menu::new("test").unwrap();
+        let first = menu.add_menu_item(&MenuItem::new("First", 1));
+        let second = menu.add_menu_item(&MenuItem::new("Second", 2));
+
+        menu.remove_item(&first);
+
+        assert_eq!(menu.internal.items.len(), 1);
+        assert_eq!(menu.internal.items[0].id, 2);
+        assert_eq!(menu.internal.items[0].handle.0, second.0);
     }
 }
