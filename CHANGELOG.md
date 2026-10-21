@@ -6,6 +6,7 @@ This project follows semantic versioning.
 
 - [fixed] X11: double free of the default graphics context that crashed `XCloseDisplay` when window creation failed early. (Thanks Luis Casarin!)
 - [changed] X11: a missing or unusable input method (`XOpenIM` or `XCreateIC` failing, e.g. `XMODIFIERS=@im=ibus` without ibus running) no longer prevents the window from opening. Keys fall back to `XLookupString`, without input method composition.
+- [fixed] X11: numpad keys were dropped with NumLock off. The X11 and Wayland keysym tables are now a single shared `keysym_to_key`, so both backends map the NumLock-off numpad keysyms (`KP_Insert`/`KP_End`/…) as well as the NumLock-on ones.
 
 ### v0.29 (2026-10-03)
 
