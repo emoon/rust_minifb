@@ -105,3 +105,166 @@ pub const XKB_KEY_KP_Multiply: u32 = 0xffaa;
 pub const XKB_KEY_KP_Subtract: u32 = 0xffad;
 pub const XKB_KEY_KP_Add: u32 = 0xffab;
 pub const XKB_KEY_KP_Enter: u32 = 0xff8d;
+pub const XKB_KEY_KP_0: u32 = 0xffb0;
+pub const XKB_KEY_KP_1: u32 = 0xffb1;
+pub const XKB_KEY_KP_2: u32 = 0xffb2;
+pub const XKB_KEY_KP_3: u32 = 0xffb3;
+pub const XKB_KEY_KP_4: u32 = 0xffb4;
+pub const XKB_KEY_KP_5: u32 = 0xffb5;
+pub const XKB_KEY_KP_6: u32 = 0xffb6;
+pub const XKB_KEY_KP_7: u32 = 0xffb7;
+pub const XKB_KEY_KP_8: u32 = 0xffb8;
+pub const XKB_KEY_KP_9: u32 = 0xffb9;
+
+use crate::Key;
+
+pub fn keysym_to_key(sym: u32) -> Option<Key> {
+    let key = match sym {
+        XKB_KEY_0 => Key::Key0,
+        XKB_KEY_1 => Key::Key1,
+        XKB_KEY_2 => Key::Key2,
+        XKB_KEY_3 => Key::Key3,
+        XKB_KEY_4 => Key::Key4,
+        XKB_KEY_5 => Key::Key5,
+        XKB_KEY_6 => Key::Key6,
+        XKB_KEY_7 => Key::Key7,
+        XKB_KEY_8 => Key::Key8,
+        XKB_KEY_9 => Key::Key9,
+
+        XKB_KEY_a => Key::A,
+        XKB_KEY_b => Key::B,
+        XKB_KEY_c => Key::C,
+        XKB_KEY_d => Key::D,
+        XKB_KEY_e => Key::E,
+        XKB_KEY_f => Key::F,
+        XKB_KEY_g => Key::G,
+        XKB_KEY_h => Key::H,
+        XKB_KEY_i => Key::I,
+        XKB_KEY_j => Key::J,
+        XKB_KEY_k => Key::K,
+        XKB_KEY_l => Key::L,
+        XKB_KEY_m => Key::M,
+        XKB_KEY_n => Key::N,
+        XKB_KEY_o => Key::O,
+        XKB_KEY_p => Key::P,
+        XKB_KEY_q => Key::Q,
+        XKB_KEY_r => Key::R,
+        XKB_KEY_s => Key::S,
+        XKB_KEY_t => Key::T,
+        XKB_KEY_u => Key::U,
+        XKB_KEY_v => Key::V,
+        XKB_KEY_w => Key::W,
+        XKB_KEY_x => Key::X,
+        XKB_KEY_y => Key::Y,
+        XKB_KEY_z => Key::Z,
+
+        XKB_KEY_apostrophe => Key::Apostrophe,
+        XKB_KEY_grave => Key::Backquote,
+        XKB_KEY_backslash => Key::Backslash,
+        XKB_KEY_comma => Key::Comma,
+        XKB_KEY_equal => Key::Equal,
+        XKB_KEY_bracketleft => Key::LeftBracket,
+        XKB_KEY_bracketright => Key::RightBracket,
+        XKB_KEY_minus => Key::Minus,
+        XKB_KEY_period => Key::Period,
+        XKB_KEY_semicolon => Key::Semicolon,
+        XKB_KEY_slash => Key::Slash,
+        XKB_KEY_space => Key::Space,
+
+        XKB_KEY_F1 => Key::F1,
+        XKB_KEY_F2 => Key::F2,
+        XKB_KEY_F3 => Key::F3,
+        XKB_KEY_F4 => Key::F4,
+        XKB_KEY_F5 => Key::F5,
+        XKB_KEY_F6 => Key::F6,
+        XKB_KEY_F7 => Key::F7,
+        XKB_KEY_F8 => Key::F8,
+        XKB_KEY_F9 => Key::F9,
+        XKB_KEY_F10 => Key::F10,
+        XKB_KEY_F11 => Key::F11,
+        XKB_KEY_F12 => Key::F12,
+
+        XKB_KEY_Down => Key::Down,
+        XKB_KEY_Left => Key::Left,
+        XKB_KEY_Right => Key::Right,
+        XKB_KEY_Up => Key::Up,
+        XKB_KEY_Escape => Key::Escape,
+        XKB_KEY_BackSpace => Key::Backspace,
+        XKB_KEY_Delete => Key::Delete,
+        XKB_KEY_End => Key::End,
+        XKB_KEY_Return => Key::Enter,
+        XKB_KEY_Home => Key::Home,
+        XKB_KEY_Insert => Key::Insert,
+        XKB_KEY_Menu => Key::Menu,
+        XKB_KEY_Page_Down => Key::PageDown,
+        XKB_KEY_Page_Up => Key::PageUp,
+        XKB_KEY_Pause => Key::Pause,
+        XKB_KEY_Tab => Key::Tab,
+        XKB_KEY_Num_Lock => Key::NumLock,
+        XKB_KEY_Caps_Lock => Key::CapsLock,
+        XKB_KEY_Scroll_Lock => Key::ScrollLock,
+        XKB_KEY_Shift_L => Key::LeftShift,
+        XKB_KEY_Shift_R => Key::RightShift,
+        XKB_KEY_Alt_L => Key::LeftAlt,
+        XKB_KEY_Alt_R => Key::RightAlt,
+        XKB_KEY_Control_L => Key::LeftCtrl,
+        XKB_KEY_Control_R => Key::RightCtrl,
+        XKB_KEY_Super_L => Key::LeftSuper,
+        XKB_KEY_Super_R => Key::RightSuper,
+
+        XKB_KEY_KP_0 | XKB_KEY_KP_Insert => Key::NumPad0,
+        XKB_KEY_KP_1 | XKB_KEY_KP_End => Key::NumPad1,
+        XKB_KEY_KP_2 | XKB_KEY_KP_Down => Key::NumPad2,
+        XKB_KEY_KP_3 | XKB_KEY_KP_Next => Key::NumPad3,
+        XKB_KEY_KP_4 | XKB_KEY_KP_Left => Key::NumPad4,
+        XKB_KEY_KP_5 | XKB_KEY_KP_Begin => Key::NumPad5,
+        XKB_KEY_KP_6 | XKB_KEY_KP_Right => Key::NumPad6,
+        XKB_KEY_KP_7 | XKB_KEY_KP_Home => Key::NumPad7,
+        XKB_KEY_KP_8 | XKB_KEY_KP_Up => Key::NumPad8,
+        XKB_KEY_KP_9 | XKB_KEY_KP_Prior => Key::NumPad9,
+        XKB_KEY_KP_Decimal | XKB_KEY_KP_Delete => Key::NumPadDot,
+        XKB_KEY_KP_Divide => Key::NumPadSlash,
+        XKB_KEY_KP_Multiply => Key::NumPadAsterisk,
+        XKB_KEY_KP_Subtract => Key::NumPadMinus,
+        XKB_KEY_KP_Add => Key::NumPadPlus,
+        XKB_KEY_KP_Enter => Key::NumPadEnter,
+
+        _ => return None,
+    };
+    Some(key)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn numpad_maps_with_numlock_on() {
+        assert_eq!(keysym_to_key(XKB_KEY_KP_0), Some(Key::NumPad0));
+        assert_eq!(keysym_to_key(XKB_KEY_KP_1), Some(Key::NumPad1));
+        assert_eq!(keysym_to_key(XKB_KEY_KP_9), Some(Key::NumPad9));
+        assert_eq!(keysym_to_key(XKB_KEY_KP_Decimal), Some(Key::NumPadDot));
+    }
+
+    #[test]
+    fn numpad_maps_with_numlock_off() {
+        assert_eq!(keysym_to_key(XKB_KEY_KP_Insert), Some(Key::NumPad0));
+        assert_eq!(keysym_to_key(XKB_KEY_KP_End), Some(Key::NumPad1));
+        assert_eq!(keysym_to_key(XKB_KEY_KP_Down), Some(Key::NumPad2));
+        assert_eq!(keysym_to_key(XKB_KEY_KP_Next), Some(Key::NumPad3));
+        assert_eq!(keysym_to_key(XKB_KEY_KP_Left), Some(Key::NumPad4));
+        assert_eq!(keysym_to_key(XKB_KEY_KP_Begin), Some(Key::NumPad5));
+        assert_eq!(keysym_to_key(XKB_KEY_KP_Right), Some(Key::NumPad6));
+        assert_eq!(keysym_to_key(XKB_KEY_KP_Home), Some(Key::NumPad7));
+        assert_eq!(keysym_to_key(XKB_KEY_KP_Up), Some(Key::NumPad8));
+        assert_eq!(keysym_to_key(XKB_KEY_KP_Prior), Some(Key::NumPad9));
+        assert_eq!(keysym_to_key(XKB_KEY_KP_Delete), Some(Key::NumPadDot));
+    }
+
+    #[test]
+    fn letters_and_unmapped() {
+        assert_eq!(keysym_to_key(XKB_KEY_a), Some(Key::A));
+        assert_eq!(keysym_to_key(XKB_KEY_Return), Some(Key::Enter));
+        assert_eq!(keysym_to_key(0xdead_beef), None);
+    }
+}
