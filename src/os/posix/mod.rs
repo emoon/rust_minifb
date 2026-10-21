@@ -22,7 +22,7 @@ mod wayland;
 mod x11;
 #[cfg(feature = "wayland")]
 mod xkb_ffi;
-#[cfg(feature = "wayland")]
+#[cfg(any(feature = "wayland", feature = "x11"))]
 mod xkb_keysyms;
 
 use crate::{
