@@ -21,7 +21,7 @@ fn main() {
     // since the build script seems to have a different target_arch than the destination.
     let target = env::var("TARGET").expect("cargo should have set $TARGET");
     if target != "wasm32-unknown-unknown"
-        && !target.contains("-macos")
+        && !target.contains("-darwin")
 		&& !target.contains("-windows")
 		&& !target.contains("-redox")
 		&& !target.starts_with("wasm32-")	// this is ignored. Why?
