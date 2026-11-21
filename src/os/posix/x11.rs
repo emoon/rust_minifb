@@ -21,9 +21,9 @@ use x11_dl::{
     keysym::*,
     xcursor,
     xlib::{
-        self, KeyPressMask, KeyReleaseMask, KeySym, Status, XEvent, XIMPreeditNothing,
-        XIMStatusNothing, XKeyEvent, XNClientWindow_0, XNFocusWindow_0, XNInputStyle_0,
-        XWindowAttributes, XrmDatabase, XIC, XIM,
+        self, KeyPressMask, KeyReleaseMask, KeySym, Status, XComposeStatus, XEvent,
+        XIMPreeditNothing, XIMStatusNothing, XKeyEvent, XNClientWindow_0, XNFocusWindow_0,
+        XNInputStyle_0, XWindowAttributes, XrmDatabase, XIC, XIM,
     },
 };
 
@@ -115,8 +115,6 @@ impl DisplayInfo {
                 depth = (lib.XDefaultDepth)(display, screen);
             }
 
-            let gc = (lib.XDefaultGC)(display, screen);
-
             let screen_width = usize::try_from((lib.XDisplayWidth)(display, screen))
                 .map_err(|e| Error::WindowCreate(format!("illegal width: {}", e)))?;
             let screen_height = usize::try_from((lib.XDisplayHeight)(display, screen))
@@ -131,7 +129,7 @@ impl DisplayInfo {
                 display,
                 screen,
                 visual,
-                gc,
+                gc: std::ptr::null_mut(),
                 depth,
                 screen_width,
                 screen_height,
@@ -241,7 +239,9 @@ impl DisplayInfo {
 impl Drop for DisplayInfo {
     fn drop(&mut self) {
         unsafe {
-            (self.lib.XFreeGC)(self.display, self.gc);
+            if !self.gc.is_null() {
+                (self.lib.XFreeGC)(self.display, self.gc);
+            }
             (self.lib.XCloseDisplay)(self.display);
         }
     }
@@ -364,51 +364,76 @@ impl Window {
                 xlib::CWColormap | xlib::CWBackingStore | xlib::CWBackPixel | xlib::CWBorderPixel,
                 &mut attributes,
             );
+            if handle == 0 {
+                return Err(Error::WindowCreate("Unable to open Window".to_owned()));
+            }
 
             let empty_string = b"\0";
+            // Apply the configured XMODIFIERS without overriding it on fallback.
             (d.lib.XSetLocaleModifiers)(empty_string.as_ptr() as _);
-
             let xim = (d.lib.XOpenIM)(
                 d.display,
                 0 as XrmDatabase,
                 std::ptr::null_mut::<c_char>(),
                 std::ptr::null_mut::<c_char>(),
             );
-            if (xim as usize) == 0 {
-                return Err(Error::WindowCreate(
-                    "Failed to setup X IM via XOpenIM.".to_owned(),
-                ));
-            }
 
-            let xn_input_style = CStr::from_bytes_with_nul_unchecked(XNInputStyle_0);
-            let xn_client_window = CStr::from_bytes_with_nul_unchecked(XNClientWindow_0);
-            let xn_focus_window = CStr::from_bytes_with_nul_unchecked(XNFocusWindow_0);
-            let xic = (d.lib.XCreateIC)(
-                xim,
-                xn_input_style.as_ptr(),
-                XIMPreeditNothing | XIMStatusNothing,
-                xn_client_window.as_ptr(),
-                handle as c_ulong,
-                xn_focus_window.as_ptr(),
-                handle as c_ulong,
-                std::ptr::null_mut::<c_void>(),
-            );
-            if (xic as usize) == 0 {
-                return Err(Error::WindowCreate(
-                    "Failed to setup X IC via XCreateIC.".to_owned(),
-                ));
-            }
+            let xic = if xim.is_null() {
+                // XOpenIM may fail when XMODIFIERS names an unavailable input method.
+                // Basic key input can still use XLookupString.
+                std::ptr::null_mut()
+            } else {
+                let xn_input_style = CStr::from_bytes_with_nul_unchecked(XNInputStyle_0);
+                let xn_client_window = CStr::from_bytes_with_nul_unchecked(XNClientWindow_0);
+                let xn_focus_window = CStr::from_bytes_with_nul_unchecked(XNFocusWindow_0);
+                let xic = (d.lib.XCreateIC)(
+                    xim,
+                    xn_input_style.as_ptr(),
+                    XIMPreeditNothing | XIMStatusNothing,
+                    xn_client_window.as_ptr(),
+                    handle as c_ulong,
+                    xn_focus_window.as_ptr(),
+                    handle as c_ulong,
+                    std::ptr::null_mut::<c_void>(),
+                );
+                if xic.is_null() {
+                    (d.lib.XCloseIM)(xim);
+                    return Err(Error::WindowCreate(
+                        "Failed to setup X IC via XCreateIC.".to_owned(),
+                    ));
+                }
+                xic
+            };
 
-            (d.lib.XSetICFocus)(xic);
+            if !xic.is_null() {
+                (d.lib.XSetICFocus)(xic);
+            }
             (d.lib.XSelectInput)(d.display, handle, KeyPressMask | KeyReleaseMask);
 
             d.gc = (d.lib.XCreateGC)(d.display, handle, 0, std::ptr::null_mut());
-
-            if handle == 0 {
-                return Err(Error::WindowCreate("Unable to open Window".to_owned()));
+            if d.gc.is_null() {
+                if !xic.is_null() {
+                    (d.lib.XDestroyIC)(xic);
+                }
+                if !xim.is_null() {
+                    (d.lib.XCloseIM)(xim);
+                }
+                (d.lib.XDestroyWindow)(d.display, handle);
+                return Err(Error::WindowCreate(
+                    "Unable to create graphics context".to_owned(),
+                ));
             }
 
-            Self::set_title_raw(&mut d, handle, &name).map_err(Error::WindowCreate)?;
+            if let Err(error) = Self::set_title_raw(&mut d, handle, &name) {
+                if !xic.is_null() {
+                    (d.lib.XDestroyIC)(xic);
+                }
+                if !xim.is_null() {
+                    (d.lib.XCloseIM)(xim);
+                }
+                (d.lib.XDestroyWindow)(d.display, handle);
+                return Err(Error::WindowCreate(error));
+            }
 
             (d.lib.XSelectInput)(
                 d.display,
@@ -469,6 +494,12 @@ impl Window {
             let ximage = match Self::alloc_image(&d, width, height, &mut draw_buffer) {
                 Some(ximage) => ximage,
                 None => {
+                    if !xic.is_null() {
+                        (d.lib.XDestroyIC)(xic);
+                    }
+                    if !xim.is_null() {
+                        (d.lib.XCloseIM)(xim);
+                    }
                     (d.lib.XDestroyWindow)(d.display, handle);
                     return Err(Error::WindowCreate(
                         "Unable to create pixel buffer".to_owned(),
@@ -1151,14 +1182,25 @@ impl Window {
             let str = unsafe {
                 let mut keysym: KeySym = std::mem::zeroed();
                 let mut status: Status = 0;
-                let length_in_bytes = (self.d.lib.Xutf8LookupString)(
-                    self.xic,
-                    event as *mut XKeyEvent,
-                    buff.as_mut_ptr() as *mut c_char,
-                    (BUFFER_SIZE - 1) as c_int,
-                    (&mut keysym) as *mut KeySym,
-                    (&mut status) as *mut Status,
-                );
+                let length_in_bytes = if self.xic.is_null() {
+                    let mut compose_status: XComposeStatus = std::mem::zeroed();
+                    (self.d.lib.XLookupString)(
+                        event as *mut XKeyEvent,
+                        buff.as_mut_ptr() as *mut c_char,
+                        (BUFFER_SIZE - 1) as c_int,
+                        (&mut keysym) as *mut KeySym,
+                        &mut compose_status,
+                    )
+                } else {
+                    (self.d.lib.Xutf8LookupString)(
+                        self.xic,
+                        event as *mut XKeyEvent,
+                        buff.as_mut_ptr() as *mut c_char,
+                        (BUFFER_SIZE - 1) as c_int,
+                        (&mut keysym) as *mut KeySym,
+                        (&mut status) as *mut Status,
+                    )
+                };
                 &buff[0..(length_in_bytes as usize + 1)]
             };
 
@@ -1352,8 +1394,12 @@ impl Drop for Window {
             //                  probably pointless ]
             // XSaveContext(s_display, info->window, s_context, (XPointer)0);
 
-            (self.d.lib.XDestroyIC)(self.xic);
-            (self.d.lib.XCloseIM)(self.xim);
+            if !self.xic.is_null() {
+                (self.d.lib.XDestroyIC)(self.xic);
+            }
+            if !self.xim.is_null() {
+                (self.d.lib.XCloseIM)(self.xim);
+            }
             (self.d.lib.XDestroyWindow)(self.d.display, self.handle);
         }
     }
