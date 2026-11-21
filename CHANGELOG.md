@@ -2,6 +2,10 @@
 
 This project follows semantic versioning.
 
+### Unreleased
+
+- [fixed] X11: numpad keys were dropped with NumLock off. The X11 and Wayland keysym tables are now a single shared `keysym_to_key`, so both backends map the NumLock-off numpad keysyms (`KP_Insert`/`KP_End`/…) as well as the NumLock-on ones.
+
 ### v0.29 (2026-10-03)
 
 - [added] GPU presentation on Linux/Wayland through EGL/GLES2. Falls back to the software scaler when EGL is unavailable or only a CPU rasteriser such as llvmpipe is found.
