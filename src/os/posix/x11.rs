@@ -378,32 +378,9 @@ impl Window {
                 std::ptr::null_mut::<c_char>(),
             );
 
-            let xic = if xim.is_null() {
-                // XOpenIM may fail when XMODIFIERS names an unavailable input method.
-                // Basic key input can still use XLookupString.
-                std::ptr::null_mut()
-            } else {
-                let xn_input_style = CStr::from_bytes_with_nul_unchecked(XNInputStyle_0);
-                let xn_client_window = CStr::from_bytes_with_nul_unchecked(XNClientWindow_0);
-                let xn_focus_window = CStr::from_bytes_with_nul_unchecked(XNFocusWindow_0);
-                let xic = (d.lib.XCreateIC)(
-                    xim,
-                    xn_input_style.as_ptr(),
-                    XIMPreeditNothing | XIMStatusNothing,
-                    xn_client_window.as_ptr(),
-                    handle as c_ulong,
-                    xn_focus_window.as_ptr(),
-                    handle as c_ulong,
-                    std::ptr::null_mut::<c_void>(),
-                );
-                if xic.is_null() {
-                    (d.lib.XCloseIM)(xim);
-                    return Err(Error::WindowCreate(
-                        "Failed to setup X IC via XCreateIC.".to_owned(),
-                    ));
-                }
-                xic
-            };
+            // XOpenIM or XCreateIC may fail when XMODIFIERS names an unavailable input
+            // method. Basic key input can still use XLookupString.
+            let (xim, xic) = Self::create_input_context(&d, xim, handle);
 
             if !xic.is_null() {
                 (d.lib.XSetICFocus)(xic);
@@ -412,26 +389,14 @@ impl Window {
 
             d.gc = (d.lib.XCreateGC)(d.display, handle, 0, std::ptr::null_mut());
             if d.gc.is_null() {
-                if !xic.is_null() {
-                    (d.lib.XDestroyIC)(xic);
-                }
-                if !xim.is_null() {
-                    (d.lib.XCloseIM)(xim);
-                }
-                (d.lib.XDestroyWindow)(d.display, handle);
+                Self::release_native(&d, handle, xim, xic);
                 return Err(Error::WindowCreate(
                     "Unable to create graphics context".to_owned(),
                 ));
             }
 
             if let Err(error) = Self::set_title_raw(&mut d, handle, &name) {
-                if !xic.is_null() {
-                    (d.lib.XDestroyIC)(xic);
-                }
-                if !xim.is_null() {
-                    (d.lib.XCloseIM)(xim);
-                }
-                (d.lib.XDestroyWindow)(d.display, handle);
+                Self::release_native(&d, handle, xim, xic);
                 return Err(Error::WindowCreate(error));
             }
 
@@ -494,13 +459,7 @@ impl Window {
             let ximage = match Self::alloc_image(&d, width, height, &mut draw_buffer) {
                 Some(ximage) => ximage,
                 None => {
-                    if !xic.is_null() {
-                        (d.lib.XDestroyIC)(xic);
-                    }
-                    if !xim.is_null() {
-                        (d.lib.XCloseIM)(xim);
-                    }
-                    (d.lib.XDestroyWindow)(d.display, handle);
+                    Self::release_native(&d, handle, xim, xic);
                     return Err(Error::WindowCreate(
                         "Unable to create pixel buffer".to_owned(),
                     ));
@@ -533,6 +492,43 @@ impl Window {
                 menus: Vec::new(),
             })
         }
+    }
+
+    /// Creates an input context for `xim`, closing `xim` and returning nulls on failure.
+    unsafe fn create_input_context(d: &DisplayInfo, xim: XIM, handle: xlib::Window) -> (XIM, XIC) {
+        if xim.is_null() {
+            return (xim, std::ptr::null_mut());
+        }
+
+        let xn_input_style = CStr::from_bytes_with_nul_unchecked(XNInputStyle_0);
+        let xn_client_window = CStr::from_bytes_with_nul_unchecked(XNClientWindow_0);
+        let xn_focus_window = CStr::from_bytes_with_nul_unchecked(XNFocusWindow_0);
+        let xic = (d.lib.XCreateIC)(
+            xim,
+            xn_input_style.as_ptr(),
+            XIMPreeditNothing | XIMStatusNothing,
+            xn_client_window.as_ptr(),
+            handle as c_ulong,
+            xn_focus_window.as_ptr(),
+            handle as c_ulong,
+            std::ptr::null_mut::<c_void>(),
+        );
+        if xic.is_null() {
+            (d.lib.XCloseIM)(xim);
+            return (std::ptr::null_mut(), xic);
+        }
+        (xim, xic)
+    }
+
+    /// Releases the native resources of a window; null `xim`/`xic` are skipped.
+    unsafe fn release_native(d: &DisplayInfo, handle: xlib::Window, xim: XIM, xic: XIC) {
+        if !xic.is_null() {
+            (d.lib.XDestroyIC)(xic);
+        }
+        if !xim.is_null() {
+            (d.lib.XCloseIM)(xim);
+        }
+        (d.lib.XDestroyWindow)(d.display, handle);
     }
 
     unsafe fn alloc_image(
@@ -1394,13 +1390,7 @@ impl Drop for Window {
             //                  probably pointless ]
             // XSaveContext(s_display, info->window, s_context, (XPointer)0);
 
-            if !self.xic.is_null() {
-                (self.d.lib.XDestroyIC)(self.xic);
-            }
-            if !self.xim.is_null() {
-                (self.d.lib.XCloseIM)(self.xim);
-            }
-            (self.d.lib.XDestroyWindow)(self.d.display, self.handle);
+            Self::release_native(&self.d, self.handle, self.xim, self.xic);
         }
     }
 }

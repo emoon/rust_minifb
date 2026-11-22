@@ -2,6 +2,11 @@
 
 This project follows semantic versioning.
 
+### Unreleased
+
+- [fixed] X11: double free of the default graphics context that crashed `XCloseDisplay` when window creation failed early. (Thanks Luis Casarin!)
+- [changed] X11: a missing or unusable input method (`XOpenIM` or `XCreateIC` failing, e.g. `XMODIFIERS=@im=ibus` without ibus running) no longer prevents the window from opening. Keys fall back to `XLookupString`, without input method composition.
+
 ### v0.29 (2026-10-03)
 
 - [added] GPU presentation on Linux/Wayland through EGL/GLES2. Falls back to the software scaler when EGL is unavailable or only a CPU rasteriser such as llvmpipe is found.
