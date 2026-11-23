@@ -150,9 +150,7 @@ fn update_key_state(window: &mut WindowState, wparam: u32, state: bool) {
 
 #[inline]
 fn char_down(window: &mut WindowState, code_point: u32) {
-    if let Some(callback) = window.key_handler.key_callback.as_mut() {
-        callback.add_char(code_point);
-    }
+    window.key_handler.add_utf16_char(code_point);
 }
 
 #[cfg(target_arch = "x86_64")]
