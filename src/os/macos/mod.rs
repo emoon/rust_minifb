@@ -281,9 +281,7 @@ unsafe extern "C" fn char_callback(window: *mut c_void, code_point: u32) {
         return;
     }
 
-    if let Some(callback) = (*win).key_handler.key_callback.as_mut() {
-        callback.add_char(code_point);
-    }
+    (*win).key_handler.add_utf16_char(code_point);
 }
 
 impl HasWindowHandle for Window {

@@ -31,6 +31,7 @@ pub struct KeyHandler {
     keys_down_duration: [f32; KEY_COUNT],
     key_repeat_delay: f32,
     key_repeat_rate: f32,
+    high_surrogate: Option<u32>,
 }
 
 impl KeyHandler {
@@ -44,6 +45,7 @@ impl KeyHandler {
             delta_time: Duration::from_secs(0),
             key_repeat_delay: 0.250,
             key_repeat_rate: 0.050,
+            high_surrogate: None,
         }
     }
 
@@ -52,6 +54,26 @@ impl KeyHandler {
         self.keys[key as usize] = state;
         if let Some(cb) = &mut self.key_callback {
             cb.set_key_state(key, state);
+        }
+    }
+
+    /// Passes one UTF-16 code unit to the input callback, combining a
+    /// surrogate pair into the code point it encodes (same as GLFW).
+    #[allow(dead_code)] // only the Windows and macOS backends deliver UTF-16
+    pub fn add_utf16_char(&mut self, unit: u32) {
+        if (0xD800..=0xDBFF).contains(&unit) {
+            self.high_surrogate = Some(unit);
+            return;
+        }
+
+        let mut code_point = unit;
+        if let (0xDC00..=0xDFFF, Some(high)) = (unit, self.high_surrogate) {
+            code_point = 0x10000 + ((high - 0xD800) << 10) + (unit - 0xDC00);
+        }
+        self.high_surrogate = None;
+
+        if let Some(cb) = &mut self.key_callback {
+            cb.add_char(code_point);
         }
     }
 
@@ -215,5 +237,23 @@ mod tests {
         handler.set_key_state(Key::Unknown, true);
         assert!(handler.is_key_down(Key::Unknown));
         assert_eq!(handler.get_keys(), vec![Key::Unknown]);
+    }
+
+    #[test]
+    fn utf16_surrogate_pair_is_one_char() {
+        struct Chars(std::rc::Rc<std::cell::RefCell<Vec<u32>>>);
+        impl InputCallback for Chars {
+            fn add_char(&mut self, uni_char: u32) {
+                self.0.borrow_mut().push(uni_char);
+            }
+        }
+
+        let chars = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let mut handler = KeyHandler::new();
+        handler.set_input_callback(Box::new(Chars(chars.clone())));
+        for unit in "a\u{1F600}b".encode_utf16() {
+            handler.add_utf16_char(unit as u32);
+        }
+        assert_eq!(*chars.borrow(), vec!['a' as u32, 0x1F600, 'b' as u32]);
     }
 }
