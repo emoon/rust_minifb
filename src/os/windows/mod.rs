@@ -201,6 +201,15 @@ unsafe fn get_window_long(window: windef::HWND) -> basetsd::LONG_PTR {
     winuser::GetWindowLongPtrW(window, winuser::GWLP_USERDATA)
 }
 
+#[inline]
+fn update_xbutton_state(mouse: &mut MouseData, wparam: WPARAM, pressed: bool) {
+    match GET_XBUTTON_WPARAM(wparam) {
+        winuser::XBUTTON1 => mouse.state[3] = pressed,
+        winuser::XBUTTON2 => mouse.state[4] = pressed,
+        _ => (),
+    }
+}
+
 unsafe extern "system" fn wnd_proc(
     window: windef::HWND,
     msg: minwindef::UINT,
@@ -275,12 +284,10 @@ unsafe extern "system" fn wnd_proc(
         winuser::WM_RBUTTONUP => wnd.mouse.state[2] = false,
 
         winuser::WM_XBUTTONDOWN => {
-            let button = GET_XBUTTON_WPARAM(wparam); // XBUTTON1 or XBUTTON2
-            wnd.mouse.state[2 + button as usize] = true;
+            update_xbutton_state(&mut wnd.mouse, wparam, true);
         }
         winuser::WM_XBUTTONUP => {
-            let button = GET_XBUTTON_WPARAM(wparam); // XBUTTON1 or XBUTTON2
-            wnd.mouse.state[2 + button as usize] = false;
+            update_xbutton_state(&mut wnd.mouse, wparam, false);
         }
 
         winuser::WM_CLOSE => {
